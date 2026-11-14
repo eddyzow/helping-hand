@@ -119,6 +119,11 @@ def handle(line: str):
         return list_skills()
     if command == "status":
         return {"ok": True, "busy": bool(_worker and _worker.is_alive()), "last": _last}
+    if command == "temps":  # motor temperatures; only while idle, because it uses the serial bus
+        with _lock:
+            if _worker and _worker.is_alive():
+                return {"ok": False, "reason": "busy"}
+            return {"ok": True, "temps": _arm.temperatures()}
     if command == "home":
         return dispatch("home")
     if command == "key":  # the keypad listener reports the jump key: "key down" / "key up"

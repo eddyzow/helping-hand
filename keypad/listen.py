@@ -157,8 +157,8 @@ def main() -> None:
                 # in the game: a left mouse click. It jumps in a level and presses Play on the level
                 # page (park the mouse pointer on the Play button), so the arm can start the level itself.
                 user32.mouse_event(0x0002 if down else 0x0004, 0, 0, 0, 0)
-            elif vk != VK_UP:  # anywhere else a click could hit anything, so stay with the harmless Up arrow
-                user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
+            # Anywhere else it sends nothing at all. It used to send an Up arrow, which scrolled or
+            # changed whatever window happened to be in front while the arm kept tapping.
             if not recording:
                 notify("key down" if down else "key up")  # lets the arm feel the key: see skills/tap_calibrate.py
             elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
