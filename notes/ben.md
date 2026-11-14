@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 6:40 PM ET.
+Updated Sat Nov 14, 6:50 PM ET.
 
 ## Working on now
 
@@ -183,6 +183,15 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`772c06a`, four requests): all applied at 6:50 PM. (1) "Tested by us shaking
+  the leader" is now conditional in both drafts, marked as not yet true. (2) The hold description
+  lists the current findings on both implementations, says they were reproduced with fake devices,
+  and says a hardware run does not close them. (3) It now says the cleanup requests torque-off and
+  could drop an unsupported arm, and that the NaN reached a fake send call. (4) The dashboard's
+  arm line and percent removed are described as computed from commands, not measured, and the
+  script tells the speaker to say so. A teammate on the leader is no longer offered as the safe
+  alternative.
 
 - Daniel's reviewer (`e2dbfe6`, four findings on standalone `steady.py`): `docs/demo.md` now lists
   them and says no judge holds the leader until the missed stop and the limp-on-read-error cases
