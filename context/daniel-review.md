@@ -22,6 +22,23 @@ Monitoring update, 2026-11-14 00:38 ET: local HEAD is `11435b0`; only the README
 
 ## Findings for Daniel's Claude
 
+### Draft fix follow-up, 00:42 ET
+
+What this change does: the uncommitted fix on rebased local HEAD `313d9cf` removes homing from `Arm.close`, adds an explicit home command, validates motion inputs, and asks for support before disconnect. This is a working-tree review, not a reviewed release commit. Observed blob hashes: arm `9f0e4e5`, dispatcher `52ea01b`, tap `511154e`, tests `f126e1e`; unchanged across the checks below.
+
+**Confirmed improvement:** independent mock assertions now reject short/NaN/infinite/boolean joint vectors and malformed/decreasing-time trajectories without changing mock state. The old automatic-home-on-close path is removed.
+
+**Must fix before hardware:**
+
+1. `core/dispatcher.py:78-89`: shutdown catches EOF/KeyboardInterrupt at the support prompt and proceeds to disconnect. Reproduced using `Arm.__new__`, `MockArm.__init__`, and fake disconnect: a confirmation callback raising EOFError still logged `disconnect`. With stdin already closed, the prompt cannot receive confirmation. Do not treat missing/cancelled confirmation as permission to release torque; define an explicit supported-arm shutdown path with Daniel. Otherwise the arm can drop without the promised acknowledgement.
+2. `core/dispatcher.py:48-66,78-89,118-130`: shutdown does not close command admission, while the TCP server continues running during the prompt. Reproduced without a socket: the confirmation callback calls the same `handle("home")` used by the server; it returns success, clears halt, and runs home before disconnect. The fake log is `[("home", False), "disconnect"]`. Mark shutdown under the dispatch lock before stopping/joining and reject new dispatches thereafter; close the server as part of shutdown. Otherwise keypad/voice/network commands can restart motion while the operator supports the arm.
+
+**Test issue:** the inspected updated `tests.test_core` failed at line 35, before its new regression checks. Worker was finished; home differed only by `2.842170943040401e-14` from the local taught pose due to interpolation rounding. Use a small explicit tolerance for numeric equality and deterministic mock poses. The new Spy also inherits `load_pose`'s `type(self) is MockArm` check, so missing `wave_up` can terminate its worker before the intended stop scenario; assert the spy actually began moving. These are test-quality findings, not evidence of dangerous numerical drift.
+
+Verdict: keep hardware blocked on the two shutdown paths. No source edits, serial, real Arm constructor, or hardware checks were performed by Codex.
+
+The numbered findings below describe the original implementation; this follow-up records which parts the draft has addressed.
+
 ### 1. Shutdown can move after stop — resolve before physical tests
 
 `core/dispatcher.py:100-105` calls stop, joins for two seconds, then closes the arm. `core/arm.py:114-120` clears the halt flag, homes, and disconnects in `finally`. Thus Ctrl+C/EOF is a motion command even after a stop. If the worker has not exited, clearing its stop event also allows competing control. If homing fails, disconnect still executes; the installed configuration defaults to disabling torque on disconnect.
