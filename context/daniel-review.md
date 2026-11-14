@@ -38,6 +38,12 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Fetch 752882b: target preflight fixed, config range/dwell unchecked
+
+Loaded the exact candidate skill/test source in memory against the integration worktree's mock core. The inspected suite printed `fetch ok`, including its malformed-grid regression. A separate fake check confirms NaN grip is rejected without home or movement, closing the original target-finiteness gap.
+
+Remaining configuration boundary: with a valid synthetic grid and fake arm/wait, GRIP_OPEN=101, GRIP_CLOSED=-1, HOLD_SECONDS=-1, and HOLD_SECONDS=NaN each enter home and return success. These constants are populated from environment settings. The gripper's documented domain is 0..100; a negative/NaN dwell must not silently remove the handover wait. Check finite grip values in range and finite nonnegative hold time before any movement, leaving a no-motion regression. No real wait, API, camera, or arm action occurred. The fetch branch remains unmerged until this is addressed.
+
 ### Vision and shared startup 27dc2d9 verified
 
 Ran the embedded pure vision assertions by extracting the main guard's assertions and excluding its live `main()` call. They passed. Independent mocked-provider calls through actual `choose`/`detect` reject boolean IDs, reversed boxes, nonnumeric coordinates and infinity; a valid integer match is preserved. No API/key/camera access occurred.
