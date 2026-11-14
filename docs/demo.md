@@ -43,7 +43,7 @@ see work, so blocks are ordered most reliable first. Drop any block that failed 
 | 2 | 0:10 | Judge presses the wave key (X) | Arm waves. Then judge presses stop (Z) mid-move and it freezes | See "When something breaks" | Daniel | Mock only |
 | 3 | 0:25 | Judge says "bring me the red brick" | Arm picks the brick from the mat and holds it out | Use the taped-spot fetch instead | Eddy, Daniel | Finder got 15 of 16 on two real phone photos (Eddy, 1:15 AM), with 3 API errors in 16 calls that passed on retry. Not from the real camera position; fetch skill mock only |
 | 4 | 0:50 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy | Stroke preview works; no pen holder yet |
-| 5 | 1:15 | Judge presses the game key | Arm taps through the start of a Geometry Dash level | Show the recorded clip | Jonathan | On `jonathan/geometry-dash-replay`: simulated only, and a standalone script that does not yet go through the dispatcher |
+| 5 | 1:15 | Teammate runs `geometry_dash`; the keypad listener restarts the level | Arm taps through the start of Stereo Madness, holds included | Show the recorded clip | Jonathan, Daniel | On `main` as a dispatcher skill (`183db5e`), using the taught `tap_key` pose. Mock and simulation only; tap delay on the real key not yet measured |
 | 6 | 1:30 | Teammate speaks | Cost line, and what is next | | Ben | |
 
 Notes on the blocks:
