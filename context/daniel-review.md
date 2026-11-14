@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Arm b44ff81: global offset bypasses negative schedule check
+The existing commands[0].at < 0 guard runs before the new offset is applied to start. Exact candidate replay with fake clock/key/arm and a 50/100 ms recorded press/release accepts offset_ms=-1000. After an enter press and restart cue at fake time 0.53, both recorded press and release execute at 0.53; the intended hold collapses. No real timing, listener or motion was used. Validate the effective shifted first target before to_key or other motion, preserving the prior negative-schedule refusal, and add a zero-motion regression. Values individually in range do not guarantee a usable combined schedule. Existing measured-step/EOF holds remain; no-retry cue fix stays acknowledged.
 ### Arm f3afabc: duplicate cue resend fixed
 Repeated the original fake accepted-and-consumed cue followed by recv ConnectionResetError using exact f3afabc notify with retry=False. Actual dispatcher handler/consumer sees one cue, no resend, and the stale connection is removed. Caller scan confirms wndproc now supplies retry=False. This closes the duplicate-cue reproduction; retain a durable regression and report uncertain/failed delivery, which is still silently swallowed. The unchanged EOF and measured-position cap findings still hold the branch. 7fc3260 moves ready polling off the message loop to a daemon thread; source reviewed, no native listener or latency measurement performed.
 ### Arm 3d0a41c: enter-then-restart option reviewed, existing holds unchanged
