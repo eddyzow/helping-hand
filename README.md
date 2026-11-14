@@ -55,6 +55,8 @@ It writes `outputs/sim.mp4` and prints whether the brick was carried to the hand
 .venv/bin/python draw.py cat                # a doodle from the Quick, Draw! database
 .venv/bin/python draw.py --text "Eddy"      # write a word
 .venv/bin/python draw.py --gen "a rocket"   # Claude invents the strokes (about 20 seconds)
+.venv/bin/python sim_draw.py a cat          # the simulated arm draws it: outputs/sim_drawing.png and a video
+.venv/bin/mjpython sim_draw.py --view       # live window; type what to draw
 ```
 
 Each run saves a preview to `outputs/draw.png`. Add `--go` to draw it with the arm, after teaching the paper grid.

@@ -13,16 +13,20 @@ the arm must confirm each physical claim.
 
 ## Decisions needed before submitting
 
-1. Track: exactly one HackUMass category. Accessibility or Hardware (see `docs/demo.md`).
+1. Track: exactly one [HACKUMASS] category. Accessibility or Hardware (see `docs/demo.md`; the
+   full list of 28 prizes is in `docs/tracks.md`). Sponsor prizes are separate opt-ins.
 2. Project name. Eddy says it will not be "Helping Hand"; the four of you settle it. The title
    below is a placeholder, written as NAME.
 3. Which skills are in. Only skills that passed 4 of 5 on the real arm at the freeze are described
    as working. The draft below lists the team's four; cut the ones that did not pass.
-4. AI coding tools. Most of this code was written with coding agents. Eddy's view (4:05 AM) is that
-   this is expected at hackathons this year and no organizer question is needed. Ben has not
-   weighed in. A search did not turn up the HackUMass rule text either way, so this is unverified,
-   not settled; the Devpost rules tab would answer it in a minute.
-5. Repo public, all four teammates added on Devpost. Do NOT tick MLH's Best Use of Gemini API:
+4. AI coding tools: settled by the rules page, read Sat 2:10 PM (`docs/tracks.md`). It has no
+   rule about AI tools, and one MLH prize at this event is awarded for building with an AI coding
+   agent, so no organizer question is needed (Eddy's view). The rule that does apply: "You must
+   document any external code usages in your submission and mention during judging to clearly
+   distinguish your contributions." The open-source list below is how we meet it.
+5. Repo public, with its link under "Try it out" (required, and it must stay public afterwards).
+   All four teammates need a Devpost account and must be listed as contributors. An optional
+   demo video under 3 minutes is "recommended". Initial submission is due Sat 11:59 PM. Do NOT tick MLH's Best Use of Gemini API:
    Gemini was removed from the project at 10:34 AM Saturday and is in no live path.
 
 ## Title and tagline

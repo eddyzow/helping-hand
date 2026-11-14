@@ -81,6 +81,7 @@ PIECES = [
     ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]
 NAMES = [piece[0] for piece in PIECES]
+EXTRA = ""  # more things for the scene, as MuJoCo XML: sim_draw.py puts the paper here
 FOOTPRINT = {"2x2": (0.032, 0.032), "plate": (0.064, 0.032), "roof": (0.064, 0.032), "boat": (0.064, 0.032),
              "chassis": (0.070, 0.054), "carbody": (0.100, 0.062)}  # length, width on the table, metres
 
@@ -180,6 +181,7 @@ def scene_xml() -> str:
     <camera name="top" pos="{cam['pos'][0]} {cam['pos'][1]} {cam['pos'][2]}" xyaxes="0 -1 0 1 0 0" fovy="{cam['fovy']}"/>
     <camera name="side" pos="0.74 -0.60 0.44" xyaxes="0.63 0.78 0 -0.34 0.28 0.9" fovy="44"/>
     {pieces}
+    {EXTRA}
   </worldbody>
 </mujoco>"""
 
@@ -215,6 +217,7 @@ class SimArm(MockArm):
         super().__init__()
         self.halt = _NoWait()
         self.grip = None
+        self.camera, self.frame_every, self.ticks = "side", 1, 0
         self.model = mujoco.MjModel.from_xml_string(scene_xml())
         self.data = mujoco.MjData(self.model)
         self.steps = max(1, round(1 / HZ / self.model.opt.timestep))
@@ -249,11 +252,19 @@ class SimArm(MockArm):
         if self.window:  # live window, at real speed; no video
             import time
 
+            with self.window.lock():
+                self._extras(self.window.user_scn, live=True)
             self.window.sync()
             time.sleep(1 / HZ)
         else:
-            self.renderer.update_scene(self.data, camera="side")
-            self.frames.append(cv2.cvtColor(self.renderer.render(), cv2.COLOR_RGB2BGR))
+            self.ticks += 1
+            if self.ticks % self.frame_every == 0:
+                self.renderer.update_scene(self.data, camera=self.camera)
+                self._extras(self.renderer.scene, live=False)
+                self.frames.append(cv2.cvtColor(self.renderer.render(), cv2.COLOR_RGB2BGR))
+
+    def _extras(self, scene, live: bool) -> None:
+        """Shapes drawn on top of the physics, such as the pen and its ink in sim_draw.py. None here."""
 
     def settle(self, seconds: float) -> None:
         for _ in range(int(seconds * HZ)):
@@ -269,7 +280,7 @@ class SimArm(MockArm):
 
     def save_video(self, path: Path) -> None:
         h, w = self.frames[0].shape[:2]
-        out = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), HZ, (w, h))
+        out = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), HZ / self.frame_every, (w, h))
         for frame in self.frames:
             out.write(frame)
         out.release()

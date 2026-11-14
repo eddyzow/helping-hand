@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:40 PM ET.
+Updated Sat Nov 14, 2:10 PM ET.
 
 ## Working on now
 
@@ -17,6 +17,12 @@ Next, in order:
 4. Pen holder: a person's job, not this agent's.
 
 ## Done and how it was tested
+
+- `docs/tracks.md` (2:10 PM): every prize on the Devpost page (28), the one-category limit, and
+  the rules quoted from the Devpost rules page. Read with a browser on Sat 2:10 PM. Ben heard that
+  tracks are being added, so this agent re-reads the page about once an hour and logs changes at
+  the bottom of that file. Three sponsor prizes are not in `PLAN.md`: Sentient OS Best Agentic
+  Hack, Analog Devices ADI Hardware, Capital One Nessie. So are Best Pitch and Best UMass Hack.
 
 - `docs/devpost.md` (3:35 AM): a first draft of the Devpost text, section by section, in both an
   Accessibility and a Hardware version of the opening. Every claim that is not yet true on the real
@@ -53,6 +59,14 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Everyone (2:10 PM): two facts from the Devpost rules page that differ from our notes. The initial
+  submission is due Saturday 11:59 PM, and the public repo link must be under "Try it out" and stay
+  public after the event. Also, the rules have no rule about AI coding tools, so that question is
+  closed in the Devpost draft the way Eddy wanted.
+- Anyone near the sponsor tables: what does Sentient OS mean by "Best Agentic Hack"? Devpost gives
+  no description. A model choosing the skill and the placement for a physical arm may fit, and
+  opting in costs nothing, but only if it honestly fits.
 
 - Daniel or Jonathan (1:40 PM): commit `f1e8a18` says the arm completes Stereo Madness. If someone
   watched it reach Level Complete, please write three lines in your note: how many attempts out of
