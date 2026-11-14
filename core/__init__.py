@@ -14,34 +14,53 @@ key_events = [0]              # how many such reports have arrived; 0 means no l
 # 9.6 s there). A macro recorded on Windows and replayed on this clock came out 4% early, more with
 # every second. So anything that must match the real world (the game, a recording) uses real_now(),
 # which follows the Windows clock that keypad/listen.py reports several times a second.
-_ticks = collections.deque(maxlen=600)  # (Windows seconds, our seconds when it arrived): about a minute
+#
+# real_now() is ONE continuous timeline. Only the SPEED of our clock is taken from the ticks; the
+# time itself is never set from outside. An earlier version followed the Windows time directly and
+# fell back to our own clock when the ticks paused: the two have different starting points, so a
+# pause of two seconds threw a replay half a second off. Now a pause just keeps the last known speed.
+_ticks = collections.deque(maxlen=300)  # (Windows seconds, our seconds when it arrived): about 30 s
 _ticks_lock = threading.Lock()
+_rate = [1.0]                           # our seconds per real second
+_anchor = [time.perf_counter(), 0.0]    # (our clock, real_now) at the last change of rate
+max_tick_gap = [0.0]                    # longest pause between ticks, for diagnosis; a skill may reset it
+
+
+def _real_at(here: float) -> float:
+    return _anchor[1] + (here - _anchor[0]) / _rate[0]
 
 
 def clock_tick(windows_s: float) -> None:
+    """A report of the Windows clock. Raises ValueError for anything that is not a finite number."""
+    if not (isinstance(windows_s, float) and windows_s == windows_s and abs(windows_s) != float("inf")):
+        raise ValueError("clock needs a finite number")
+    here = time.perf_counter()
     with _ticks_lock:
-        _ticks.append((windows_s, time.perf_counter()))
+        if _ticks:
+            max_tick_gap[0] = max(max_tick_gap[0], here - _ticks[-1][1])
+            if windows_s <= _ticks[-1][0]:  # the listener restarted, or a stray report: start measuring afresh
+                _ticks.clear()
+        _ticks.append((windows_s, here))
+        if len(_ticks) < 30 or _ticks[-1][0] - _ticks[0][0] < 3.0:
+            return
+        # A tick can arrive late but never early, so the least-delayed tick of the first third and of
+        # the last third give the truest slope.
+        ticks, old = list(_ticks), _rate[0]
+        third = len(ticks) // 3
+        w0, l0 = min(ticks[:third], key=lambda t: t[1] - t[0] * old)
+        w1, l1 = min(ticks[-third:], key=lambda t: t[1] - t[0] * old)
+        rate = (l1 - l0) / (w1 - w0)
+        if 0.8 < rate < 1.25:  # anything else is a bad measurement, not a real clock
+            _anchor[:] = [here, _real_at(here)]  # keep the timeline continuous across the change
+            _rate[0] = rate
 
 
 def clock_rate() -> float:
-    """Our seconds per real second, from the ticks of the last few seconds. 1.0 with no listener."""
-    with _ticks_lock:
-        if len(_ticks) < 8:
-            return 1.0
-        (w0, l0), (w1, l1) = _ticks[0], _ticks[-1]
-    rate = (l1 - l0) / (w1 - w0) if w1 - w0 > 1.0 else 1.0
-    return rate if 0.8 < rate < 1.25 else 1.0  # a wild value means a bad tick, not a real clock
+    """Our seconds per real second. 1.0 until the listener has reported for a few seconds."""
+    return _rate[0]
 
 
 def real_now() -> float:
-    """Seconds on the Windows clock, extended from the newest tick. Falls back to our own clock."""
+    """Seconds of real time on one continuous timeline (its zero means nothing; use differences)."""
     with _ticks_lock:
-        recent = list(_ticks)[-20:]
-    here = time.perf_counter()
-    if not recent or here - recent[-1][1] > 2.0:  # no listener, or it went quiet
-        return here
-    rate = clock_rate()
-    # A tick can arrive a few milliseconds late but never early, so the least-delayed of the last
-    # two seconds is the truest one to measure from. This keeps one slow tick from shifting the time.
-    windows_s, arrived = min(recent, key=lambda tick: tick[1] - tick[0] * rate)
-    return windows_s + (here - arrived) / rate
+        return _real_at(time.perf_counter())
