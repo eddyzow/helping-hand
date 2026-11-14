@@ -57,6 +57,14 @@ def test_fetch():
     here = arm.get_joints()
     assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 3.0, "to_v": 0.0}, stop)["ok"] is False and arm.get_joints() == here
 
+    # "on top of": it lets go partway between the table layer and the lifted layer; bad values are refused
+    seen.clear()
+    assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 0.0, "to_v": 0.0, "to_lift": 0.5}, stop)["ok"]
+    assert any(abs(j[0] - 2.5) < 1e-6 for j in seen), "halfway between the corner's down (0) and up (5) poses"
+    here = arm.get_joints()
+    for bad in [{"to_u": 0.0, "to_v": 0.0, "to_lift": 2}, {"hold": -1}, {"hold": "3"}]:
+        assert fetch.run(arm, {"u": 0.5, "v": 0.5, **bad}, stop)["ok"] is False and arm.get_joints() == here, bad
+
     # settings out of range are refused before any move
     here = arm.get_joints()
     for name, bad in [("GRIP_OPEN", 101.0), ("GRIP_CLOSED", -1.0), ("HOLD_SECONDS", -1.0), ("HOLD_SECONDS", float("nan"))]:

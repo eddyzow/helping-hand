@@ -23,6 +23,8 @@ DESCRIPTION = "Pick up an object from the table and hand it to the person"
 PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red brick'",
           "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py",
           "to_u": "optional: where to put it down instead of handing it over", "to_v": "optional",
+          "to_lift": "optional: 0 to 1, how far above the table to let go (for putting it on top of something)",
+          "hold": "optional: seconds to hold it up before letting go",
           "turn": "optional: degrees to turn the jaws to match the object, from pick.jaw_turn"}
 
 GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
@@ -90,6 +92,11 @@ def run(arm, params, stop):
     if placing and not all(type(n) in (int, float) and math.isfinite(n) and -EDGE <= n <= 1 + EDGE
                            for n in (to_u, to_v)):
         return {"ok": False, "reason": "the place to put it down is out of reach"}
+    lift, hold = params.get("to_lift", 0), params.get("hold", HOLD_SECONDS)
+    if not (type(lift) in (int, float) and math.isfinite(lift) and 0 <= lift <= 1):
+        return {"ok": False, "reason": "to_lift must be a number from 0 to 1"}
+    if not (type(hold) in (int, float) and math.isfinite(hold) and 0 <= hold <= 30):
+        return {"ok": False, "reason": "hold must be a number of seconds from 0 to 30"}
 
     moves = [
         (_joints(up, GRIP_OPEN), 1.5),
@@ -100,6 +107,7 @@ def run(arm, params, stop):
     if placing:  # carry it over, set it down, let go, lift clear
         above = interpolate(table["up"], table["n"], to_u, to_v)
         on_table = interpolate(table["down"], table["n"], to_u, to_v)
+        on_table = {joint: low + lift * (above[joint] - low) for joint, low in on_table.items()}  # partway up, to stack
         after = [(_joints(on_table, GRIP_OPEN), 0.6), (_joints(above, GRIP_OPEN), 1.0)]
         moves += [(_joints(above, GRIP_CLOSED), 2.0), (_joints(on_table, GRIP_CLOSED), 1.0)]
     else:
@@ -115,7 +123,7 @@ def run(arm, params, stop):
     for joints, seconds in moves:
         if not arm.move_joints(joints, seconds):
             return STOPPED
-    if not placing and stop.wait(HOLD_SECONDS):  # the person takes it; a stop here keeps the grip
+    if not placing and stop.wait(hold):  # the person takes it; a stop here keeps the grip
         return STOPPED
     for joints, seconds in after:
         if not arm.move_joints(joints, seconds):

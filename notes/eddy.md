@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:34 AM.
+Updated Sat Nov 14, 10:54 AM.
 
 ## Working on now
 
@@ -150,3 +150,12 @@ Eddy asked for Gemini to go: its free tier timed out or refused most requests. E
 - Everyone: `.env` now needs `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; `GEMINI_API_KEY` is unused. `.env` also wins over keys exported in the shell, in `voice/route.py` too.
 - Tested: `python see.py --image photos/duplo_a.jpg "pick up the purple brick"` found 9 objects and the purple brick; `draw.from_model("a rocket")` returned 9 strokes; `fetch ok`, `core ok`. A simulated request takes about 13 seconds end to end. Not tested: the new speech-to-text call with a real recording, and `voice/route.py` against a dispatcher.
 - `sim.py`: the pieces are now 9 to 10 cm apart (Eddy saw the open jaws knock neighbours at 6 cm) on a wider grid. Six simulated pick-ups: purple (turned 45), left red square and red triangle carried to the handover; blue square, right red square and green brick were not, with no other piece disturbed. So spacing was one cause, not the only one.
+
+## Wrist limit fix and more placements, Sat Nov 14, 10:54 AM
+
+- Eddy saw turned bricks being grabbed with one jaw on a face and one on a corner. Cause, measured in the simulator: the wrist turn pushed `wrist_roll` past its joint limit, the joint stopped 12 degrees short, and the brick dropped. `skills/fetch.py` now turns the other way round (the same grasp) when the turn would pass `ROLL_MIN`/`ROLL_MAX` (default -150 and 150), and refuses if neither way fits. Daniel: set those two from the real arm's wrist range. Six of seven simulated pieces now reach the handover through the whole camera path; the thin white plate still does not, and the blue square is still not lifted (two arm joints stop short of their targets there, so something is in the way; not found yet).
+- New in fetch: `to_lift` (0 to 1, lets go partway between the table layer and the lifted layer, for "on top of") and `hold` (seconds to hold it up, 0 to 30).
+- New in `pick.drop_spot(picked, near, said)`: returns `(u, v, lift)`. "left of", "right of", "behind", "in front of" pick the side (the arm's own left and right; in front is towards the arm); "on top of" and "onto" stack. `STACK_LIFT` (default 0.5) has to be set on the real arm so the held brick just touches the one below.
+- Simulated: purple stacked on a red square (resting 19 mm up, twice); red triangle put left of the green brick; a red square put behind the purple brick landed on the edge of the red triangle and slid off, because the drop spot still does not check for other pieces.
+- The chooser prompt now tells Claude to ignore position words and list every object of the kind; the code picks by position. Before that, "the left red square brick" came back with no match in two of three runs.
+- Not done: car body onto the chassis. It needs both in reach, a taught grip on the body, the body's direction matched to the chassis, and pressing it on.
