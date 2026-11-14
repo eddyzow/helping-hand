@@ -4,7 +4,7 @@
     python -m core.dispatcher            # real follower: its motors switch on
 
 Type a command, or send it as one line to TCP port 8765 (the keypad and voice scripts do this):
-    run <skill> [json params]   |   stop   |   home   |   cue   |   ready   |   list
+    run <skill> [json params]   |   stop   |   home   |   status   |   cue   |   ready   |   list
 To quit: type home, wait for it to finish, then Ctrl+C. Quitting never moves the arm: it stops,
 then asks you to hold the arm before the motors switch off.
 """
@@ -16,7 +16,7 @@ import sys
 import threading
 from pathlib import Path
 
-from core import cue, waiting
+from core import cue, key_down, waiting
 from core.arm import get_arm
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
@@ -25,10 +25,13 @@ _arm = None
 _worker = None
 _lock = threading.Lock()
 _closing = False  # set by shutdown(): no new skill may start after it
+_last = {}        # the last finished skill and its result, for `status`
+_job = 0          # counts accepted runs, so a waiting client can tell its own result from a later one
 
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it
     NAME = "home"
+    PARAMS = {}
 
     @staticmethod
     def run(arm, params, stop):
@@ -49,7 +52,7 @@ def list_skills() -> list[dict]:
 
 def dispatch(skill_name: str, params: dict | None = None) -> dict:
     """Start a skill in the background. Refuses if one is already running."""
-    global _worker
+    global _worker, _job
     skill = _Home if skill_name == "home" else SKILLS.get(skill_name)
     if params is not None and not isinstance(params, dict):
         return {"ok": False, "reason": "params must be a JSON object"}
@@ -60,17 +63,23 @@ def dispatch(skill_name: str, params: dict | None = None) -> dict:
             return {"ok": False, "reason": "busy"}
         if skill is None:
             return {"ok": False, "reason": f"unknown skill '{skill_name}'"}
+        if unknown := sorted(set(params or {}) - set(skill.PARAMS)):
+            return {"ok": False, "reason": f"{skill_name} has no option {unknown}; it takes {sorted(skill.PARAMS)}"}
         _arm.halt.clear()
-        _worker = threading.Thread(target=_run, args=(skill, params or {}), daemon=True)
+        _job += 1
+        job = _job
+        _worker = threading.Thread(target=_run, args=(skill, params or {}, job), daemon=True)
         _worker.start()
-    return {"ok": True, "reason": "started"}
+    return {"ok": True, "reason": "started", "job": job}
 
 
-def _run(skill, params: dict) -> None:
+def _run(skill, params: dict, job: int) -> None:
     try:
         result = skill.run(_arm, params, _arm.halt)
     except Exception as err:  # a broken skill must not kill the dispatcher; the arm holds where it is
         result = {"ok": False, "reason": f"{type(err).__name__}: {err}"}
+    global _last
+    _last = {"job": job, "skill": skill.NAME, **result}
     print(f"[{skill.NAME}] {result}", flush=True)
 
 
@@ -108,8 +117,13 @@ def handle(line: str):
         return stop_all()
     if command == "list":
         return list_skills()
+    if command == "status":
+        return {"ok": True, "busy": bool(_worker and _worker.is_alive()), "last": _last}
     if command == "home":
         return dispatch("home")
+    if command == "key":  # the keypad listener reports the jump key: "key down" / "key up"
+        (key_down.set if rest.strip() == "down" else key_down.clear)()
+        return {"ok": True, "reason": ""}
     if command == "cue":
         cue.set()
         return {"ok": True, "reason": "cue"}
