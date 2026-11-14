@@ -7,6 +7,21 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Remote sequencer review: f1e8a18 held
+
+The new Windows `keypad/geometry_dash/arm_play.py::attempt` sends tap commands to dispatcher `handle`, which queues them for `skills/gd_remote.py::run`. The remote skill drains old commands before approaching, uses local monotonic time for its idle bound, clears readiness in finally, and respects the shared stop event without recovery motion. Exceptions propagate to the dispatcher's failed-result boundary. The TCP acknowledgement means queued, not physically executed; disconnect does not itself stop the skill, whose idle timeout defaults to 20 seconds. No native client, socket, screen capture, input, serial or real arm was used in these reproductions.
+
+Two deterministic exact-function regressions, published on QA `b4ec5f2`, hold this commit:
+
+- **Focus before motion:** `attempt` checks foreground only in the `wait > 0.04` screen-sampling path. Fake focus loss at 0.98 seconds still sends `tap press` at 1.001, then reports lost focus and releases at 1.008. Check foreground immediately before each new press and restart/checkpoint input, including short gaps; retain cleanup release. Do not move focus checks into the slow screen-capture path.
+- **Unproven completion:** a fake restart-caption white signal starting at 2.2 seconds after a pattern whose last event is 1.1 becomes `completed` at 2.33. The `died_at > plan[-1][1] + 1.0` heuristic cannot distinguish a late death from a win. Report unknown/unconfirmed absent explicit win evidence, and preserve raw observations. The commit title's physical clear is an owner report, not independently verified by this review.
+
+QA's `python -B -m tests.test_remote_replay_boundaries` uses extracted actual attempt/match functions with fake clock, thread, screen, input and socket; the normal control passes, focus and completion cases fail. Separate actual gd_remote checks exercise invalid idle values before approach, stale-input draining, normal completion and stop-without-recovery. Existing local-timeout (0.62 local seconds for a 0.5 bound) and above-cap retry (5 to 3; 12 to 9) regressions still fail. Existing keypad safety, EOF cleanup and measured tap-step checks pass. Changed macro/pose/tuning data has not been physically validated. No implementation files were edited by Codex.
+
+The combined QA WSL `python -B -m tests.test_core` run printed `core ok`. Passing baseline checks do not override the deterministic failures above.
+
+Interview questions: Why is a queued acknowledgement different from successful motion? Why must focus be checked at each input boundary? What evidence distinguishes a late death from a completed level?
+
 ## Clock-feed review: d6a7207 held
 
 Latest follow-up 12414b0 closes the original epoch/nonfinite faults: independent fake checks pass first tick, stale interval, resumption, finite-input refusal, continuous rate changes and listener-clock reset. The fixture reloads module state per case and seeds 41 ticks for the revised warmup. Safety deadlines remain on the externally corrected clock; the exact tap_delay.until helper with rate 1.24 expires after 0.62 local seconds. A new local-timeout regression fails the requested independent half-second safety bound. The above-cap adaptive repair failures also persist. The branch remains held for those remaining issues; earlier epoch/nonfinite failure statements below describe older revisions.
