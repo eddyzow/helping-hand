@@ -17,15 +17,16 @@ JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_ro
 HZ = 30
 POSES = Path(__file__).parent.parent / "poses"
 TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap holds the key down
-# Tapping: the arm holds still and only the gripper jaw moves. Moving the whole forearm swung the
-# tip in an arc, which shoved the keypad sideways and pressed hard; the jaw is light, quick and weak.
-# ONE taught pose, tap_key: the arm parked beside the key with the moving jaw opened down until its
-# tip rests on the key. The jaw waits LIFT units more closed (lifted off the key) and a press opens
-# it back to the taught value, no further unless PRESS is positive. Negative PRESS = lighter.
-# ponytail: gripper units (0 closed to 100 open, about 1 mm at the jaw tip each), not millimetres.
-LIFT = float(os.environ.get("TAP_LIFT", "8.0"))
+# Tapping. tap_key.json is the pose at which the key registers; the tip waits LIFT above it (TAP_JOINT
+# raised) and a press comes back down to it, no further unless PRESS is positive.
+# You only teach a rough pose with the tip about 1 cm ABOVE the key. `run tap_calibrate` then lowers
+# the tip slowly until the keypad itself reports the key, and saves the exact pose and lift, so the
+# press is as light as the key allows. Until it has run, a tap stops in the air at the rough pose.
+# ponytail: units are TAP_JOINT's (elbow degrees, about 3 mm at the tip each), not millimetres.
+TAP_JOINT = JOINTS.index(os.environ.get("TAP_JOINT", "elbow_flex"))  # the joint that lowers the tip
+LIFT = float(os.environ.get("TAP_LIFT", "3.0"))
 PRESS = float(os.environ.get("TAP_PRESS", "0.0"))
-JAW, ELBOW = 5, 2      # indexes in JOINTS. A bigger elbow angle lowers the forearm.
+ELBOW = 2              # index in JOINTS. A bigger elbow angle lowers the forearm.
 APPROACH_DEG = 20.0    # the arm arrives and leaves with the elbow raised this much, then comes straight down
 
 
@@ -44,8 +45,11 @@ class MockArm:
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
-        self.lift, self.press_extra = 8.0, 0.0
+        self.lift, self.press_extra = 3.0, 0.0
         self.set_tap(LIFT, PRESS)  # environment defaults pass the same check as live changes
+        tune = POSES / "tap_tune.json"  # written by tap_calibrate
+        if tune.exists():
+            self.set_tap(**json.loads(tune.read_text()))
         self._joints = [0.0] * 6
 
     def _read(self) -> list[float]:
@@ -92,26 +96,26 @@ class MockArm:
         return self.move_joints(joints, 0.4)
 
     def set_tap(self, lift=None, press=None) -> None:
-        """Change how far the jaw lifts off the key and how far a press goes. Raises before changing anything."""
+        """Change how far the tip lifts off the key and how far a press goes. Raises before changing anything."""
         lift = self.lift if lift is None else lift
         press = self.press_extra if press is None else press
-        if type(lift) not in (int, float) or not 1 <= lift <= 40:  # NaN fails both comparisons
-            raise ValueError("lift must be 1 to 40 gripper units")
+        if type(lift) not in (int, float) or not 0.2 <= lift <= 40:  # NaN fails both comparisons
+            raise ValueError("lift must be 0.2 to 40")
         if type(press) not in (int, float) or not -10 <= press <= 10:
-            raise ValueError("press must be -10 to 10 gripper units")
+            raise ValueError("press must be -10 to 10")
         self.lift, self.press_extra = float(lift), float(press)
 
-    def key_pose(self, jaw_open: float = 0.0) -> list[float]:
-        """The taught tap_key pose with the jaw opened jaw_open units further (negative = lifted)."""
+    def key_pose(self, lower: float = 0.0) -> list[float]:
+        """The tap_key pose with the tip lowered by `lower` on TAP_JOINT (negative = lifted)."""
         pose = self.load_pose("tap_key")
-        pose[JAW] = min(max(pose[JAW] + jaw_open, 0.0), 100.0)
+        pose[TAP_JOINT] += lower
         return pose
 
     def hover_pose(self) -> list[float]:
         return self.key_pose(-self.lift)
 
     def to_key(self) -> bool:
-        """From anywhere: home, arrive above the key with the jaw lifted, then come straight down."""
+        """From anywhere: home, arrive well above the key, then come straight down to the hover."""
         above = self.hover_pose()
         above[ELBOW] -= APPROACH_DEG
         return self.home() and self.move_joints(above, 1.5) and self.move_joints(self.hover_pose(), 1.0)
@@ -123,17 +127,17 @@ class MockArm:
         return self.move_joints(above, 1.0) and self.home()
 
     def press(self) -> bool:
-        """Open the jaw down onto the key. One command, for tight timing."""
+        """Come down onto the key. One command, for tight timing."""
         return self._jump(self.press_extra)
 
     def release(self) -> bool:
-        """Lift the jaw off the key."""
+        """Lift off the key to the hover."""
         return self._jump(-self.lift)
 
-    def _jump(self, jaw_open: float) -> bool:
+    def _jump(self, lower: float) -> bool:
         if self.halt.is_set():
             return False
-        self._write(_checked(self.key_pose(jaw_open)))
+        self._write(_checked(self.key_pose(lower)))
         return True
 
     def tap(self, depth_mm: float = 3.0) -> bool:

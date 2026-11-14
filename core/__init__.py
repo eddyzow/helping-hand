@@ -5,3 +5,4 @@ import threading
 
 cue = threading.Event()      # 'start now' from outside, such as the game's restart key
 waiting = threading.Event()  # set while a skill is waiting for that cue
+key_down = threading.Event()  # the keypad's jump key is held down right now (reported by keypad/listen.py)

@@ -1,11 +1,10 @@
 """Tap the key under the fingertip. The seed of the Geometry Dash skill: timings come later.
 
-The arm holds still and only the gripper jaw taps. Teach ONE pose by hand: python arm.py pose tap_key
-    gripper lying level just above the keypad, turned so the moving jaw is underneath,
-    jaw opened down until its tip rests on the jump key (touching, not pushing).
-The jaw waits lifted off the key and each tap opens it back down to the taught spot. Tune on the real key:
-    run gd_tap {"press": -2}   lighter: stop 2 units short of the taught spot (positive presses further)
-    run gd_tap {"lift": 8}     how far the jaw lifts between taps (default 8 units, about 1 cm at the tip)
+Set up once:
+    python arm.py pose tap_key     gripper closed, tip pointing down, about 1 cm ABOVE the jump key
+    run tap_calibrate              the arm finds the key by itself and saves the exact press
+After that the tip waits just above the key and each tap comes down only as far as the key needs.
+Fine tuning, if ever needed: run gd_tap {"press": -0.2} (lighter) or {"lift": 1.5} (lift higher).
 """
 NAME = "gd_tap"
 DESCRIPTION = "Tap the jump key for Geometry Dash"

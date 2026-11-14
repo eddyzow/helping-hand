@@ -108,6 +108,7 @@ def main() -> None:
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
             if vk != VK_UP:
                 user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
+            send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
         elif down and vk == keys["wave"]:
             print(f"wave -> {send('run wave')}", flush=True)
         elif down and vk == keys["stop"]:

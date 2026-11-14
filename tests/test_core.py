@@ -23,7 +23,7 @@ def test_core():
     arm = get_arm(mock=True)
     dispatcher.load(arm)
     names = {s["name"] for s in dispatcher.list_skills()}
-    assert {"wave", "gd_tap", "geometry_dash"} <= names
+    assert {"wave", "gd_tap", "geometry_dash", "tap_calibrate"} <= names
 
     assert dispatcher.dispatch("nope")["ok"] is False
     assert dispatcher.handle("run wave {bad json")["reason"] == "params must be JSON"
@@ -48,9 +48,9 @@ def test_core():
     assert not dispatcher._worker.is_alive() and close(arm.get_joints(), arm.load_pose("home"))
 
     # a tap goes down and comes back
-    hover = [10, -20, 40, 70, 0, 22]                           # tap_key with the jaw lifted 8 units
-    assert arm.tap(3.0) and close(arm.get_joints(), hover)     # only the jaw moved
-    pressed = arm.load_pose("tap_key")                         # a press opens the jaw to the taught spot, no further
+    hover = [10, -20, 37, 70, 0, 30]                           # tap_key with the elbow raised 3 degrees
+    assert arm.tap(3.0) and close(arm.get_joints(), hover)
+    pressed = arm.load_pose("tap_key")                         # a press comes down to the saved pose, no further
     assert arm.press() and close(arm.get_joints(), pressed)
     assert dispatcher.handle('run wave {"roll": 999}')["ok"] is True  # refused inside the skill, before motion
     dispatcher._worker.join(2)
@@ -60,13 +60,12 @@ def test_core():
     assert close(arm.get_joints(), pressed) and arm.press_extra == 0.0
     assert dispatcher.handle('run gd_tap {"lift": 0}')["ok"] is True     # no lift: refused
     dispatcher._worker.join(2)
-    assert close(arm.get_joints(), pressed) and arm.lift == 8.0
-    assert arm.key_pose(500)[5] == 100.0 and arm.key_pose(-500)[5] == 0.0   # the jaw stays in its range
+    assert close(arm.get_joints(), pressed) and arm.lift == 3.0
 
     # Geometry Dash replay: waits for the cue, then presses and releases on the recording's clock
     log = []
     real_write = arm._write
-    arm._write = lambda joints: (log.append((time.perf_counter(), joints[5])), real_write(joints))
+    arm._write = lambda joints: (log.append((time.perf_counter(), joints[2])), real_write(joints))
     assert dispatcher.handle("ready")["ok"] is False
     assert dispatcher.handle('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 2}')["ok"] is True
     for _ in range(100):                                        # home, approach, then it waits
@@ -80,7 +79,7 @@ def test_core():
     dispatcher._worker.join(8)
     assert not dispatcher._worker.is_alive() and dispatcher.handle("ready")["ok"] is False
     presses = [(round(t - t0, 2), elbow) for t, elbow in log[:4]]
-    assert [e for _, e in presses] == [30, 22, 30, 22], presses          # down, up, down, up
+    assert [e for _, e in presses] == [40, 37, 40, 37], presses          # down, up, down, up
     assert all(abs(t - want) < 0.06 for (t, _), want in zip(presses, (0.30, 0.38, 0.68, 0.76))), presses
     arm._write = real_write
     before_gd = arm.get_joints()
@@ -189,6 +188,40 @@ def test_core():
         raise AssertionError("pressed with a NaN depth")
     except ValueError:
         assert odd.get_joints() == [0.0] * 6
+
+    # tap_calibrate: a pretend key that registers at elbow 41.0 and lets go below 40.6
+    from core import key_down
+
+    def write_with_key(joints):
+        real_write(joints)
+        if joints[2] >= 41.0:
+            key_down.set()
+        elif joints[2] < 40.6:
+            key_down.clear()
+
+    arm._write = write_with_key
+    assert dispatcher.handle("key down")["ok"] and key_down.is_set()      # what the keypad listener sends
+    assert dispatcher.handle("key up")["ok"] and not key_down.is_set()
+    assert dispatcher.handle("run tap_calibrate")["ok"] is True
+    dispatcher._worker.join(60)
+    assert not dispatcher._worker.is_alive()
+    arm._write = real_write
+    saved = json.loads((core.arm.POSES / "tap_key.json").read_text())
+    tune = json.loads((core.arm.POSES / "tap_tune.json").read_text())
+    assert abs(saved["elbow_flex.pos"] - 41.15) < 0.11, saved      # just past the first registration
+    assert saved["shoulder_pan.pos"] == 10 and saved["gripper.pos"] == 30   # nothing else changed
+    assert abs(tune["lift"] - 1.15) < 0.25 and arm.lift == tune["lift"], tune   # hovers just above the release
+    assert get_arm(mock=True).lift == tune["lift"]                 # the next start loads it
+    (core.arm.POSES / "tap_tune.json").unlink()
+
+    # no key ever registers: it gives up, changes nothing, and goes home
+    before_file = (core.arm.POSES / "tap_key.json").read_text()
+    key_down.clear()                                           # the pretend key ended up 'pressed' at home
+    assert dispatcher.handle('run tap_calibrate {"max_travel": 1}')["ok"] is True
+    dispatcher._worker.join(60)
+    assert (core.arm.POSES / "tap_key.json").read_text() == before_file
+    assert not (core.arm.POSES / "tap_tune.json").exists()
+    assert close(arm.get_joints(), arm.load_pose("home"))
 
     skills = dispatcher.list_skills()
     assert by_keyword("please wave at me", skills) == {"skill": "wave"}

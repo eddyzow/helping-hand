@@ -16,7 +16,7 @@ import sys
 import threading
 from pathlib import Path
 
-from core import cue, waiting
+from core import cue, key_down, waiting
 from core.arm import get_arm
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
@@ -110,6 +110,9 @@ def handle(line: str):
         return list_skills()
     if command == "home":
         return dispatch("home")
+    if command == "key":  # the keypad listener reports the jump key: "key down" / "key up"
+        (key_down.set if rest.strip() == "down" else key_down.clear)()
+        return {"ok": True, "reason": ""}
     if command == "cue":
         cue.set()
         return {"ok": True, "reason": "cue"}
