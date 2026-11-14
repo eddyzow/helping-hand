@@ -2,7 +2,25 @@
 
 Read this before writing any code or prompting any agent. It replaces the earlier Lego-only plan.
 
-> **Fill in:** names for Persons 1, 3 and 4, the submission deadline `____`, the SayoDevice model and key count `____`, and which cameras we have `____`.
+> Updated Sat Nov 14, 12:50 AM by Daniel: names assigned, and each role now says what already exists so nobody rebuilds it. If you want a different role, say so in your `notes/<name>.md` and swap; do not just start on someone else's folder.
+
+## Who does what
+
+| Person | Name | Role | Start here |
+|---|---|---|---|
+| P1 | **Eddy** | Voice, object finding, fetch by camera | Run `see.py` and the `pick.py` dry run on real photos from the overhead camera, then a live microphone |
+| P2 | **Daniel** | Arm core, dispatcher, the real arm, fetch from a taped spot, feed | Wave and single tap on the real arm from the keypad, then publish `daniel/arm-core` |
+| P3 | **Ben** | Keypad and games: Geometry Dash, tap timing, reaction duel | Write `skills/geometry_dash.py` against `MockArm`; measure tap delay in a booked arm slot |
+| P4 | **Jonathan** | Drawing, personality moves, status screen, demo, pitch, Devpost | Demo script and pitch outline tonight; pen holder; personality moves against `MockArm` |
+
+Facts filled in: final submission Sun 9:00 AM (work to 8:00), table judging Sun 12:30 to 3:00 PM, feature freeze Sat 8:50 PM. The SayoDevice is a 3-key pad (USB id `8089:0009`): its keys send X (wave), C (jump, the key the arm taps) and Z (stop). No external camera is connected yet; the only camera on the arm laptop is its built-in webcam, and WSL sees no camera at all.
+
+### What already exists (do not rebuild)
+
+- On `main`, by Eddy, at the repo root: `see.py` (request to pixel, typed or spoken, through Gemini), `pick.py` (pixel to taught grid to grasp), `arm.py` (teach, pose, record, replay), `grid.py`, `draw.py` (doodle, text or generated strokes with a preview). None of the arm paths has run on the real arm.
+- On branch `daniel/arm-core`, by Daniel: `core/arm.py` (the section 5 arm API plus `MockArm`, wrapping root `arm.py`), `core/dispatcher.py` (one skill at a time, `run` / `stop` / `home` / `list`, typed or over localhost port 8765), `skills/wave.py`, `skills/gd_tap.py` (a single tap), `keypad/listen.py` (SayoDevice to dispatcher, runs on Windows), `voice/route.py` (a sentence to a skill name through Gemini), `tests/test_core.py`. Tested on the mock arm and with the real keypad; not yet on the real arm.
+- There is no `core/skill.py` file. A skill is a module in `skills/` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)`, exactly as in section 5.
+- Poses `home`, `wave_up` and `tap_up` are taught on the arm laptop.
 
 ---
 
@@ -53,9 +71,17 @@ Rules:
 
 One folder per person. Stay in your folder unless you have agreed otherwise.
 
-### Person 1: Voice and VLA (name: ____)
+### Person 1: Voice, vision and fetch by camera (Eddy)
 
-**Owns:** `core/dispatcher.py`, `core/skill.py`, `voice/`, `learning/`.
+**Owns:** `voice/`, `learning/`, and the root files he wrote: `see.py`, `pick.py`, `grid.py`, `draw.py`, `arm.py`.
+
+**Changed from the first draft:** the dispatcher and the first `voice/route.py` are already written on `daniel/arm-core`, so Daniel keeps `core/dispatcher.py` and Eddy takes over `voice/` from there. Eddy's `see.py` and `pick.py` are the camera version of fetch, so that part of fetch is Eddy's. The phase 1 list below is the original; items 1 and 2 are done.
+
+**Next for Eddy**
+1. Real photos and the live microphone through `see.py`, then the `pick.py` dry run with the camera mounted.
+2. Wrap `pick.py` as a skill (`skills/fetch.py` calling it) so "bring me the X" runs through the dispatcher and the stop key.
+3. Make `voice/route.py` speak a short reply and pass parameters (the object name) to skills.
+4. Decide with Daniel where the camera runs: WSL has no camera, so the camera side may need to run on Windows.
 
 **Phase 1**
 1. Define the skill interface and dispatcher in section 5 and commit them first, because everyone else builds on them.
@@ -71,9 +97,15 @@ One folder per person. Stay in your folder unless you have agreed otherwise.
 
 **Done when:** saying a sentence runs the right skill, and one learned skill can be triggered like any other.
 
-### Person 2: Arm core, fetch and feed (Daniel)
+### Person 2: Arm core, dispatcher, the real arm, feed (Daniel)
 
-**Owns:** `core/arm.py`, `vision/`, `skills/fetch.py`, `skills/feed.py`, `skills/duplo.py`.
+**Owns:** `core/`, `keypad/listen.py`, `skills/wave.py`, `skills/gd_tap.py`, `skills/feed.py`, `skills/duplo.py`, `poses/`, and the arm laptop.
+
+**Next for Daniel**
+1. Wave, single tap and the stop key on the real arm.
+2. Push `daniel/arm-core` so everyone can build on `MockArm`, then merge it to `main`.
+3. Run the hardware slots: the arm is on Daniel's laptop, so he is at the arm for everyone's real-arm tests.
+4. Fetch from a taped spot and the feed motion, as recorded motions.
 
 **Phase 1**
 1. The arm API in section 5 on the real follower, plus a `MockArm` with the same methods that only logs. Commit the mock first so nobody is blocked.
@@ -89,9 +121,16 @@ One folder per person. Stay in your folder unless you have agreed otherwise.
 
 **Done when:** fetch and feed each succeed 4 times out of 5, and the other three people are using the arm API without asking questions.
 
-### Person 3: Keypad and games (name: ____)
+### Person 3: Keypad and games (Ben)
 
-**Owns:** `keypad/`, `skills/geometry_dash.py`, `skills/duel.py`, `skills/rhythm.py`, `skills/replay.py`.
+**Owns:** `skills/geometry_dash.py`, `skills/duel.py`, `skills/rhythm.py`, `skills/replay.py`, and `keypad/` apart from `listen.py`.
+
+**Changed from the first draft:** phase 1 item 1 is done. `keypad/listen.py` already maps the three SayoDevice keys (wave, jump, stop), and `skills/gd_tap.py` does one tap. Ben starts at item 2.
+
+**Next for Ben**
+1. `skills/geometry_dash.py`: a list of tap times for the start of one easy level, played with `arm.tap()`, written and tested against `MockArm`.
+2. Tap delay: in an arm slot with Daniel, command 20 taps on the jump key, time each key event, save the mean delay and the jitter. Shift the tap times by the mean.
+3. Reaction duel, which needs no arm to write: flash, time two keys, show milliseconds.
 
 **Phase 1**
 1. Read the SayoDevice keys. Map each key to a skill through the dispatcher. One key is always emergency stop.
@@ -109,9 +148,18 @@ One folder per person. Stay in your folder unless you have agreed otherwise.
 
 **Done when:** every skill can be started and stopped from the keypad, and the arm clears the hard-coded Geometry Dash section most attempts.
 
-### Person 4: Drawing, personality and demo (name: ____)
+### Person 4: Drawing, personality and demo (Jonathan)
 
 **Owns:** `skills/draw.py`, `skills/personality.py`, `skills/tictactoe.py`, `ui/`, `docs/`.
+
+**Changed from the first draft:** Eddy's root `draw.py` already turns a word or a doodle into pen strokes with a preview, and `skills/wave.py` exists. Jonathan wraps and extends these and does not rewrite them.
+
+**Next for Jonathan**
+1. Demo script and pitch outline in `docs/`, and settle the track with the team (`PLAN.md` recommends Best Accessibility Hack; this plan dropped that framing).
+2. A pen holder that gives a little (spring, foam or rubber band), since the arm cannot feel pressure.
+3. `skills/personality.py`: nod, dance, fist bump, celebrate and droop as short joint sequences, tested against `MockArm`, then tried in an arm slot.
+4. `skills/draw.py` as a thin skill around root `draw.py`, starting with one fixed word.
+5. Devpost draft and the backup demo video.
 
 **Phase 1**
 1. Personality moves as short recorded motions: wave, nod, shake head, dance, fist bump, celebrate, droop.
