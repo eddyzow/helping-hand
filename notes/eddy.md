@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:44 PM.
+Updated Sat Nov 14, 3:42 PM.
 
 ## Working on now
 
@@ -248,3 +248,16 @@ Eddy asked for: say what to draw, and the simulated arm holds a pen and sketches
 - Result on 12 subjects I had not tuned on (elephant, dog, fish, coffee cup, car, butterfly, flower, umbrella, dinosaur, lighthouse, snowman, penguin): the blind viewer named all 12 from the simulated ink. The ink was 0.7 to 0.9 mm from the intended line on average, about 2 mm at worst, on a 12 cm page. Each took 25 to 40 seconds to draw.
 - Ben, changes to `skills/draw.py`: `run draw {"strokes": [[[u, v], ...], ...]}` draws ready-made strokes (checked before any move: 1 to 80 strokes, numbers from 0 to 1, at most 4000 points); `plan` takes text or strokes; the description and `PARAMS` now mention sketches; its self-check covers the new path and still prints `draw ok`. `voice/route.py` turns `params.what` ("a cat") into strokes before sending.
 - For the real arm, from the simulator: the first move from a folded-away home to the page dipped the pen through the table at the page's corner. Teach a home, or a rest pose, that holds the pen above the page. Not modelled: the pen slipping or tilting in the jaws, and paper friction.
+
+## Drawing with a real pencil in the simulator, Sat Nov 14, 3:42 PM
+
+For whoever builds the pen holder (Ben's note says that is a person's job): the simulator says make it spring-loaded.
+
+- The pencil is now a body in the physics whose point presses on the table and drags with friction. Three ways of holding it, measured:
+  - In the bare jaws it is pinched at one point and swings.
+  - Held rigidly, the pressing depth decides everything. Pressing 1 mm, the point trailed the gripper by 5 to 6 mm: every stroke ended short and a sharp corner was cut by 6 mm. Pressing 0.5 mm it was accurate where it touched but skipped 4 to 15 percent of the line. Pressing 0.2 mm it skipped more. A hand-taught grid will not hold half a millimetre across a page.
+  - In a spring-loaded holder (the pencil slides up to 8 mm against a light spring, about 25 grams at 2 mm of travel), aiming 2 mm into the table: no skipped ink, 0.2 to 0.3 mm from the line on average, under 1 mm at worst, corners within 0.8 mm.
+- If the holder has to be rigid, `PEN_DRAG` in `draw.py` (new, default 0) aims the pen ahead along its direction of travel. At 1 mm of pressing, 0.033 of the page brought stroke ends and the corner back within about 1 mm, but it overshoots on small details.
+- `skills/draw.py` (Ben's) now also: waits 0.25 s after lowering the pen and 0.15 s before lifting it; times pen-up travel by distance instead of a fixed second; checks `PEN_DRAG`. `draw ok` still prints.
+- Drawings are richer now: the prompt asks for 14 to 36 strokes with character details. Of 28 new subjects drawn end to end with the pencil, the blind viewer named 27; the one it marked wrong was "a robot arm drawing a picture" seen as a robot arm drawing. A detailed drawing takes about 13 seconds to work out and 60 to 70 seconds to draw. 45 drawings are cached in `drawings/`.
+- The arm now tracks the line much more closely than the drawings are good: what limits the result is how well Claude draws the thing (the fox and the knight's horse are weak).

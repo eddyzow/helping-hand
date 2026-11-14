@@ -22,6 +22,10 @@ HERE = Path(__file__).parent
 MARGIN = 0.08          # keep this much of the page clear on every side
 STEP = 0.02            # pen travel between arm commands, as a fraction of the page
 PEN_SPEED = float(os.environ.get("PEN_SPEED", "0.15"))  # fractions of the page per second
+# A pen pressed on paper trails behind the gripper, so strokes end short and corners are cut. Aiming this far
+# ahead along the direction of travel cancels it. As a fraction of the page; 0 = off. Measure: draw a line and
+# see how far short of its end the ink stops.
+PEN_DRAG = float(os.environ.get("PEN_DRAG", "0"))
 PEN_SQUEEZE = float(os.environ.get("PEN_SQUEEZE", "8"))  # close this much past the taught gripper value
 QUICKDRAW = "https://storage.googleapis.com/quickdraw_dataset/full/simplified/{}.ndjson"
 CATEGORIES = "https://raw.githubusercontent.com/googlecreativelab/quickdraw-dataset/master/categories.txt"
@@ -244,9 +248,12 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
 
     see.load_env()
     prompt = (f"Draw {what} as a clean, charming line drawing for a pen plotter. "
-              "It should be instantly recognisable and look good, like a tidy icon: the whole subject (all of "
-              "an animal, not only its head), well proportioned, in its most familiar view, with its few most "
-              "telling details. Use 5 to 18 strokes and no shading or filling in. "
+              "It should be instantly recognisable and look good, like a well-made illustration in a children's "
+              "book: the whole subject (all of an animal, not only its head), well proportioned, in its most "
+              "familiar view. Draw the main shapes first, then add the details that give it character: eyes and "
+              "expression, fur, feathers or scales suggested with a few short marks, windows, wheels with spokes, "
+              "patterns, and a hint of ground or setting where it helps. Use 14 to 36 strokes. No shading or "
+              "filling in, and do not let details crowd or cross each other. "
               + (f'An earlier attempt was mistaken for "{mistaken_for}": make what sets {what} apart unmistakable. '
                  if mistaken_for else "")
               + "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. Mark a stroke "

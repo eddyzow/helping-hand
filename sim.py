@@ -81,7 +81,8 @@ PIECES = [
     ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]
 NAMES = [piece[0] for piece in PIECES]
-EXTRA = ""  # more things for the scene, as MuJoCo XML: sim_draw.py puts the paper here
+EXTRA = ""  # more things for the scene, as MuJoCo XML: sim_draw.py puts the paper and pencil here
+ARM_XML = None  # a changed copy of the arm model to use instead: sim_draw.py adds the pencil to the gripper
 FOOTPRINT = {"2x2": (0.032, 0.032), "plate": (0.064, 0.032), "roof": (0.064, 0.032), "boat": (0.064, 0.032),
              "chassis": (0.070, 0.054), "carbody": (0.100, 0.062)}  # length, width on the table, metres
 
@@ -163,7 +164,7 @@ def scene_xml() -> str:
                      for name, kind, rgba, x, y, turn in PIECES)
     cam = TOP_CAMERA
     return f"""<mujoco>
-  <include file="{MODEL / 'so101.xml'}"/>
+  <include file="{ARM_XML or MODEL / 'so101.xml'}"/>
   <compiler meshdir="{MODEL / 'assets'}"/>
   <option timestep="0.002" cone="elliptic" impratio="10"/>  <!-- at the model's 5 ms a held brick popped out of the jaws -->
   <visual>

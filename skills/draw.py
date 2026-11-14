@@ -26,7 +26,12 @@ PARAMS = {"text": "str: a short word to write",
 
 WORD = "HI"      # what it writes when no text is given
 MAX_CHARS = 8    # longer words get too small to read and too slow for a demo
+TRAVEL_SPEED = 0.6   # pen-up travel between strokes, in pages per second; never quicker than TRAVEL_MIN_S
+TRAVEL_MIN_S = 0.35
+PEN_SETTLE_S = 0.25  # wait this long after lowering the pen: it lands late, and short strokes (an eye) were skipped
+PEN_FINISH_S = 0.15  # and this long at the end of a stroke before lifting, so the dragging point catches up
 MAX_STEP_S = 30  # the arm refuses any single move longer than this
+MAX_DRAG = 0.1    # most the pen may be led ahead of the line, as a fraction of the page
 MAX_SQUEEZE = 30  # most the gripper may close past the taught pen width, on its 0-100 scale
 GRID = Path(__file__).parent.parent / "poses" / "paper.json"
 STOPPED = {"ok": False, "reason": "stopped"}
@@ -68,14 +73,32 @@ def plan(text, grid: dict, home: list[float]) -> list[tuple[list[float], float]]
         joints[5] = max(0.0, joints[5] - squeeze)
         return joints
 
+    drag = strokes_lib.PEN_DRAG
+    if not (math.isfinite(drag) and 0 <= drag <= MAX_DRAG):
+        raise ValueError(f"PEN_DRAG must be 0 to {MAX_DRAG}, got {drag}")
+
+    def led(pts: list) -> list:
+        """The points to command so the trailing pen point lands on pts: each one pushed `drag` further
+        along the way the pen is travelling when it gets there."""
+        out = [pts[0]]
+        for (u0, v0), (u1, v1) in zip(pts, pts[1:]):
+            length = math.hypot(u1 - u0, v1 - v0) or 1.0
+            out.append((u1 + drag * (u1 - u0) / length, v1 + drag * (v1 - v0) / length))
+        return out
+
     grip = pose("up", 0.5, 0.5)[5]
     rest = _checked(home[:5] + [grip])  # home, but still holding the pen
     steps = [(rest, 2.0)]
+    at = None  # where the pen last was on the page
     for stroke in (strokes_lib.from_text(text) if isinstance(text, str) else text):
-        pts = strokes_lib.resample(stroke)
-        steps.append((pose("up", *pts[0]), 1.0))
+        pts = led(strokes_lib.resample(stroke))
+        hop = 1.0 if at is None else max(TRAVEL_MIN_S, math.hypot(pts[0][0] - at[0], pts[0][1] - at[1]) / TRAVEL_SPEED)
+        steps.append((pose("up", *pts[0]), hop))
+        at = pts[-1]
         steps.append((pose("down", *pts[0]), 0.4))
+        steps.append((pose("down", *pts[0]), PEN_SETTLE_S))
         steps += [(pose("down", u, v), strokes_lib.STEP / strokes_lib.PEN_SPEED) for u, v in pts[1:]]
+        steps.append((pose("down", *pts[-1]), PEN_FINISH_S))
         steps.append((pose("up", *pts[-1]), 0.4))
     steps.append((rest, 2.0))
     for _, seconds in steps:  # a bad PEN_SPEED must be caught here, not after the pen is already down
