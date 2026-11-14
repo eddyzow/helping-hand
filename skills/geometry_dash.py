@@ -19,7 +19,8 @@ NAME = "geometry_dash"
 DESCRIPTION = "Play the start of Geometry Dash (Stereo Madness) by tapping the jump key"
 PARAMS = {"first_taps": "int", "press_lead_ms": "float", "release_lead_ms": "float", "pattern": "str",
           "enter": "bool: the arm's own first press starts the level", "enter_delay_ms": "float",
-          "then_restart_ms": "float: after entering, wait this long, restart, and play from the restart"}
+          "then_restart_ms": "float: after entering, wait this long, restart, and play from the restart",
+          "offset_ms": "float: shift every jump; plus is later, minus is earlier"}
 
 STOPPED = {"ok": False, "reason": "stopped"}
 CUE_WAIT_S = 120
@@ -39,6 +40,9 @@ def run(arm, params, stop):
         return {"ok": False, "reason": "enter_delay_ms must be 0 to 10000"}
     # "then_restart_ms": after the arm's click on Play, wait this long for the level to load, then
     # restart it (R) and play from that restart. Use it with a macro recorded from the restart key.
+    offset_ms = params.get("offset_ms", 0)
+    if type(offset_ms) not in (int, float) or not -1000 <= offset_ms <= 1000:
+        return {"ok": False, "reason": "offset_ms must be -1000 to 1000"}
     then_restart_ms = params.get("then_restart_ms")
     if then_restart_ms is not None and (type(then_restart_ms) not in (int, float) or not 0 <= then_restart_ms <= 20000):
         return {"ok": False, "reason": "then_restart_ms must be 0 to 20000"}
@@ -102,6 +106,7 @@ def run(arm, params, stop):
                 start = time.perf_counter()
                 waiting.clear()
                 cue.clear()
+            start += offset_ms / 1000  # the one knob: plus makes every jump later, minus earlier
             seen, last = [], [key_down.is_set()]  # what the keypad really did, to report after the run
 
             def watch():
@@ -154,7 +159,12 @@ def _timing(seen, events) -> str:
     for down, word in ((True, "presses"), (False, "releases")):
         got = [t for t, d in seen if d == down]
         want = [e.at for e in events if e.down == down]
-        if len(got) != len(want):
+        if len(got) < len(want) and all(abs(g - w) < 0.25 for g, w in zip(got, want)) and got:
+            # cut short (stopped, or the cube died): still say how the ones that happened were timed
+            err = [(g - w) * 1000 for g, w in zip(got, want)]
+            lines.append(f"{word}: first {len(got)} of {len(want)} seen, average {sum(err) / len(err):+.0f} ms "
+                         f"(from {min(err):+.0f} to {max(err):+.0f})")
+        elif len(got) != len(want):
             off = next((i for i, (g, w) in enumerate(zip(got, want)) if abs(g - w) > 0.25), min(len(got), len(want)))
             lines.append(f"{word}: keypad saw {len(got)}, recording has {len(want)}; first difference at "
                          f"number {off + 1}, {want[off]:.2f} s into the level" if off < len(want) else
