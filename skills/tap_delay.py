@@ -26,9 +26,11 @@ def run(arm, params, stop):
     if not arm.to_key():
         return STOPPED
 
-    def until(pressed: bool):
-        """Milliseconds until the key reads as wanted, or None after half a second or on stop."""
-        start = time.perf_counter()
+    def until(pressed: bool, start=None):
+        """Milliseconds from `start` until the key reads as wanted, or None after half a second or on stop.
+        Pass the time taken just BEFORE the command: sending it to the motors takes time too, and the
+        replay needs the whole delay from deciding to press until the key changes."""
+        start = time.perf_counter() if start is None else start
         while key_down.is_set() != pressed:
             if stop.is_set() or time.perf_counter() - start > 0.5:
                 return None
@@ -37,12 +39,18 @@ def run(arm, params, stop):
 
     press_ms, release_ms = [], []
     for _ in range(times):
-        if stop.wait(0.3) or until(False) is None or not arm.press():
+        if stop.wait(0.3) or until(False) is None:
             break
-        down = until(True)
-        if down is None or stop.wait(0.15) or not arm.release():
+        sent = time.perf_counter()
+        if not arm.press():
             break
-        up = until(False)
+        down = until(True, sent)
+        if down is None or stop.wait(0.15):
+            break
+        sent = time.perf_counter()
+        if not arm.release():
+            break
+        up = until(False, sent)
         if up is None:
             break
         press_ms.append(down)

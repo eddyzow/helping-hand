@@ -371,6 +371,17 @@ def test_tap_delay():
     assert delay.run(arm, {"times": 1}, arm.halt)["ok"] is False   # refused before moving
     key_down.clear()
 
+    # a command that itself takes 30 ms, with the key changing before it returns: that time counts
+    def slow_command(joints):
+        real_write(joints)
+        time.sleep(0.03)
+        (key_down.set if joints[wrist] >= -0.01 else key_down.clear)()
+
+    arm._write = slow_command
+    result = delay.run(arm, {"times": 3}, arm.halt)
+    assert result["ok"] is True and result["press_ms"] >= 25 and result["release_ms"] >= 25, result
+    key_down.clear()
+
 
 def test_send_waits_for_its_own_result():
     """A failed run must not be reported as ok because a later run by someone else succeeded."""
