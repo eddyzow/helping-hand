@@ -2,6 +2,7 @@
 `python -m core.dispatcher` runs that file as __main__: a skill importing core.dispatcher would
 get a second copy of the module, with its own events that nobody sets."""
 import collections
+import queue
 import threading
 import time
 
@@ -9,6 +10,13 @@ cue = threading.Event()      # 'start now' from outside, such as the game's rest
 waiting = threading.Event()  # set while a skill is waiting for that cue
 key_down = threading.Event()  # the keypad's jump key is held down right now (reported by keypad/listen.py)
 key_events = [0]              # how many such reports have arrived; 0 means no listener is feeding us
+
+# Remote taps. The clock inside WSL is not just fast against Windows, it is unsteady (measured 4.2%
+# fast, then 5 to 6%, changing within seconds), so nothing here can keep time for a game. A
+# sequencer on Windows keeps the time and sends "tap press" / "tap release" at the right instants;
+# the gd_remote skill only carries each one out the moment it arrives.
+remote = queue.Queue()
+remote_ready = threading.Event()  # set while gd_remote holds the arm over the key, waiting for taps
 
 # Real time. Measured on 14 Nov: the clock inside WSL ran 4.2% fast against Windows (10 s here was
 # 9.6 s there). A macro recorded on Windows and replayed on this clock came out 4% early, more with
