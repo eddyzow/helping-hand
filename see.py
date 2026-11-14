@@ -55,8 +55,9 @@ three round holes in a row. One box may hold two touching pieces.
 The person said: "{command}"
 Which numbered objects are what the person asked to pick up? Include every one that fits; a
 different kind of object does not fit. If the person also said where to put it, such as next to or
-near another object, list that other object under "near".
-Return only JSON: {{"matches": [numbers], "near": [numbers]}}. Use [] where nothing fits."""
+near another object, set "put_down" to true and list that other object under "near".
+Return only JSON: {{"matches": [numbers], "put_down": true or false, "near": [numbers]}}.
+Use [] where nothing fits; "near" stays [] if the place they named is not on the table."""
 
 
 def load_env():
@@ -200,7 +201,8 @@ def numbered(frame, boxes):
 
 def choose(frame, boxes, command):
     """Which boxes match the request, and which box it should be put near?
-    Returns two lists of indexes into boxes: (to pick up, to put it near)."""
+    Returns (indexes to pick up, indexes to put it near). The second is None when the person did
+    not ask to put it anywhere, and an empty list when they did but the place is not in view."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
@@ -221,7 +223,8 @@ def choose(frame, boxes, command):
     else:
         print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
         answer = _gemini([(jpg, "image/jpeg"), prompt])
-    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near")
+    asked_to_place = isinstance(answer, dict) and (answer.get("put_down") is True or bool(answer.get("near")))
+    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near") if asked_to_place else None
 
 
 def long_axis(frame, box):
@@ -256,7 +259,8 @@ def long_axis(frame, box):
 def find_all(frame, command=None, audio_path=None):
     """Every object that matches the request. Returns (hits, said, boxes, near): hits are
     (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; near is the
-    same for any object the person asked to have it put next to."""
+    same for any object the person asked to have it put next to: None if they did not ask to put
+    it anywhere, an empty list if they did and that object is not in view."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -264,11 +268,11 @@ def find_all(frame, command=None, audio_path=None):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes, []
+        return [], command, boxes, None
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
                         boxes[i]["label"], boxes[i])
     picked, near = choose(frame, boxes, command)
-    return [centre(i) for i in picked], command, boxes, [centre(i) for i in near]
+    return [centre(i) for i in picked], command, boxes, None if near is None else [centre(i) for i in near]
 
 
 def find(frame, command=None, audio_path=None):
@@ -313,4 +317,5 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
+    assert to_matches({"matches": [1], "near": [3]}, 3, "near") == [2]
     main()

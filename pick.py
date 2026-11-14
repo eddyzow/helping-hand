@@ -78,8 +78,9 @@ def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
     Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
-    asked to have it put next to, in the same form. More than one entry in either list means the
-    request is ambiguous: ask, never pick one."""
+    asked to have it put next to, in the same form, and is None if they did not ask to put it
+    anywhere. Use place_problem() on it: a placement that was asked for must never turn into a
+    plain handover."""
     hits, said, boxes, beside = see.find_all(frame, command, audio)
     corners = json.loads(CORNERS.read_text())
     out = see.numbered(frame, boxes)
@@ -89,16 +90,25 @@ def locate(frame, command=None, audio=None):
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label, jaw_turn(frame, box, corners)))
-    what, where = split_request(said)
+    placing = beside is not None
+    what, where = split_request(said) if placing else (said, "")  # no placement: every word is about the object
     targets = narrow(targets, what)
     near = []
-    for x, y, label, box in beside:
+    for x, y, label, box in beside or []:
         cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
         near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
-    near = narrow(near, where)
+    near = narrow(near, where) if placing else None
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     return targets, said, near
+
+
+def place_problem(near) -> str | None:
+    """Why a requested placement cannot go ahead, or None if there is nothing wrong
+    (no placement asked for, or exactly one place found)."""
+    if near is None or len(near) == 1:
+        return None
+    return "I can't see where to put it." if not near else f"I see {len(near)} places that could mean. Which one?"
 
 
 def jaw_turn(frame, box, corners) -> float:
@@ -130,8 +140,9 @@ TIEBREAKS = {
 }
 
 
-PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " on ", " in front of ", " behind ",
-               " by ", " close to ", " against ", " into ", " to the ")
+# Not " on " or " by ": "the brick on the left" and "the one by the edge" describe the object itself.
+PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
+               " close to ", " against ", " into ")
 
 
 def split_request(command: str | None) -> tuple[str, str]:
@@ -235,6 +246,9 @@ if __name__ == "__main__":
     what, where = split_request("put the red brick next to the right blue brick")
     assert narrow(two, what) == two and narrow(two, where) == [two[1]]
     assert split_request("pick up the closest red brick") == ("pick up the closest red brick", "")
+    assert split_request("pick up the brick on the left") == ("pick up the brick on the left", "")
+    assert place_problem(None) is None and place_problem([two[0]]) is None
+    assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
     # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
     assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
     assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)

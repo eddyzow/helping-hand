@@ -329,11 +329,11 @@ def request(arm, args: list[str]) -> None:
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
                 return
-            if len(near) > 1:
-                print(f"Not moving: {len(near)} objects match the place to put it.")
+            if pick.place_problem(near):
+                print(f"Not moving: {pick.place_problem(near)}")
                 return
             params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
-            if len(near) == 1:
+            if near:
                 params["to_u"], params["to_v"] = pick.drop_spot(targets[0], near[0])
                 print(f"  putting it beside: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
