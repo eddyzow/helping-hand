@@ -82,6 +82,9 @@ class DrawArm(sim.SimArm):
         self.ink, self.last, self.shown = [], None, 0
         super().__init__(view)
         self.camera, self.frame_every = "page", 3
+        closed = sim.to_radians([0] * 5 + [GRIP - draw.PEN_SQUEEZE])[5]  # start with the jaws already closed on the pencil
+        self.data.qpos[5] = self.data.ctrl[5] = closed
+        self.settle(0.2)
 
     def tip(self) -> np.ndarray:
         return self.data.geom("pencil_tip").xpos.copy()  # the centre of the pencil's point
@@ -107,7 +110,7 @@ class DrawArm(sim.SimArm):
 
         first = 0 if live else scene.ngeom           # the live window keeps its shapes; a rendered frame starts empty
         start = self.shown if live else 0
-        count = scene.ngeom if live else first
+        count = before = scene.ngeom if live else first
         for a, b in self.ink[start:]:
             if count >= scene.maxgeom:
                 break
@@ -116,7 +119,7 @@ class DrawArm(sim.SimArm):
             count += 1
         scene.ngeom = count
         if live:
-            self.shown = len(self.ink)
+            self.shown = start + count - before  # only what fitted counts as shown
 
     def clear(self) -> None:
         self.ink, self.last, self.shown = [], None, 0
@@ -199,6 +202,8 @@ def main() -> None:
     arm = DrawArm(view)
     write_paper(arm.model)
     core.arm.POSES = sim.SIM_POSES
+    rest = arm.load_pose("home")  # wait above the page, holding the pencil, instead of folded away with open jaws
+    arm.move_joints(rest[:5] + [GRIP - draw.PEN_SQUEEZE], 1.5)
     if "PEN_DRAG" not in os.environ:
         draw.PEN_DRAG = PEN_DRAG
     if "PEN_SPEED" not in os.environ:

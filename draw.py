@@ -242,6 +242,15 @@ def rounded(points: Stroke, passes: int = 2) -> Stroke:
     return points
 
 
+def closed_up(points: Stroke) -> Stroke:
+    """A loop whose ends nearly meet is closed. The model often draws a circle or an ellipse and stops just
+    short of where it started, which left a gap in a cup's rim and a saucer."""
+    (x0, y0), (x1, y1) = points[0], points[-1]
+    size = max(max(x for x, _ in points) - min(x for x, _ in points), max(y for _, y in points) - min(y for _, y in points))
+    gap = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
+    return points + [points[0]] if len(points) > 3 and 0 < gap < 0.2 * size else points
+
+
 def from_model(what: str, reference: bytes | None = None, mistaken_for: str | None = None) -> list[Stroke]:
     """Claude draws it. `reference` is a sheet of people's doodles of the same thing (JPEG), to show
     how people usually picture it. `mistaken_for` is what a viewer thought an earlier try was."""
@@ -251,13 +260,15 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
     prompt = (f"Draw {what} as a clean, charming line drawing for a pen plotter. "
               "It should be instantly recognisable and look good, like a well-made illustration in a children's "
               "book: the whole subject (all of an animal, not only its head), well proportioned, in its most "
-              "familiar view. Match the detail to the subject. Something simple (a smiley face, a heart, a star) "
+              "familiar view. Draw only the thing named, in its plainest familiar form, with no accessories: a cup "
+              "is a cup with a handle (no saucer, no steam), a tree has no bird in it. Match the detail to the subject. Something simple (a smiley face, a heart, a star) "
               "stays simple: a few clean strokes and nothing else. Something complex (a castle, a train, an animal) "
               "gets the parts that make it what it is: eyes and expression, windows, wheels, a mane, a shell "
               "pattern. Every stroke must be a part of the subject itself. Do not add decoration: no sparkles, "
               "motion lines, blush marks, raindrops, clouds, stray ticks or background, and no ground line unless "
               "the subject would look like it is floating without one. Use 4 to 30 strokes. No shading or filling "
-              "in, and do not let strokes crowd or cross each other. "
+              "in, and do not let strokes crowd or cross each other. Finish every shape: an outline meets itself, "
+              "a line that joins another reaches it. "
               + (f'An earlier attempt was mistaken for "{mistaken_for}": make what sets {what} apart unmistakable. '
                  if mistaken_for else "")
               + "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. Mark a stroke "
@@ -275,7 +286,7 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
                 isinstance(q, list) and len(q) == 2 and all(type(n) in (int, float) and n == n and abs(n) < 1e6 for n in q)
                 for q in points)):
             continue  # a malformed stroke is dropped, never guessed
-        stroke = [(float(x), float(y)) for x, y in points]
+        stroke = closed_up([(float(x), float(y)) for x, y in points])
         strokes.append(rounded(stroke) if isinstance(item, dict) and item.get("smooth") is True else stroke)
     if not strokes:
         raise ValueError("the model returned no usable strokes")
@@ -351,4 +362,6 @@ if __name__ == "__main__":
     assert abs(square[0][0][0] - MARGIN) < 1e-9 and abs(square[0][1][0] - (1 - MARGIN)) < 1e-9
     assert abs((square[0][0][1] + square[0][2][1]) / 2 - 0.5) < 1e-9
     assert len(resample([(0, 0), (1, 0)])) == 51
+    ring = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 1)]  # stops just short of its start
+    assert closed_up(ring)[-1] == ring[0] and closed_up(ring[:4]) == ring[:4] and closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
     main()

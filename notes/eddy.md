@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:57 PM.
+Updated Sat Nov 14, 4:09 PM.
 
 ## Working on now
 
@@ -266,3 +266,12 @@ For whoever builds the pen holder (Ben's note says that is a person's job): the 
 
 - Eddy saw the pencil floating beside open jaws. It now lies against the fixed jaw with the moving jaw closed onto it (still sliding against its spring), and the taught paper grid allows for the pencil being 15.5 mm to one side of the gripper's reference point. The point still lands within 0.2 mm of the aim.
 - Eddy saw random extra lines on "a smiley face". The cause was my prompt asking for details, which invited sparkles, blush marks and motion lines. The prompt now says every stroke must be part of the subject and simple things stay simple, and the picker marks down stray marks. The smiley is four strokes. All 55 cached drawings were regenerated with it.
+
+## Drawing: closed shapes, plain subjects, gripped from the start, Sat Nov 14, 4:09 PM
+
+Eddy's report on "draw me a cup": jaws open before the drawing started, some lines unfinished, and an odd saucer.
+
+- Unfinished lines were in the drawing, not the arm: Claude often draws a circle or ellipse and stops just short of where it began. `draw.closed_up` now closes a stroke whose ends are within a fifth of its size of each other.
+- The prompt now asks for the thing named in its plainest form with no accessories (a cup has no saucer or steam) and for every shape to be finished.
+- `sim_draw.py` starts with the jaws closed on the pencil and the arm waiting above the page.
+- All 63 cached drawings regenerated and looked through; the cup drawn in the simulator had no missing ink and was 0.3 mm from the line on average.
