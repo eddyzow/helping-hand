@@ -16,10 +16,14 @@ from pathlib import Path
 JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
 HZ = 30
 POSES = Path(__file__).parent.parent / "poses"
-# ponytail: a tap is a wrist_flex nudge, not a real depth. Tune on the real key (negative flips the
-# direction); inverse kinematics replaces it in phase 2.
-TAP_DEG_PER_MM = float(os.environ.get("TAP_DEG_PER_MM", "1.0"))
-TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))
+TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap holds the key down
+# Tapping works from ONE taught pose, tap_key: the fingertip resting on the key. The arm hovers
+# LIFT_DEG above it (elbow raised) and a press comes back down to it. It never goes below the taught
+# pose unless PRESS_DEG is positive; make PRESS_DEG negative if the powered arm sags and presses too hard.
+# ponytail: degrees of elbow, not millimetres (1 degree is roughly 3 mm at the tip). IK replaces it.
+LIFT_DEG = float(os.environ.get("LIFT_DEG", "3.0"))
+PRESS_DEG = float(os.environ.get("PRESS_DEG", "0.0"))
+ELBOW = 2  # index of elbow_flex in JOINTS; a bigger angle lowers the forearm
 
 
 def _checked(joints) -> list[float]:
@@ -37,6 +41,8 @@ class MockArm:
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
+        self.lift_deg, self.press_deg = 3.0, 0.0
+        self.set_tap(LIFT_DEG, PRESS_DEG)  # environment defaults pass the same check as live changes
         self._joints = [0.0] * 6
 
     def _read(self) -> list[float]:
@@ -82,11 +88,42 @@ class MockArm:
         joints[5] = 100 * min(max(open_fraction, 0.0), 1.0)
         return self.move_joints(joints, 0.4)
 
+    def set_tap(self, lift_deg=None, press_deg=None) -> None:
+        """Change how high the tip hovers and how far a press goes. Raises before changing anything."""
+        lift = self.lift_deg if lift_deg is None else lift_deg
+        press = self.press_deg if press_deg is None else press_deg
+        if type(lift) not in (int, float) or not 0.5 <= lift <= 20:  # NaN fails both comparisons
+            raise ValueError("lift_deg must be 0.5 to 20 degrees")
+        if type(press) not in (int, float) or not -5 <= press <= 5:
+            raise ValueError("press_deg must be -5 to 5 degrees")
+        self.lift_deg, self.press_deg = float(lift), float(press)
+
+    def key_pose(self, lower_deg: float) -> list[float]:
+        """The taught tap_key pose with the elbow lower_deg lower (negative = raised)."""
+        pose = self.load_pose("tap_key")
+        pose[ELBOW] += lower_deg
+        return pose
+
+    def hover_pose(self) -> list[float]:
+        return self.key_pose(-self.lift_deg)
+
+    def press(self) -> bool:
+        """Come down onto the key. One command, for tight timing."""
+        return self._jump(self.press_deg)
+
+    def release(self) -> bool:
+        """Lift back to the hover height."""
+        return self._jump(-self.lift_deg)
+
+    def _jump(self, lower_deg: float) -> bool:
+        if self.halt.is_set():
+            return False
+        self._write(_checked(self.key_pose(lower_deg)))
+        return True
+
     def tap(self, depth_mm: float = 3.0) -> bool:
-        up = self._read()
-        down = list(up)
-        down[3] += depth_mm * TAP_DEG_PER_MM
-        return self.move_joints(down, TAP_SECONDS) and self.move_joints(up, TAP_SECONDS)
+        # ponytail: depth_mm is ignored until there is IK; the stroke is lift_deg and press_deg.
+        return self.press() and not self.halt.wait(TAP_SECONDS) and self.release()
 
     def play(self, trajectory) -> bool:
         """trajectory: list of (time_s, joints_deg), times rising. Returns False if stopped.
