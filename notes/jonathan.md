@@ -6,9 +6,9 @@
 
 ## Done and how it was tested
 
-- The included recording has 74 presses and releases. The simulated O3C reproduced all 148 key events within 1.4 ms after simulation timing compensation.
-- The standalone Windows CLI was tested with a fake motor bus. The real arm, the SayoDevice and game completion still need an in-person test. The CLI supports the team's C jump key in its tap test and uses Z or F8 to stop.
-- Dispatcher integration is still pending. The arm laptop needs to release the follower's COM port from WSL and close other arm controllers before using this standalone script.
+- The desktop recording has 74 presses and releases. The simulated O3C reproduced all 148 events within 1.4 ms after timing compensation.
+- The browser recording has 73 presses and releases. The simulated O3C reproduced all 146 events within 0.9 ms. One replay reached Level Complete in RobTop's browser demo with a 12 ms offset from the soundtrack cue. The browser tooling cancels failed attempts and resets to the start on retry.
+- The standalone Windows CLI was tested with a fake motor bus. The physical follower and desktop game replay still need an in-person test. The standalone CLI needs exclusive access to the follower's Windows COM port. The shared dispatcher has its own replay path on main.
 
 ## Needs from others
 
