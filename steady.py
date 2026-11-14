@@ -120,6 +120,10 @@ def command(line: str) -> dict:
         return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff")}}
 
 
+STATIC = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
+          ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2"}
+
+
 class Dashboard(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/cmd?"):   # the dashboard's buttons: /cmd?steady%20off
@@ -131,6 +135,13 @@ class Dashboard(BaseHTTPRequestHandler):
             kind = "application/json"
         elif self.path.startswith("/sessions"):
             body, kind = json.dumps(read_sessions()).encode(), "application/json"
+        elif self.path.startswith("/dashboard/"):   # the dashboard's own scripts and styles, from the dashboard/ folder
+            root = (HERE / "dashboard").resolve()
+            file = (root / self.path[len("/dashboard/"):].split("?")[0]).resolve()
+            if root not in file.parents or not file.is_file() or file.suffix not in STATIC:
+                self.send_error(404)
+                return
+            body, kind = file.read_bytes(), STATIC[file.suffix]
         else:
             page = HERE / "steady_dashboard.html"
             body = page.read_bytes() if page.exists() else b"steady_dashboard.html is not written yet; /state has the numbers"
@@ -290,6 +301,10 @@ def main() -> None:
                                   raw_chain=tip.chain(raw), out_chain=tip.chain(seen))   # the follower as MEASURED, not as told
                     shared["history"] = (shared["history"] + [[round(now - began, 2), round(float(raw_tip[2]), 1),
                                                                round(float(out_tip[2]), 1)]])[-300:]
+                    # one point a second for the slower graphs: [seconds, hand shake mm, arm shake mm, grip effort %]
+                    if tick_n % 50 == 0:
+                        shared["trend"] = (shared.get("trend", []) + [[round(now - began, 1), round(tremor_mm, 2),
+                                                                      round(out_mm, 2), effort.get("gripper", 0.0)]])[-600:]
                     done = hold_test.feed(now, tremor_mm)
                     shared["test"] = hold_test.view(now)
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
