@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:15 AM.
+Updated Sat Nov 14, 3:32 AM.
 
 ## Working on now
 
@@ -57,6 +57,14 @@ Update 2:55 AM: Eddy sent close-ups showing three simulated pieces were the wron
 Update 3:00 AM: the simulated car body is now a sculpted curved mesh (`sim_assets/car_body.stl`, built by `sim_assets/make_car_body.py`), not boxes. Blender was not reachable and no downloadable model of the real part turned up, so it is shaped by hand from Eddy's photos. The live window now starts zoomed in on the pieces and prints its mouse controls.
 
 Update 3:15 AM: on `eddy/fetch`, fetch can now put an object down beside another one. Say "put the red triangle next to the purple brick": the chooser returns both objects, `pick.drop_spot` picks a place beside the second one, and `skills/fetch.py` takes optional `to_u` and `to_v` and sets the object down there instead of handing it over. Mock tests cover it, and two requests ran in simulation (the triangle moved 4 cm toward the purple brick; a brick sent "near the car body", which is out of reach, went to the nearest edge of the grid). Also: `see.load_env` now lets `.env` override keys exported in the shell, after an expired `OPENAI_API_KEY` in Eddy's shell broke a run. Still open: in Eddy's live run the purple brick, which sits turned 45 degrees, was lifted and then dropped. The arm cannot turn its wrist to match a brick's angle yet.
+
+Update 3:32 AM, on `eddy/fetch`:
+
+- Position words settle ties in code: "the closest red brick", "farthest", "left", "right" keep one of several matches (`pick.narrow`). Left and right are the arm's own.
+- The wrist now turns to match a piece. `see.long_axis` reads which way a piece lies from the image (plain OpenCV inside the finder's box); in simulation it read seven pieces within 1 degree. `pick.jaw_turn` converts that to a turn, and `skills/fetch.py` takes `turn` in degrees and adds it to `wrist_roll`. This needs every grid point taught with the jaws closing left-right across the table, and three numbers for the real setup: `GRID_ASPECT` (grid width over depth), and `JAW_ARM_MM`, `GRID_WIDTH_MM`, `GRID_DEPTH_MM` so fetch can cancel the grasp point swinging as the wrist turns (16 mm on the model). `ROLL_SIGN` flips the direction.
+- With that correction the grasp point lands within about 1 mm of its target at every turn from -90 to 90 degrees in simulation. Grasping is still unreliable: with known positions 5 of 7 pieces were carried (one turned red square and the thin white plate were not), and two full-pipeline requests on turned bricks both dropped the brick. I do not know why yet; positioning is not the cause.
+- The simulator's pieces were lying at wrong angles before this (the model file measures in radians and I had given degrees). Fixed.
+- Eddy's goal is the car body placed onto the chassis. Not attempted. It needs the two pieces within reach, a known grip point on the body, and matching both pieces' directions.
 
 ## Done and how it was tested
 
