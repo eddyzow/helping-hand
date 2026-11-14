@@ -26,6 +26,16 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
 
+### Draft tap_calibrate: travel bound and stop output
+
+Uncommitted source snapshot SHA-256 `5dc1d3520f00a61e0855b9b4889a00ddf3882b60cf385561aa5a42b75aa76e99` was compiled in memory with an injected fake arm and instant fake waits. No real constructor, connection, or physical calibration ran.
+
+- With rough joint=0, lift=3, max_travel=8 and no key event, the largest commanded joint was 11.099999999999978. The loop measures distance from rough but passes `max_travel + lift`, and checks the current value before incrementing. Bound the next target in the intended direction, with the lowering endpoint no farther than rough + max_travel; account for the hover start separately.
+- With stop set just as the fake approach completes, `creep` writes one new target before `stop.wait` notices the stop. Check stop before each direct `_write`, including the first creep step. Add a regression where stop arrives between approach and creep.
+- Persistence failure independently reproduced with fake key transitions and a temporary POSES directory: a measured stroke over 40 was rejected by `set_tap`, but both previous calibration files had already been overwritten. Both `tap_key.json` and `tap_tune.json` are written before measured-result validation. Validate before persistence and leave a regression preserving previous valid calibration on rejection. No repository pose file was changed by the check.
+
+The draft changes back from jaw-only tapping to configurable TAP_JOINT (elbow by default), adds shared key state, and forwards keypad jump down/up to the dispatcher. The legacy tuning-key finding below remains in the current draft. Physical key delivery, travel direction, contact force, latency, and collision clearance are not validated by these fake checks.
+
 ### Candidate ad02ccf / 00fe57f: legacy tuning ignored
 
 The new jaw-tap flow changes `set_tap` and skill parameters from elbow degrees (`lift_deg`, `press_deg`) to gripper units (`lift`, `press`), adds approach/retreat helpers, and changes both tap/replay callers. The ignore-file cleanup is part of this same unmerged ancestry; it is not the only delta.
