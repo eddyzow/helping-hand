@@ -22,6 +22,14 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 ## Findings for Daniel's Claude
 
+### Integration candidate a908855: default press validation
+
+The user authorized Codex to integrate passing branches in the separate worktree, leaving unsafe candidates unmerged. This candidate moves cue state to `core`, tracks held keys per device, and rejects negative compensated schedules. The exact fake callback check now confirms laptop Z does not suppress Sayo Z.
+
+The inspected complete WSL core suite, including its real `python -m core.dispatcher --mock` subprocess/localhost cue test, passed (`core ok`) under an external 60-second timeout. The child stayed in WSL; bytecode writes were disabled. The negative-time regression also passed. This resolves the three earlier replay findings but does not cover the new default-validation case below.
+
+New must-fix before merge: `MockArm.__init__` assigns `self.press_deg = PRESS_DEG`, bypassing `set_press`'s finite/range validation, and `_jump` adds that value then calls `_write` directly. `PRESS_DEG` comes from a float-parsed environment variable. Reproduced by setting the module default to NaN before constructing MockArm: `press()` returns True and joint 3 becomes NaN. Validate defaults through the existing setter and check the final adjusted vector before output; leave a default/environment regression. This reopens the shared-output validation boundary for the new press path, not the already-fixed `move_joints` path.
+
 Related branch check, 01:09 ET: Ben's `79ac6aa` personality self-check printed `personality ok`; Eddy's `f652789` fetch test printed `fetch ok`. Both were inspected first and loaded in memory against the local mock core. A separate fetch check found that NaN table-grid targets are not validated before `arm.home()`: the fake home log was `['home']`, then `move_joints` raised ValueError. Eddy should validate the complete planned joint targets before the first home and add this no-motion failure case. No voice main, speech subprocess, camera, or hardware path ran.
 
 ### Geometry Dash integration: 2393df7 / f1553cf, 01:05 ET
