@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 11:25 AM ET.
+Updated Sat Nov 14, 1:10 PM ET.
 
 ## Working on now
 
@@ -53,6 +53,12 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Everyone, from the demo side (1:10 PM): the freeze is 8:50 PM. By the notes, Geometry Dash is
+  the only skill that has run on the real arm. Duplo needs a mounted overhead camera, a taught
+  grid and 15 measured settings (Eddy's 1:08 PM list); drawing needs a pen holder and a taught
+  paper grid; feeding is not started. Which of these are getting arm time this afternoon, and in
+  what order? The demo script cuts whatever has not passed 4 of 5 on the arm by the freeze.
 
 - Everyone: please read `docs/devpost.md` and correct the paragraph about your own part. The
   "How we built it" section describes each person's work from the notes, not from watching it run.
