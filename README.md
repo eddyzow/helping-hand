@@ -16,6 +16,27 @@ echo "GEMINI_API_KEY=your-key" > .env        # key from aistudio.google.com/apik
 
 It prints the pixel to grasp and saves the marked-up frame to `outputs/last.jpg`. Set `CAMERA=1` to use a different camera. On a Mac, the terminal needs camera and microphone permission in System Settings.
 
+## Voice pick up (the priority)
+
+On the laptop with the arm and the overhead camera. Set up once:
+
+```
+python arm.py pose home        # arm parked out of the camera's view
+python arm.py pose handover    # where the arm holds the object out
+python arm.py teach table      # 3 by 3 grid: open gripper on the table, then lifted clear
+python pick.py --corners       # click the grid's corners: far-left, far-right, near-right, near-left
+```
+
+Then:
+
+```
+python pick.py "pick up the mouse"        # dry run, marks the target in outputs/last.jpg
+python pick.py "pick up the mouse" --go   # moves the arm
+python pick.py --go                       # voice loop: Enter, speak, Enter
+```
+
+Run the dry run first and check the green outline and red cross in `outputs/last.jpg`. Redo `--corners` if the camera or the arm's base moves. If the gripper opens or closes the wrong amount, set `GRIP_OPEN` and `GRIP_CLOSED` (defaults 60 and 5). The gripper keeps the angle it was taught at, so long objects need to lie the way the gripper closes.
+
 ## Drawing
 
 ```

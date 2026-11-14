@@ -34,7 +34,8 @@ Cheap extras if there is time, all reusing the code above: sort Duplo by colour 
 | `see.py` object finder | Works on a synthetic still image and a synthesized voice clip. Not tried on real photos, a live camera or a live microphone. |
 | `draw.py` strokes and preview | Works for database, text and generated drawings. |
 | `grid.py` | Self-check passes. |
-| `arm.py` teach, record, replay and `draw.py --go` | Never run on the arm. Written against LeRobot's GitHub source, so an import may differ on Daniel's install. |
+| `pick.py` finding and mapping | Dry run works on a synthetic image: the target lands at the right place on the grid, a missing object and an out-of-reach object are refused. The grasp sequence runs against a simulated arm. |
+| `arm.py` teach, pose, record, replay, `pick.py --go` and `draw.py --go` | Never run on the arm. Written against LeRobot's GitHub source, so an import may differ on Daniel's install. |
 
 ### Other things decided or learned tonight
 

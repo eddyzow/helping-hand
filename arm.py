@@ -1,6 +1,7 @@
 """Teach, record and replay motions on the SO-101 follower. Runs on the arm laptop.
 
-    python arm.py teach paper        # hand-pose the arm over a 3x3 grid, pen down then pen up
+    python arm.py teach paper        # hand-pose the arm over a 3x3 grid, on the surface then above it
+    python arm.py pose home          # save one pose by hand (home, handover)
     python arm.py record wave        # move the leader; the follower copies and it is saved
     python arm.py replay wave        # the follower repeats it
 
@@ -61,7 +62,7 @@ def teach(name: str, n: int = 3) -> None:
     robot = follower()
     robot.bus.disable_torque()  # arm goes limp so you can pose it by hand
     grid = {"n": n}
-    for layer, hint in [("down", "tip touching the surface"), ("up", "tip about 2 cm above")]:
+    for layer, hint in [("down", "pen or open gripper on the surface"), ("up", "lifted clear, about 5 cm")]:
         grid[layer] = []
         for row in range(n):
             for col in range(n):
@@ -70,6 +71,17 @@ def teach(name: str, n: int = 3) -> None:
     out = HERE / "poses" / f"{name}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(grid, indent=1))
+    print(f"saved {out}")
+    robot.disconnect()
+
+
+def pose(name: str) -> None:
+    robot = follower()
+    robot.bus.disable_torque()
+    input(f"Move the arm to the {name} pose by hand, then Enter. ")
+    out = HERE / "poses" / f"{name}.json"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps(read_pose(robot), indent=1))
     print(f"saved {out}")
     robot.disconnect()
 
@@ -108,7 +120,7 @@ def replay(name: str, robot=None) -> None:
 
 
 if __name__ == "__main__":
-    commands = {"teach": teach, "record": record, "replay": replay}
+    commands = {"teach": teach, "pose": pose, "record": record, "replay": replay}
     if len(sys.argv) < 3 or sys.argv[1] not in commands:
         sys.exit(__doc__)
     commands[sys.argv[1]](sys.argv[2])
