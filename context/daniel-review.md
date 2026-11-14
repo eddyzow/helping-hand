@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/daniel/arm-core`. The revised Windows mock suite printed `core ok`. It fixes the direct shutdown admission/confirmation bugs and the invalid-joints cases, but installed LeRobot object cleanup still releases torque after cancelled shutdown; see the latest follow-up below. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
+Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in published `f1553cf`) introduces reproduced CLI cue, stop-key filtering, and negative-schedule issues below. The earlier shutdown cleanup fix `bbdfac5` remains verified; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
 
 ## Architecture
 
@@ -21,6 +21,108 @@ Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/dani
 10. `tests/test_core.py` checks the mock control path; it is not hardware evidence.
 
 ## Findings for Daniel's Claude
+
+### Software integration c6a3418, 01:17 ET
+
+Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
+
+### Drawing fix c9b01c7 verified
+
+The complete plan now checks finite positive durations up to 30 seconds before returning; zero-speed division is caught during planning. Fresh Windows `python -m skills.draw` printed `draw ok`. An independent synthetic-stroke/temp-grid run through actual MockArm methods rejected six speeds (-0.15, NaN, 0.0001, 0, +inf, -inf) with zero `_write` calls. This closes the finding below. Ben also updated the demo to carry Eddy's corrected photo evidence. WSL dependency availability is still a separate environment gap; physical drawing remains untested.
+
+### Historical draw skill 56a5f0f: duration preflight (fixed by c9b01c7)
+
+Reviewed the complete new skill and the called root text/resample path. The inspected Windows fake self-check printed `draw ok`; WSL could not complete it because `HersheyFonts` is absent. Root camera, API, standalone drawing, and hardware paths were not invoked.
+
+**Must fix:** the plan checks every joint target but does not validate every duration before movement. With an injected two-point stroke, a synthetic table grid in a temporary directory, and actual `MockArm.move_joints` with instant fake waits, PEN_SPEED=-0.15, NaN, and 0.0001 each caused 102 `_write` calls before duration rejection at the first drawing segment. The first home, lifted approach, and pen-lowering moves had already happened in mock. Resulting rejected durations were -0.13333333333333333, NaN, and 200 seconds. Ben should check the entire plan against the arm's finite 0-to-30-second duration contract before any motion, with a no-motion regression for these settings. The whole-plan guarantee must cover times as well as joint values.
+
+Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
+
+### Candidate 485ab71: waiting client reports another job's result
+
+The new `core.send` accepts a start reply, polls global `status.busy`, then returns the global last result without correlating it to the accepted invocation. A deterministic fake-transport check used actual `dispatcher.handle` and `send.main`: first job returns failure, then another client starts/completes a second successful job before the first status poll. The waiting client prints the second job's result and exits 0. No socket or real dispatcher was contacted.
+
+Correlate the accepted invocation to its result, including same-skill consecutive runs. If that result is no longer available, fail clearly instead of returning another invocation's success; no result-history feature is needed to avoid false success. Leave this interleaving as a small regression. The candidate remains unmerged.
+
+### Calibration latest draft 94439328: residual cases verified fixed
+
+Snapshot `9443932844b5dc020b14cd44d46b84ccc5accafecdaf3165aff054c5991b023c` passed independent fake checks: final saved/test endpoint stays at 8 for contact at max_travel=8, the approach-end stop emits zero creep writes, and a sticky key rejects after one verification press while preserving both previous valid calibration JSON files and the previous runtime settings. All files were confined to a temporary directory. Full candidate suite remains pending; the current sticky-key regression hardcodes lift=3 even though a prior calibration changes lift to about 1.15, so it should assert restoration to a captured pre-test value.
+
+### Calibration 52392f2: partial fixes verified, sticky-key false success
+
+The inspected expanded WSL mock suite passed `core ok` under an external 120-second timeout, with bytecode disabled. It exercises rejection of obsolete/unknown options, bounded creep, zero writes after an approach-end stop, and preservation on invalid measured lift. The separate-instance test setup is corrected in this commit.
+
+**New fake-only reproduction, same calibration source `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1`:** the initial contact/release measurement succeeds, then the fake key stays held after the first verification press. Calibration returns `ok=True`, "3 of 3 test taps registered", although only one distinct verification down transition occurred. The loop counts `key_down.is_set()` without confirming release between taps. Observe a bounded release before each next press and after the last press; do not report success for sticky/missing-release feedback. Preserve the previous calibration if verification fails, and leave a regression. This check used only a fake arm and a temporary pose directory.
+
+The final PAST-adjusted target finding below remains unchanged in `52392f2`, so this candidate is not merged.
+
+### Calibration follow-up draft: final target still exceeds travel cap
+
+Snapshot `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1` fixes the independently repeated creep-cap and approach-end stop cases: max_travel=8 commands no creep target above rough+8, and the stopped approach emits zero creep writes. Validation now precedes file saving, and the dispatcher draft rejects unknown parameter names.
+
+**Residual reproduced with a temporary pose directory and fake key transitions:** when the key first registers at rough+8 and releases at +7.9, calibration returns success but saves and commands 8.15 in its test taps. `pressed_at + PAST` bypasses the travel cap applied to creep. Bound/reject the final calibrated target before saving or testing it; include exact-endpoint contact in the regression.
+
+Test setup issue: `cal.run(StopAtKey(), {}, StopAtKey().halt)` uses separate arm and stop instances, so the arm sets an event that the creep does not observe and populates `creep_writes` before the next zero-write assertion. Remove that extra call or use one shared instance/event. No full-suite pass is claimed for this draft.
+
+### Draft tap_calibrate: travel bound and stop output
+
+Uncommitted source snapshot SHA-256 `5dc1d3520f00a61e0855b9b4889a00ddf3882b60cf385561aa5a42b75aa76e99` was compiled in memory with an injected fake arm and instant fake waits. No real constructor, connection, or physical calibration ran.
+
+- With rough joint=0, lift=3, max_travel=8 and no key event, the largest commanded joint was 11.099999999999978. The loop measures distance from rough but passes `max_travel + lift`, and checks the current value before incrementing. Bound the next target in the intended direction, with the lowering endpoint no farther than rough + max_travel; account for the hover start separately.
+- With stop set just as the fake approach completes, `creep` writes one new target before `stop.wait` notices the stop. Check stop before each direct `_write`, including the first creep step. Add a regression where stop arrives between approach and creep.
+- Persistence failure independently reproduced with fake key transitions and a temporary POSES directory: a measured stroke over 40 was rejected by `set_tap`, but both previous calibration files had already been overwritten. Both `tap_key.json` and `tap_tune.json` are written before measured-result validation. Validate before persistence and leave a regression preserving previous valid calibration on rejection. No repository pose file was changed by the check.
+
+The draft changes back from jaw-only tapping to configurable TAP_JOINT (elbow by default), adds shared key state, and forwards keypad jump down/up to the dispatcher. The legacy tuning-key finding below remains in the current draft. Physical key delivery, travel direction, contact force, latency, and collision clearance are not validated by these fake checks.
+
+### Candidate ad02ccf / 00fe57f: legacy tuning ignored
+
+The new jaw-tap flow changes `set_tap` and skill parameters from elbow degrees (`lift_deg`, `press_deg`) to gripper units (`lift`, `press`), adds approach/retreat helpers, and changes both tap/replay callers. The ignore-file cleanup is part of this same unmerged ancestry; it is not the only delta.
+
+**Must fix before merge:** `gd_tap.run` only reads the new names, so previously valid inputs are silently ignored. With the candidate's actual MockArm and skill, a fake `to_key` logger recorded `(8.0, 0.0)` for both `{"press_deg": -2}` and `{"lift_deg": 0}`. The former operator request for a lighter press now starts motion with the default full taught press. Reject obsolete/unknown tuning keys before any movement and add a no-motion regression. Do not alias values across the changed units. No real connection or motion ran in this reproduction.
+
+The inspected candidate WSL `tests.test_core` suite passed (`core ok`) under the external 60-second timeout, including the mock CLI cue path. It lacks the legacy-input case above. Caller trace: the dispatcher checks only that params is a dictionary and forwards it; voice forwards the selected JSON params; the new skill advertises only `lift` and `press`. Neither upstream path rejects the obsolete keys. README still gives the generic fingertip pose instruction; the new jaw orientation must be taught and verified physically rather than inferred from the old pose file.
+
+### Software integration 183db5e: tap and replay, 01:24 ET
+
+Merged `e8b3da1` and its reviewed unmerged ancestry, including Jonathan's replay assets and the CLI cue/per-device key/negative-time fixes. This makes the dispatcher replay available on main and closes the press-default merge blocker. Defaults now use `set_tap`; `_jump` checks the adjusted six-joint vector before output. `tap_key` replaces `tap_up`: a default press returns to the taught key pose, and release raises the elbow by 3 degrees. No physical force or clearance follows from those commanded offsets.
+
+Combined WSL checks passed under external timeouts with bytecode disabled: `python -B -m tests.test_core` printed `core ok` (including the mock CLI/localhost cue exchange), and `python -B -m skills.personality` printed `personality ok`. A separate fresh-import check exercised actual environment values: PRESS_DEG=nan/inf/50 and LIFT_DEG=nan/0 were rejected by both MockArm and Arm before a stubbed follower connection. A directly corrupted NaN press generated no writes. No real constructor connection, serial, keyboard hook, game, camera, or hardware test ran. Staged whitespace check passed; pre-push rebase changed no source.
+
+Remaining: Eddy's `f652789` fetch branch still needs all planned targets validated before home. The installed connect torque transition still precedes the shared support prompt. Software integration does not approve physical operation.
+
+Interview questions: Why must defaults use the same validation as runtime settings? Why does `python -m` require cue state in a shared module? Why does a taught key pose still need physical force and clearance checks?
+
+### Historical candidate a908855: default press validation (fixed by e8b3da1)
+
+The user authorized Codex to integrate passing branches in the separate worktree, leaving unsafe candidates unmerged. This candidate moves cue state to `core`, tracks held keys per device, and rejects negative compensated schedules. The exact fake callback check now confirms laptop Z does not suppress Sayo Z.
+
+The inspected complete WSL core suite, including its real `python -m core.dispatcher --mock` subprocess/localhost cue test, passed (`core ok`) under an external 60-second timeout. The child stayed in WSL; bytecode writes were disabled. The negative-time regression also passed. This resolves the three earlier replay findings but does not cover the new default-validation case below.
+
+New must-fix before merge: `MockArm.__init__` assigns `self.press_deg = PRESS_DEG`, bypassing `set_press`'s finite/range validation, and `_jump` adds that value then calls `_write` directly. `PRESS_DEG` comes from a float-parsed environment variable. Reproduced by setting the module default to NaN before constructing MockArm: `press()` returns True and joint 3 becomes NaN. Validate defaults through the existing setter and check the final adjusted vector before output; leave a default/environment regression. This reopens the shared-output validation boundary for the new press path, not the already-fixed `move_joints` path.
+
+Related branch check, 01:09 ET: Ben's `79ac6aa` personality self-check printed `personality ok`; Eddy's `f652789` fetch test printed `fetch ok`. Both were inspected first and loaded in memory against the local mock core. A separate fetch check found that NaN table-grid targets are not validated before `arm.home()`: the fake home log was `['home']`, then `move_joints` raised ValueError. Eddy should validate the complete planned joint targets before the first home and add this no-motion failure case. No voice main, speech subprocess, camera, or hardware path ran.
+
+### Geometry Dash integration: 2393df7 / f1553cf, 01:05 ET
+
+What this change does: adds dispatcher cue/ready events, a Geometry Dash skill using Jonathan's CSV and held presses, taught press/release poses, and automatic game-restart logic in the Windows listener. Reproduction file hashes remained unchanged across the checks: skill `3f15242`, listener `4d61012`, dispatcher `ee45427`. These began as a working-tree review and are now committed.
+
+The inspected expanded Windows `tests.test_core` printed `core ok`, including its imported-module replay test. That test does not cover the CLI module identity or keyboard callback cases reproduced separately below.
+
+**Must fix:**
+
+1. **CLI and skill use different cue events.** `python -m core.dispatcher` executes dispatcher state as `__main__`; the new skill imports `cue` and `waiting` from `core.dispatcher`, creating another module/state instance. Reproduced without sockets by executing the CLI module under a separate runpy name, starting the skill on a fake arm, then calling its CLI handlers: the skill's waiting flag is set but CLI `ready` is False; CLI `cue` sets only its own event. Use one shared event instance in both launch modes and leave a CLI-entry regression. Otherwise the advertised launch never receives the skill's ready/start handshake, although import-based tests can pass.
+2. **A laptop key can suppress the Sayo stop key.** The new `wndproc` adds every keyboard's VKey to one `held` set before checking device identity. Reproduced with the exact callback AST and fake Windows APIs: laptop Z-down followed by Sayo Z-down produces no `on_key` call; Sayo Z-down alone does. Key repeat tracking must include device identity or filter Sayo events before its held-key bookkeeping. Otherwise the physical stop press is ignored while the same key is held on another keyboard. No actual keyboard API or listener ran in this check.
+3. **Timing compensation can create commands before the cue.** With `demo_taps.csv`, `first_taps=1`, and both leads at 1000 ms, the first commands are negative but the skill reaches `home()` instead of rejecting the schedule. A fake home recorded that attempt. Unlike the standalone CLI, the new skill does not reject `commands[0].at < 0`; past-due events will collapse into immediate press/release commands. Reject impossible compensated schedules before motion and add the boundary case.
+
+Verdict: fix these integration cases before relying on the new replay/stop flow. Automatic restart, game focus, raw-input behavior, and physical timing have not been tested by Codex. The per-device suppression finding is a deterministic callback check, not a physical keypad test.
+
+### Cleanup fix verified: bbdfac5, 01:01 ET
+
+What this change does: `Arm.close(release=False)` sets LeRobot's disconnect policy before closing the port; cancelled shutdown uses this path. The normal operator-confirmed path retains torque release. All close callers were checked and tests were inspected before execution.
+
+The Windows core suite passed. Independent fake checks using the installed `Robot.__del__` and `SOFollower.disconnect` method bodies passed for both EOF and KeyboardInterrupt: direct close and later cleanup both sent `False` to the fake bus, and a home request during confirmation was rejected as `shutting down`. The installed bus implementation at `motors/motors_bus.py:440` checks this flag before torque disable and always closes its port. No real bus or robot constructor ran.
+
+The lifecycle finding under `5e80dc5` below is resolved by this commit. Its text is retained as reproduction history. The shared pre-connection support-warning finding remains open; physical holding, cutoff, clearance, and timing still need Daniel's validation.
 
 Wave follow-up `40419ff`: published branch repairs merge markers and changes wave to four cycles at +/-45 degrees, 0.35 seconds per sweep. Core suite passed again; a full fake sequence and interruption check passed. Core shutdown code is unchanged, so the lifecycle finding below remains open. The larger/faster commanded motion has no new physical verification from Codex.
 

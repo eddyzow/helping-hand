@@ -4,7 +4,7 @@
     python -m core.dispatcher            # real follower: its motors switch on
 
 Type a command, or send it as one line to TCP port 8765 (the keypad and voice scripts do this):
-    run <skill> [json params]   |   stop   |   home   |   list
+    run <skill> [json params]   |   stop   |   home   |   cue   |   ready   |   list
 To quit: type home, wait for it to finish, then Ctrl+C. Quitting never moves the arm: it stops,
 then asks you to hold the arm before the motors switch off.
 """
@@ -16,6 +16,7 @@ import sys
 import threading
 from pathlib import Path
 
+from core import cue, waiting
 from core.arm import get_arm
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
@@ -109,6 +110,11 @@ def handle(line: str):
         return list_skills()
     if command == "home":
         return dispatch("home")
+    if command == "cue":
+        cue.set()
+        return {"ok": True, "reason": "cue"}
+    if command == "ready":
+        return {"ok": waiting.is_set(), "reason": "a skill is waiting for the cue" if waiting.is_set() else ""}
     if command == "run":
         name, _, raw = rest.strip().partition(" ")
         try:

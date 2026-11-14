@@ -6,6 +6,8 @@ jump, stop) and saves what they send to keypad/keys.json. After that:
     jump key  -> Windows sees an Up arrow (the Geometry Dash jump), whatever the key really sends.
                  This is the key the arm taps.
     stop key  -> the arm stops at once. Test it at the start of every session.
+Geometry Dash sync: when the geometry_dash skill is ready, this presses R (restart) in the game
+window and tells the arm to start at that same instant. If the game is not focused, press R yourself.
 Only the SayoDevice triggers these (matched by USB id), and it works whichever window has focus.
 Needs the dispatcher running for wave and stop. No extra packages.
 
@@ -23,7 +25,9 @@ PORT = int(os.environ.get("BUDDY_PORT", "8765"))
 DEVICE = os.environ.get("KEYPAD_ID", "VID_8089").upper()  # SayoDevice USB vendor id; "" = any keyboard
 KEYS_FILE = Path(__file__).with_name("keys.json")
 ROLES = ["wave", "jump", "stop"]
-VK_UP, KEYUP, WM_INPUT = 0x26, 0x0002, 0x00FF
+VK_UP, KEYUP, WM_INPUT, WM_TIMER = 0x26, 0x0002, 0x00FF, 0x0113
+VK_RESTART = ord(os.environ.get("GD_RESTART_KEY", "R").upper())  # the game's restart key
+GAME_TITLE = os.environ.get("GD_WINDOW", "Geometry Dash")
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -62,9 +66,9 @@ class RAWKEYBOARD(ctypes.Structure):  # RAWINPUTHEADER followed by RAWKEYBOARD
 HEADER_SIZE = RAWKEYBOARD.MakeCode.offset
 
 
-def send(command: str) -> str:
+def send(command: str, timeout: float = 1) -> str:
     try:
-        with socket.create_connection(("127.0.0.1", PORT), timeout=1) as s:
+        with socket.create_connection(("127.0.0.1", PORT), timeout=timeout) as s:
             s.sendall((command + "\n").encode())
             return s.makefile().readline().strip()
     except OSError as err:
@@ -109,16 +113,40 @@ def main() -> None:
         elif down and vk == keys["stop"]:
             print(f"STOP -> {send('stop')}", flush=True)
 
+    told = []  # so the "click the game" hint prints once per wait, not twice a second
+
+    def start_game_when_ready() -> None:
+        """When a skill waits for the cue, press the restart key in the game. That key press is
+        what starts the replay clock (see the R handling below), so game and arm start together."""
+        if '"ok": true' not in send("ready", 0.2):
+            told.clear()
+            return
+        game = user32.FindWindowW(None, GAME_TITLE)
+        if game:
+            user32.SetForegroundWindow(game)
+        if game and user32.GetForegroundWindow() == game:
+            user32.keybd_event(VK_RESTART, 0, 0, 0)
+            user32.keybd_event(VK_RESTART, 0, KEYUP, 0)
+        elif not told:
+            told.append(1)
+            print(f"Arm is ready. Click the {GAME_TITLE} window and press {chr(VK_RESTART)} to start.", flush=True)
+
     def wndproc(hwnd, msg, wparam, lparam):
+        if msg == WM_TIMER:
+            start_game_when_ready()
         if msg == WM_INPUT:
             raw = RAWKEYBOARD()
             size = wintypes.UINT(ctypes.sizeof(raw))
             got = user32.GetRawInputData(lparam, 0x10000003, ctypes.byref(raw), ctypes.byref(size), HEADER_SIZE)
-            if got != 0xFFFFFFFF and raw.dwType == 1 and DEVICE in device_name(raw.hDevice):
+            if got != 0xFFFFFFFF and raw.dwType == 1:
                 down = not raw.Flags & 1
-                if down != (raw.VKey in held):  # ignore auto-repeat while a key is held
-                    (held.add if down else held.discard)(raw.VKey)
-                    on_key(raw.VKey, down)
+                key = (raw.hDevice, raw.VKey)  # per device: Z held on the laptop must not hide the keypad's Z
+                if down != (key in held):  # ignore auto-repeat while a key is held
+                    (held.add if down else held.discard)(key)
+                    if DEVICE and DEVICE in device_name(raw.hDevice):
+                        on_key(raw.VKey, down)
+                    elif down and raw.VKey == VK_RESTART:  # the level restarts: start the replay clock now
+                        send("cue", 0.2)
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
     proc = WNDPROC(wndproc)  # keep a reference so it is not garbage collected
@@ -129,6 +157,7 @@ def main() -> None:
     rid = RAWINPUTDEVICE(1, 6, 0x100, hwnd)  # keyboards, delivered even without focus
     if not hwnd or not user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(rid)):
         raise SystemExit(f"Could not listen for keys (Windows error {ctypes.get_last_error()}).")
+    user32.SetTimer(hwnd, 1, 500, None)
     if not prompt():
         print("Keypad ready: wave, jump (Up arrow), stop. Ctrl+C to quit.", flush=True)
     msg = wintypes.MSG()

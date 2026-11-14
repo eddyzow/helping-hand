@@ -1,16 +1,40 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 12:50 AM.
+Updated Sat Nov 14, 2:20 AM.
 
 ## Working on now
 
 Person 1: voice, object finding, fetch by camera. Owns `voice/`, `learning/` and the root files `see.py`, `pick.py`, `grid.py`, `draw.py`, `arm.py`.
 
-Next, in order:
+Branch `eddy/fetch` (commit `f652789`), built on `daniel/arm-core` with `main` merged in:
 
-1. Real photos and a live microphone through `see.py`, then the `pick.py` dry run with the camera mounted. Blocked on a person: this agent's terminal has no camera or microphone permission, and no external camera is connected anywhere yet.
-2. `skills/fetch.py`, a thin skill around `pick.py`, so "bring me the X" runs through the dispatcher and the stop key. Blocked on `daniel/arm-core` reaching GitHub.
-3. Spoken replies and passing the object name as a parameter in `voice/route.py`. Also blocked on `daniel/arm-core`.
+- `skills/fetch.py`: takes a grid position (`u`, `v`), checks it before any move, then home, hover, lower, close, lift, hand over, hold, release, home. Stops cleanly at every step.
+- `voice/route.py`: for fetch it now grabs a camera frame, finds the object with `see.py`, converts the pixel to a grid position with `pick.py`, and sends `run fetch {"object", "u", "v"}`. It also speaks short replies with the computer's own voice ("Getting red brick", "I can't see the banana", "I'm busy").
+- `tests/test_fetch.py`: `python -m tests.test_fetch` prints `fetch ok`. `tests.test_core` still prints `core ok`.
+
+Tested on the mock arm only: a mock dispatcher on a spare port, typed requests through `voice/route.py`, a synthetic test image in place of the camera. "bring me the red brick" started fetch at the right grid position, "grab the banana" was refused as not visible, a fetch sent during a wave got "busy". Never run on the real arm, a real camera or a live microphone.
+
+Real photos, tested Sat 1:15 AM: two phone photos of the Duplo set are in `photos/`. Across both, 15 of 16 requests for objects in view landed on the right object ("the purple brick", "the white flat brick", "the green brick", "the car chassis with wheels", "the blue car body", "the blue square brick", "the red triangle brick", "the red square brick"), about 1.3 seconds each. Banana and computer mouse were correctly reported as not there. The one miss: in `duplo_b.jpg` the red slope brick lies on its side and does not look triangular, so "the red triangle brick" came back not found. Three requests in a burst of 16 failed with an API error and worked on retry; `see.py` now retries once after 3 seconds and prints the error.
+
+Eddy checked the marks on both photos himself at 1:30 AM and corrected my score: the finder silently picks one of the two red square bricks, and on `duplo_b.jpg` it missed the red bricks. Follow-up tests on those hard cases:
+
+- Gemini `gemini-3.5-flash-lite`: points land accurately on the object it picks, but it under-counts look-alikes (one red square where there are two) and missed the slope brick lying on its side until the prompt described it. The free key hits a per-minute rate limit (HTTP 429) after roughly 15 requests in a burst. Larger Gemini models time out.
+- Claude (Eddy's Anthropic key, in `.env` as `ANTHROPIC_API_KEY`): lists all 9 objects every time and counts matches better (Opus 5.5 6 of 7 cases, Sonnet 5.5 and Haiku 5.5 5 of 7), at about 3 seconds for Sonnet and 7 to 10 for Haiku and Opus. Its points are loose: several land beside the object, not on it.
+- OpenAI (Eddy's key, in `.env` as `OPENAI_API_KEY`), same cases: `gpt-6.1-sol` 5 of 7 at about 9 seconds, `gpt-6.1-terra` 4 of 7 at about 5 seconds, `gpt-6-luna`, `gpt-5.5` and `gpt-5.4-mini` 2 or 3 of 7. Points land on the pieces more often than Claude's but several sit on an edge. Not better than Claude at choosing, and slower.
+- So Gemini is good at where and weak at which; Claude is the reverse. Neither alone is good enough for a reliable grasp among look-alike bricks.
+
+Fix, built and on `main` at 2:20 AM: `see.py` now works in two steps. Gemini boxes every object on the table (it is accurate at where). The boxes are numbered on the image and Claude Sonnet 5.5 says which numbers match the request (it is accurate at which). On the two real photos the chooser got 16 of 17 requests right, and the full pipeline got 8 of 8 in a later run, including both red squares and the slope brick on its side. About 4.5 seconds per request. Plain OpenCV colour detection was tried first and was too fragile on the grey table: it missed pieces and took glare for pieces.
+
+What changed for callers: `see.find_all(frame, command, audio_path)` returns `(hits, said, boxes)`. `see.find` still exists and returns the first hit. `pick.locate` now returns `(targets, said)`, a list, and `pick.py` asks "which one?" when more than one object matches instead of picking silently. `eddy/fetch` still has the old `voice/route.py`; I am updating it next.
+
+Known limits: two touching pieces come back as one box. The grasp point is the box centre, which is a hole on hollow pieces like the upside-down car body. Gemini's free tier still has bad spells (429, 503, timeouts); `see.py` retries up to three times, and one request in this run took 17 seconds because of it. `ANTHROPIC_API_KEY` is needed for the chooser; without it Gemini chooses and gets look-alikes wrong more often.
+
+Also: from 1:16 AM to 2:20 AM `see.py` on `main` had an 8 second timeout that Gemini rejects (minimum 10), so every request failed. That was my bug and it is fixed.
+
+Next:
+
+1. A live microphone and a photo from the real camera position. The finder itself is now proven on real photos.
+2. First real fetch, in an arm slot with Daniel, after the poses below are taught.
 
 ## Done and how it was tested
 
@@ -35,10 +59,11 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 
 ## Needs from others
 
-- Daniel: please push `daniel/arm-core`. Items 2 and 3 above start the moment `core/arm.py` and `core/dispatcher.py` are visible. I will not touch `core/`, `voice/route.py` or `keypad/listen.py` until then, and will build on them, not replace them.
-- Daniel: proposal for the camera, since WSL has none. The camera and microphone run in a small script on Windows, the same way `keypad/listen.py` does. It finds the object, converts it to a grid position, and sends the dispatcher `run fetch` with the position as parameters over localhost port 8765. The skill then needs no camera. Does the dispatcher accept parameters over that port, and in what format?
-- Daniel: when you wrap `arm.py`, note that `follower()` sets `max_relative_target` to 15 per command (`MAX_STEP`). On your LeRobot 0.7.0, please confirm that is degrees for body joints.
-- Whoever has a camera: mount it over the table and push three or four photos of the real objects (mouse, lanyard, Duplo) to `outputs/` or send them to Eddy. That unblocks item 1 without the arm.
+- Daniel: `eddy/fetch` is ready for review and for merging with `daniel/arm-core`. It adds `skills/fetch.py` and `tests/test_fetch.py` and changes only `voice/route.py`. It does not touch `core/`.
+- Daniel: `voice/route.py` has to run where the camera and microphone are, which is Windows on your laptop, the same as `keypad/listen.py`. It needs the repo requirements installed there and `.env` with the Gemini key.
+- Daniel: for the first real fetch, in an arm slot, teach `handover` (`python arm.py pose handover`), then `python arm.py teach table`, then run `python arm.py check table` and watch for dips. Then `python pick.py --corners` on the camera machine. Try `run fetch {"u": 0.5, "v": 0.5}` from the dispatcher before involving the camera.
+- Daniel: the camera looks while the arm is at `home`. If the camera is on the wrist, `home` has to point it at the table; if it is a separate camera, `home` has to keep the arm out of its view. Which camera are we using?
+- Daniel: `arm.py follower()` sets `max_relative_target` to 15 per command (`MAX_STEP`). On LeRobot 0.7.0, please confirm that is degrees for body joints.
 - Ben: `draw.py` is yours to wrap as `skills/draw.py`. `from_text`, `from_quickdraw`, `from_gemini` return strokes; `preview` writes the image; `draw` moves the arm. Generated drawings take about 20 seconds, so make them ahead of time.
 - Everyone: the Gemini key is not in the repo. Ask Eddy or make a free one at aistudio.google.com/apikey and put it in `.env`.
 

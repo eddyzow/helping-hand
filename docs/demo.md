@@ -41,16 +41,22 @@ see work, so blocks are ordered most reliable first. Drop any block that failed 
 |---|---|---|---|---|---|---|
 | 1 | 0:00 | Teammate speaks | The one-sentence pitch | | Ben | Draft above |
 | 2 | 0:10 | Judge presses the wave key (X) | Arm waves. Then judge presses stop (Z) mid-move and it freezes | See "When something breaks" | Daniel | Mock only |
-| 3 | 0:25 | Judge says "bring me the red brick" | Arm picks the brick from the mat and holds it out | Use the taped-spot fetch instead | Eddy, Daniel | Finder works on a synthetic image; no real camera yet |
-| 4 | 0:50 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy | Stroke preview works; no pen holder yet |
-| 5 | 1:15 | Judge presses the game key | Arm taps through the start of a Geometry Dash level | Show the recorded clip | Jonathan | On `jonathan/geometry-dash-replay`: simulated only, and a standalone script that does not yet go through the dispatcher |
+| 3 | 0:25 | Judge says "bring me the red brick" | Arm picks the brick from the mat and holds it out | Use the taped-spot fetch instead | Eddy, Daniel | On two real phone photos the finder points accurately at the object it picks, but it picks one of two look-alike red bricks without saying so and missed the red bricks in one photo (Eddy's check at 1:30 AM, which corrected an earlier 15 of 16). The free Gemini key rate-limits after about 15 calls in a burst. Fetch skill mock only and held out of `main` |
+| 4 | 0:50 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy | `skills/draw.py` on `main`, mock only. No pen holder and no taught paper grid yet |
+| 5 | 1:15 | Teammate runs `geometry_dash`; the keypad listener restarts the level | Arm taps through the start of Stereo Madness, holds included | Show the recorded clip | Jonathan, Daniel | On `main` as a dispatcher skill (`183db5e`), using the taught `tap_key` pose. Mock and simulation only; tap delay on the real key not yet measured |
 | 6 | 1:30 | Teammate speaks | Cost line, and what is next | | Ben | |
 
 Notes on the blocks:
 
+- Block 3 only works at the table if the judge cannot ask for an ambiguous object. Until the finder
+  handles look-alikes, put out objects that differ in colour or kind (one red brick, not two), and
+  space the requests so the Gemini key is not rate-limited.
 - Block 2 shows the stop key on purpose. A judge who sees the arm stop on command trusts the rest.
-- Block 4 is slow. At the current `PEN_SPEED` a short name may take 30 seconds or more. Time it on
-  the real arm; if it runs over 25 seconds, write initials live and keep a full-name card ready.
+- Block 4 is slow. Planned times from `skills/draw.py` at the default `PEN_SPEED` (computed from
+  the stroke plan at 1:40 AM, not timed on the arm): "I" 11 s, "HI" 31 s, "HELLO" 35 s, "EDDY" 36 s,
+  "BEN" 42 s, "JONATHAN" 54 s. Every real name is over the 25 seconds this block has. Options, to
+  decide once the pen works on the arm: start the writing first and talk over it; raise `PEN_SPEED`
+  if the writing stays legible; or write one initial live and hand over a full-name card made earlier.
 - Feeding is not in the script. It is the riskiest skill near a person and no part of it exists yet.
   Add it only if it passes the gate and the team agrees.
 - Personality moves (nod, celebrate, droop) attach to results: celebrate after a successful fetch,

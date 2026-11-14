@@ -71,21 +71,20 @@ def load(name: str):
 
 
 def locate(frame, command=None, audio=None):
-    """Return (u, v, label) for the requested object, or None. Marks outputs/last.jpg."""
-    hit = see.find(frame, command, audio)
+    """Every object matching the request, as (u, v, label) on the taught grid.
+    Marks outputs/last.jpg. Returns (targets, said)."""
+    hits, said, boxes = see.find_all(frame, command, audio)
     corners = json.loads(CORNERS.read_text())
-    cv2.polylines(frame, [np.int32(corners)], True, (0, 255, 0), 2)
-    result = None
-    if hit:
-        x, y, label = hit
+    out = see.numbered(frame, boxes)
+    cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
+    targets = []
+    for x, y, label in hits:
         u, v = to_uv(x, y, corners)
-        cv2.drawMarker(frame, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 40, 3)
-        cv2.putText(frame, f"{label} u={u:.2f} v={v:.2f}", (x + 15, y - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        result = (u, v, label)
+        cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
+        targets.append((u, v, label))
     Path("outputs").mkdir(exist_ok=True)
-    cv2.imwrite("outputs/last.jpg", frame)
-    return result
+    cv2.imwrite("outputs/last.jpg", out)
+    return targets, said
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -123,9 +122,13 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        target = locate(frame, command, audio)
-        if not target:
-            print("I can't see that.")
+        targets, said = locate(frame, command, audio)
+        target = targets[0] if len(targets) == 1 else None
+        if not targets:
+            print(f"I can't see that. (heard: {said})")
+        elif len(targets) > 1:  # never pick one silently: ask
+            print(f"I see {len(targets)} of those: " + "; ".join(
+                f"{label} at u={u:.2f} v={v:.2f}" for u, v, label in targets) + ". Which one?")
         elif not (-EDGE <= target[0] <= 1 + EDGE and -EDGE <= target[1] <= 1 + EDGE):
             print(f"{target[2]} is outside my reach (u={target[0]:.2f}, v={target[1]:.2f}).")
         else:
