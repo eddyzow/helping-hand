@@ -17,6 +17,9 @@ JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_ro
 HZ = 30
 POSES = Path(__file__).parent.parent / "poses"
 TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap holds the key down
+# ponytail: a press is a small wrist_flex dip from the taught tap_up pose, not a measured depth.
+# Tune it on the real key: run gd_tap {"press_deg": 1}. Negative flips the direction. IK replaces it.
+PRESS_DEG = float(os.environ.get("PRESS_DEG", "1.5"))
 
 
 def _checked(joints) -> list[float]:
@@ -34,6 +37,7 @@ class MockArm:
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
+        self.press_deg = PRESS_DEG
         self._joints = [0.0] * 6
 
     def _read(self) -> list[float]:
@@ -79,22 +83,29 @@ class MockArm:
         joints[5] = 100 * min(max(open_fraction, 0.0), 1.0)
         return self.move_joints(joints, 0.4)
 
+    def set_press(self, press_deg) -> None:
+        if type(press_deg) not in (int, float) or not -10 <= press_deg <= 10:
+            raise ValueError("press_deg must be -10 to 10 degrees")
+        self.press_deg = float(press_deg)
+
     def press(self) -> bool:
-        """Jump straight to the taught tap_down pose (key pressed). One command, for tight timing."""
-        return self._jump("tap_down")
+        """Dip the wrist press_deg below the taught tap_up pose. One command, for tight timing."""
+        return self._jump(self.press_deg)
 
     def release(self) -> bool:
         """Jump straight back to the taught tap_up pose (fingertip just above the key)."""
-        return self._jump("tap_up")
+        return self._jump(0.0)
 
-    def _jump(self, pose: str) -> bool:
+    def _jump(self, dip_deg: float) -> bool:
         if self.halt.is_set():
             return False
-        self._write(self.load_pose(pose))
+        pose = self.load_pose("tap_up")
+        pose[3] += dip_deg
+        self._write(pose)
         return True
 
     def tap(self, depth_mm: float = 3.0) -> bool:
-        # ponytail: depth_mm is ignored. The depth is the taught tap_down pose until there is IK.
+        # ponytail: depth_mm is ignored until there is IK; the depth is press_deg.
         return self.press() and not self.halt.wait(TAP_SECONDS) and self.release()
 
     def play(self, trajectory) -> bool:

@@ -16,6 +16,7 @@ import sys
 import threading
 from pathlib import Path
 
+from core import cue, waiting
 from core.arm import get_arm
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
@@ -24,8 +25,6 @@ _arm = None
 _worker = None
 _lock = threading.Lock()
 _closing = False  # set by shutdown(): no new skill may start after it
-cue = threading.Event()      # 'start now' from outside, such as the game's restart key
-waiting = threading.Event()  # set while a skill is waiting for that cue
 
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it

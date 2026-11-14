@@ -140,8 +140,9 @@ def main() -> None:
             got = user32.GetRawInputData(lparam, 0x10000003, ctypes.byref(raw), ctypes.byref(size), HEADER_SIZE)
             if got != 0xFFFFFFFF and raw.dwType == 1:
                 down = not raw.Flags & 1
-                if down != (raw.VKey in held):  # ignore auto-repeat while a key is held
-                    (held.add if down else held.discard)(raw.VKey)
+                key = (raw.hDevice, raw.VKey)  # per device: Z held on the laptop must not hide the keypad's Z
+                if down != (key in held):  # ignore auto-repeat while a key is held
+                    (held.add if down else held.discard)(key)
                     if DEVICE and DEVICE in device_name(raw.hDevice):
                         on_key(raw.VKey, down)
                     elif down and raw.VKey == VK_RESTART:  # the level restarts: start the replay clock now

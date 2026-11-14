@@ -9,7 +9,7 @@ PARAMS = {"roll": "float, degrees to turn the hand before waving"}
 SWING_DEG = 45  # wrist_roll twist to each side
 SWEEP_S = 0.35  # seconds per sweep; the servo tops out near 270 degrees a second
 WAVES = 4
-ROLL = 0.0  # default turn of the hand; try others live with: run wave {"roll": 90}
+ROLL = -120.0  # default turn of the hand; try others live with: run wave {"roll": 90}
 STOPPED = {"ok": False, "reason": "stopped"}
 
 

@@ -5,7 +5,7 @@
 Be inside the level first. The arm goes to tap_up and waits; the keypad listener then presses R
 (restart) in the game and the replay clock starts at that instant, so the game and the arm start
 together. Pressing R yourself does the same, and R again mid-run restarts the replay.
-Needs taught poses tap_up and tap_down (see skills/gd_tap.py). The recording and its reader are
+Needs the taught tap_up pose; tune the press depth first with gd_tap (see skills/gd_tap.py). The recording and its reader are
 Jonathan's: keypad/geometry_dash/.
 """
 import sys
@@ -24,7 +24,7 @@ CUE_WAIT_S = 120
 
 
 def run(arm, params, stop):
-    from core.dispatcher import cue, waiting
+    from core import cue, waiting
     from tap_pattern import command_times, read_pattern
 
     # everything is read and checked before the arm moves
@@ -41,7 +41,8 @@ def run(arm, params, stop):
         commands = command_times(events, params.get("press_lead_ms", 0), params.get("release_lead_ms", 0))
     except (OSError, ValueError, TypeError) as err:
         return {"ok": False, "reason": str(err)}
-    arm.load_pose("tap_down")  # fail now, not at the first press
+    if commands[0].at < 0:
+        return {"ok": False, "reason": "the timing lead is longer than the wait before the first press"}
 
     if not (arm.home() and arm.move_joints(arm.load_pose("tap_up"), 1.5)):
         return STOPPED

@@ -18,7 +18,7 @@ def test_core():
     # the same made-up poses on every machine, whatever is taught in the real poses/ folder
     core.arm.POSES = Path(tempfile.mkdtemp())
     for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80],
-                         "tap_up": [10, -20, 40, 70, 0, 0], "tap_down": [10, -20, 44, 70, 0, 0]}.items():
+                         "tap_up": [10, -20, 40, 70, 0, 0]}.items():
         (core.arm.POSES / f"{name}.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, joints)}))
     arm = get_arm(mock=True)
     dispatcher.load(arm)
@@ -49,15 +49,19 @@ def test_core():
 
     # a tap goes down and comes back
     assert arm.tap(3.0) and close(arm.get_joints(), arm.load_pose("tap_up"))
-    assert arm.press() and close(arm.get_joints(), arm.load_pose("tap_down"))
+    pressed = [10, -20, 40, 71.5, 0, 0]                        # tap_up with the wrist dipped 1.5 degrees
+    assert arm.press() and close(arm.get_joints(), pressed)
     assert dispatcher.handle('run wave {"roll": 999}')["ok"] is True  # refused inside the skill, before motion
     dispatcher._worker.join(2)
-    assert close(arm.get_joints(), arm.load_pose("tap_down"))
+    assert close(arm.get_joints(), pressed)
+    assert dispatcher.handle('run gd_tap {"press_deg": 50}')["ok"] is True  # too deep: refused, no motion
+    dispatcher._worker.join(2)
+    assert close(arm.get_joints(), pressed) and arm.press_deg == 1.5
 
     # Geometry Dash replay: waits for the cue, then presses and releases on the recording's clock
     log = []
     real_write = arm._write
-    arm._write = lambda joints: (log.append((time.perf_counter(), joints[2])), real_write(joints))
+    arm._write = lambda joints: (log.append((time.perf_counter(), joints[3])), real_write(joints))
     assert dispatcher.handle("ready")["ok"] is False
     assert dispatcher.handle('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 2}')["ok"] is True
     for _ in range(100):                                        # home, approach, then it waits
@@ -71,9 +75,14 @@ def test_core():
     dispatcher._worker.join(8)
     assert not dispatcher._worker.is_alive() and dispatcher.handle("ready")["ok"] is False
     presses = [(round(t - t0, 2), elbow) for t, elbow in log[:4]]
-    assert [e for _, e in presses] == [44, 40, 44, 40], presses          # down, up, down, up
+    assert [e for _, e in presses] == [71.5, 70, 71.5, 70], presses      # down, up, down, up
     assert all(abs(t - want) < 0.06 for (t, _), want in zip(presses, (0.30, 0.38, 0.68, 0.76))), presses
     arm._write = real_write
+    before_gd = arm.get_joints()
+    late = '{"pattern": "demo_taps.csv", "first_taps": 1, "press_lead_ms": 1000, "release_lead_ms": 1000}'
+    assert dispatcher.handle(f"run geometry_dash {late}")["ok"] is True
+    dispatcher._worker.join(2)                                 # a press before the cue is refused, no motion
+    assert not dispatcher._worker.is_alive() and arm.get_joints() == before_gd
     assert dispatcher.handle('run geometry_dash {"pattern": "../../see.py"}')["ok"] is True
     dispatcher._worker.join(2)
     assert not dispatcher._worker.is_alive()                   # refused at once, no motion, no waiting
@@ -163,6 +172,40 @@ def test_core():
     assert by_keyword("make me a sandwich", skills) == {"skill": None}
 
 
+def test_cli_cue():
+    """Started the real way (python -m core.dispatcher), the cue typed or sent must reach the skill."""
+    import os
+    import socket
+    import subprocess
+    import sys
+
+    def ask(line):
+        with socket.create_connection(("127.0.0.1", 8799), timeout=2) as s:
+            s.sendall((line + "\n").encode())
+            return json.loads(s.makefile().readline())
+
+    proc = subprocess.Popen([sys.executable, "-u", "-m", "core.dispatcher", "--mock"], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, text=True, env={**os.environ, "BUDDY_PORT": "8799"})
+    try:
+        assert "Listening" in proc.stdout.readline()
+        assert ask('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 1}')["ok"] is True
+        for _ in range(100):
+            if ask("ready")["ok"]:
+                break
+            time.sleep(0.1)
+        assert ask("ready")["ok"] is True
+        assert ask("cue")["ok"] is True
+        line = ""
+        while "[geometry_dash] {" not in line:
+            line = proc.stdout.readline()
+            assert line, "dispatcher exited before the replay finished"
+        assert "'ok': True" in line, line
+    finally:
+        proc.stdin.close()
+        proc.wait(10)
+
+
 if __name__ == "__main__":
     test_core()
+    test_cli_cue()
     print("core ok")
