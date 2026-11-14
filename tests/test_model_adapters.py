@@ -89,7 +89,7 @@ def test_voice_and_drawing():
                  "__file__": str(Path(temporary) / "voice" / "route.py"), "speak": spoken.append,
                  "send": lambda command: (commands.append(command) or
                      ([{"name": "wave"}] if command == "list" else {"ok": True}))}
-        functions("voice/route.py", {"by_model", "by_keyword", "main"}, scope)
+        functions("voice/route.py", {"by_model", "main"}, scope)
         for argv, model_reply, heard, runs in (
             (["route", "wave"], reply, "wave", 1),
             (["route", "wave"], "[]", "wave", 0),

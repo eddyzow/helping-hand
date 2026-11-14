@@ -7,7 +7,6 @@ from pathlib import Path
 import core.arm
 from core import dispatcher
 from core.arm import JOINTS, get_arm
-from voice.route import by_keyword
 
 
 def close(a, b):
@@ -345,10 +344,6 @@ def test_core():
     assert json.loads((core.arm.POSES / "tap_key.json").read_text())["elbow_flex.pos"] <= rough_now + 1.0 + 1e-6
     key_down.clear()
 
-    skills = dispatcher.list_skills()
-    assert by_keyword("please wave at me", skills) == {"skill": "wave"}
-    assert by_keyword("STOP now", skills) == {"skill": "stop"}
-    assert by_keyword("make me a sandwich", skills) == {"skill": None}
 
 
 def test_tap_delay():

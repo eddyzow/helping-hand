@@ -39,7 +39,8 @@ HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds t
 EDGE = 0.05  # how far outside the taught grid a target may be
 GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
 SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
-DROP_GAP = float(os.environ.get("DROP_GAP", "0.3"))  # how far beside an object to put something, as a share of the grid
+STACK_LIFT = float(os.environ.get("STACK_LIFT", "0.5"))  # "on top of": how far up from the table layer to the lifted
+# layer to let go, 0 to 1. Set it so the held brick just touches the one below.
 
 
 def to_uv(x: float, y: float, corners: list[list[float]]) -> tuple[float, float]:
@@ -77,12 +78,17 @@ def load(name: str):
 def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
-    Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
-    asked to have it put next to, in the same form, and is None if they did not ask to put it
-    anywhere. Use place_problem() on it: a placement that was asked for must never turn into a
-    plain handover."""
-    hits, said, boxes, beside = see.find_all(frame, command, audio)
+    Marks outputs/last.jpg. Returns (targets, said, place, problem): place is (u, v, lift) if the
+    person asked to put it somewhere, else None; problem is a sentence to say when they asked and
+    it cannot be done. Check problem first: a placement asked for must never become a handover."""
     corners = json.loads(CORNERS.read_text())
+
+    def describe(box):  # where this box is on the table, for the model to reason with
+        us, vs = zip(*(to_uv(x, y, corners) for x in (box["x0"], box["x1"]) for y in (box["y0"], box["y1"])))
+        return (f"centre u={sum(us) / 4:.2f} v={sum(vs) / 4:.2f}; "
+                f"spans u {min(us):.2f} to {max(us):.2f}, v {min(vs):.2f} to {max(vs):.2f}")
+
+    hits, said, boxes, placing, place = see.find_all(frame, command, audio, describe, GRID_ASPECT)
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
     targets = []
@@ -90,25 +96,15 @@ def locate(frame, command=None, audio=None):
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label, jaw_turn(frame, box, corners)))
-    placing = beside is not None
-    what, where = split_request(said) if placing else (said, "")  # no placement: every word is about the object
-    targets = narrow(targets, what)
-    near = []
-    for x, y, label, box in beside or []:
-        cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
-        near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
-    near = narrow(near, where) if placing else None
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
-    return targets, said, near
-
-
-def place_problem(near) -> str | None:
-    """Why a requested placement cannot go ahead, or None if there is nothing wrong
-    (no placement asked for, or exactly one place found)."""
-    if near is None or len(near) == 1:
-        return None
-    return "I can't see where to put it." if not near else f"I see {len(near)} places that could mean. Which one?"
+    problem = None
+    if placing and place is None:
+        problem = "I can't work out where to put it."
+    elif placing and not (-EDGE <= place["u"] <= 1 + EDGE and -EDGE <= place["v"] <= 1 + EDGE):
+        problem = "That spot is out of my reach."
+    spot = (place["u"], place["v"], STACK_LIFT if place["on_top"] else 0.0) if placing and not problem else None
+    return targets, said, spot, problem
 
 
 def jaw_turn(frame, box, corners) -> float:
@@ -127,67 +123,6 @@ def jaw_turn(frame, box, corners) -> float:
     if stretch < SQUARE_BELOW:
         return (lies + 45.0) % 90.0 - 45.0   # square: either pair of faces will do, take the smaller turn
     return (lies + 90.0 + 90.0) % 180.0 - 90.0  # long: close across it, at right angles to the long side
-
-
-# Words that settle "which one?" by position. The model does not know where the arm is, so code does it.
-# Each maps a target (u, v, label) to a score; the lowest wins. Left and right are the arm's own.
-TIEBREAKS = {
-    ("closest", "nearest", "closer", "nearer"): lambda t: (-t[1], abs(t[0] - 0.5)),
-    ("farthest", "furthest", "farther", "further"): lambda t: (t[1], abs(t[0] - 0.5)),
-    ("leftmost", "left"): lambda t: (t[0],),
-    ("rightmost", "right"): lambda t: (-t[0],),
-    ("any", "either", "one of"): lambda t: (-t[1], abs(t[0] - 0.5)),
-}
-
-
-# Not " on " or " by ": "the brick on the left" and "the one by the edge" describe the object itself.
-PLACE_WORDS = (" to the left of ", " to the right of ", " left of ", " right of ", " next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
-               " close to ", " against ", " into ")
-
-
-def split_request(command: str | None) -> tuple[str, str]:
-    """"put the red brick next to the right blue brick" -> ("put the red brick", "the right blue brick").
-    A position word only narrows the object it describes: "right" here is about the blue brick."""
-    words = f" {(command or '').lower()} "
-    cuts = [(words.find(w), w) for w in PLACE_WORDS if w in words]
-    if not cuts:
-        return words.strip(), ""
-    at, word = min(cuts)
-    return words[:at].strip(), words[at + len(word):].strip()
-
-
-def narrow(targets: list, command: str | None) -> list:
-    """Several matches and a position word in the request ("the closest red brick"): keep one.
-    A dead heat goes to the first in the list. No such word: all are returned, and the caller asks."""
-    words = f" {(command or '').lower()} "
-    for names, score in TIEBREAKS.items():
-        if len(targets) > 1 and any(f" {name} " in words for name in names):
-            return [min(targets, key=score)]
-    return targets
-
-
-# Where to put it, relative to the other object: (step in u, step in v). Left and right are the arm's own;
-# in front is towards the arm. Anything else ("next to", "near") goes on the side the object came from.
-SIDES = {" left of ": (-1, 0), " right of ": (1, 0), " behind ": (0, -1), " in front of ": (0, 1)}
-STACK_LIFT = float(os.environ.get("STACK_LIFT", "0.5"))  # "on top of": how far up from the table layer to the
-# lifted layer to let go, 0 to 1. Set it so the held brick just touches the one below.
-
-
-def drop_spot(picked: tuple, near: tuple, said: str | None = "") -> tuple[float, float, float]:
-    """Where to let go, from the words of the request: (u, v, lift). Beside `near` by default, on the
-    side the picked object came from; "left of", "behind" and so on pick the side; "on top of" and
-    "onto" give `near`'s own position with a lift. Clamped to the taught grid."""
-    words = f" {(said or '').lower()} "
-    clamp = lambda n: min(max(n, 0.05), 0.95)
-    if " on top of " in words or " onto " in words:
-        return clamp(near[0]), clamp(near[1]), STACK_LIFT
-    du, dv = picked[0] - near[0], picked[1] - near[1]
-    length = (du * du + dv * dv) ** 0.5 or 1.0
-    du, dv = du / length, dv / length
-    for word, (side_u, side_v) in SIDES.items():
-        if word in words:
-            du, dv = side_u, side_v * GRID_ASPECT  # the same distance on the table either way
-    return clamp(near[0] + DROP_GAP * du), clamp(near[1] + DROP_GAP * dv), 0.0
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -225,9 +160,9 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        targets, said, near = locate(frame, command, audio)
+        targets, said, spot, problem = locate(frame, command, audio)
         target = targets[0] if len(targets) == 1 else None
-        if near is not None:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
+        if spot or problem:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
             print("This script only hands things over. Use voice/route.py to put something down.")
         elif not targets:
             print(f"I can't see that. (heard: {said})")
@@ -254,19 +189,4 @@ if __name__ == "__main__":
         assert all(abs(a - b) < 1e-4 for a, b in zip(to_uv(*pixel, quad), uv)), pixel
     # a square-on view: the middle pixel is the middle of the grid
     assert all(abs(a - 0.5) < 1e-4 for a in to_uv(300, 250, [[100, 50], [500, 50], [500, 450], [100, 450]]))
-    two = [(0.12, 0.79, "left red"), (0.88, 0.60, "right red")]
-    assert narrow(two, "pick up the closest red brick") == [two[0]] and narrow(two, "the right one") == [two[1]]
-    assert narrow(two, "the farthest red brick") == [two[1]] and narrow(two, "pick up the red brick") == two
-    assert narrow(two[:1], "the closest") == two[:1] and narrow([], "the closest") == []
-    # a position word about the destination must not pick the source
-    assert split_request("put the red brick next to the right blue brick") == ("put the red brick", "the right blue brick")
-    what, where = split_request("put the red brick next to the right blue brick")
-    assert narrow(two, what) == two and narrow(two, where) == [two[1]]
-    assert split_request("pick up the closest red brick") == ("pick up the closest red brick", "")
-    assert split_request("pick up the brick on the left") == ("pick up the brick on the left", "")
-    assert place_problem(None) is None and place_problem([two[0]]) is None
-    assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
-    # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
-    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5, 0.0)))
-    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05, 0.0)
     main()
