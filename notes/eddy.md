@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:32 AM.
+Updated Sat Nov 14, 3:50 AM.
 
 ## Working on now
 
@@ -98,6 +98,15 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 - Everyone: the Gemini key is not in the repo. Ask Eddy or make a free one at aistudio.google.com/apikey and put it in `.env`.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer, findings on `eddy/fetch` through `00f02d5`: all addressed in `b274c92` (3:50 AM), with regressions in `tests/test_fetch.py` and the self-checks in `pick.py`.
+  - A wrist turn that carries the corrected target off the grid is refused before any move, not clamped.
+  - `GRIP_OPEN` and `GRIP_CLOSED` must be finite and 0 to 100, `HOLD_SECONDS` finite and 0 or more, checked before any move.
+  - `arm.py teach` refuses a grid size below 2 before connecting, so a bad size cannot wipe a taught grid.
+  - A position word only narrows the object it describes: "put the red brick next to the right blue brick" leaves two red bricks ambiguous (`pick.split_request`).
+  - More than one match for the place to put something is refused in `voice/route.py` and `sim.py`; it no longer falls back to a handover.
+  - The `beside` field is gone from the command parameters.
+  - README now gives the grip default as 100.
 
 - Daniel's reviewer, on torque toggling during connect: fixed at 2:15 AM. The warning now sits inside `arm.follower()`, before the connection, so every caller gets it, including `core/arm.py`. Set `ARM_NO_PROMPT=1` to skip it in unattended runs. Mock tests still pass; not run on hardware.
 
