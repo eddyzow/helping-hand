@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Fetch 46186b4: destination modifier narrows the wrong object
+Four basic pure narrow cases passed (closest/right/farthest/no modifier). Exact new function given two red candidates and "put the red brick next to the right blue brick" chooses the right red candidate because it searches the entire sentence for right. That modifier identifies the blue destination, not the red source. Retain source ambiguity unless the positional modifier unambiguously applies to it; do not silently choose a source from destination language. Test this placement sentence as a regression. Only extracted pure code ran.
 ### Fetch a11b515: placement integration findings
 Read all six changed files and searched every locate/find_all/choose caller. The inspected branch fetch suite was loaded in memory with current integrated core and temporary poses; it printed `fetch ok`, including placement and invalid destination checks. No real pose file, API, camera or simulation was used.
 Exact voice.locate with fake frame/pick results for one source and one destination adds `beside` to params. Actual main dispatcher with the candidate fetch schema rejects the command: fetch has no option ['beside']; allowed options are object/to_u/to_v/u/v. Keep display metadata out of command params, or otherwise reconcile the explicit skill contract and test the full voice-to-dispatcher path. Do not weaken unknown-option validation.
