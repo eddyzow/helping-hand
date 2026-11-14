@@ -7,6 +7,18 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Drawing expansion: main 27595d3
+
+Root draw.sketch builds/caches strokes, voice.route.main resolves params.what before sending them, and skills.draw.run validates strokes and plans all moves before executing. The new simulator calls the same skill against a synthetic paper grid. Reviewed all three sketch callers (CLI, voice, simulator), model parsing, fallback and cached paths; no simulator or real provider ran.
+
+**New software finding:** the advertised model-unavailable database fallback still depends on the failed provider. Exact draw.sketch with a recognized category, fake available database doodles and a provider that always raises: three generation failures select database candidates, but one candidate then fails in looks_like and two fail in best_of. QA `6282fce`, `python -B -m tests.test_sketch_fallback`, reproduces both. Use the validated available fallback without mandatory unavailable ranking/recognition. A fresh database fetch can still require networking; this finding is model-unavailable fallback, not a promise of uncached offline drawing.
+
+Windows `python -B -m skills.draw`, tests.test_model_adapters and tests.test_perception_boundaries pass. New `python -B -m tests.test_sketch_boundaries` passes 80-stroke/4000-point limits and invalid type/nonfinite/out-of-range coordinates, all checked-in sketch caches, actual smooth model parsing with a fake reply, cached lookup without provider calls, exact voice stroke forwarding and no dispatch on generation failure. Invalid strokes return before fake motion. Only fake speech/transport/provider objects and temporary cache files were used.
+
+sim_draw.py's synthetic pen is an offset point, not a gripped physical pen; its ink metric compares drawn endpoints with resampled intended points. Simulation rendering, live viewer, friction/slip, taught paper/home clearance, real provider recognition and the reported 12/12 results were not independently executed or validated. Existing placement/calibration findings on main and arm branch holds remain unaffected.
+
+Interview questions: Where are generated strokes validated before motion? Why must a fallback avoid the dependency that failed? What does the simulated ink-distance metric omit about real pen contact?
+
 ## Retained calibration depth: 2a835de held
 
 **Follow-up 555c7f9 closes this specific hold in fakes.** The final effective press is now bounded against the unchanged travel limit, checked and used for all three verification taps before saving; the result includes the retained depth. All four targeted checks pass: zero-depth control, retained 0.2 with available travel (target 41.25), positive prior depth at the edge, and negative prior depth. The strengthened regression also confirms that the eventual effective press target appeared in three verification writes. Physical calibration/force remains operator work. Prior sequencer focus/completion and timeout/retry holds are unaffected, so the arm branch remains held.
