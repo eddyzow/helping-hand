@@ -72,9 +72,11 @@ def locate(thing: str) -> tuple[list[dict], str | None]:
 
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
-    targets, _, spot, problem = pick.locate(frame, command=thing)
+    targets, _, spot, problem, lift = pick.locate(frame, command=thing)
     found = [{"object": label, "u": round(u, 3), "v": round(v, 3), "turn": round(turn, 1)}
              for u, v, label, turn in targets]
+    if len(found) == 1 and lift:  # it sits on top of other pieces: grasp it up there
+        found[0].update(lift=round(lift, 3))
     if len(found) == 1 and spot:  # "put it on the green brick": add where to put it down
         found[0].update(to_u=round(spot[0], 3), to_v=round(spot[1], 3), to_lift=spot[2])
     return found, problem

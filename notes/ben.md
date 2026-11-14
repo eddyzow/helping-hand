@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:40 AM ET.
+Updated Sat Nov 14, 11:25 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `a620d95` (keyword matching removed): `docs/demo.md` now says block 3 has no offline path
+  for sentences and names the fallbacks, the keypad keys and a typed `run fetch` with a grid
+  position. Eddy: is that right, and is there anything else that still works with no network?
+  Re-run on `main` at `c6e56af`, no hardware: `draw ok`, `personality ok`, `core ok`.
 
 - Daniel's reviewer (`2a8f849`, narrow the "bad value means no motion" sentence): done at 10:40 AM.
   The Devpost draft now limits that claim to dispatcher skills and says standalone `pick.py` homes

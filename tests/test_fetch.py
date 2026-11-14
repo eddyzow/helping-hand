@@ -61,8 +61,11 @@ def test_fetch():
     seen.clear()
     assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 0.0, "to_v": 0.0, "to_lift": 0.5}, stop)["ok"]
     assert any(abs(j[0] - 2.5) < 1e-6 for j in seen), "halfway between the corner's down (0) and up (5) poses"
+    seen.clear()  # picking it off a stack: it closes partway up, at 42.5 between down (40) and up (45)
+    assert fetch.run(arm, {"u": 0.5, "v": 0.5, "lift": 0.5}, stop)["ok"]
+    assert any(abs(j[0] - 42.5) < 1e-6 and abs(j[5] - fetch.GRIP_CLOSED) < 1e-6 for j in seen)
     here = arm.get_joints()
-    for bad in [{"to_u": 0.0, "to_v": 0.0, "to_lift": 2}, {"hold": -1}, {"hold": "3"}]:
+    for bad in [{"to_u": 0.0, "to_v": 0.0, "to_lift": 2}, {"lift": -0.1}, {"lift": "0.5"}, {"hold": -1}, {"hold": "3"}]:
         assert fetch.run(arm, {"u": 0.5, "v": 0.5, **bad}, stop)["ok"] is False and arm.get_joints() == here, bad
 
     # settings out of range are refused before any move

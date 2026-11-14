@@ -78,6 +78,12 @@ Notes on the blocks:
 - Block 3: a placement whose destination the camera does not find should now be refused and said
   out loud. Having the destination on the mat is not a guarantee it is found, so rehearse a
   refusal as well as a success.
+- Block 3 has no offline path for speech or typed sentences since 11:10 AM (`a620d95`): keyword
+  matching was removed, so both picking the skill and picking the object need the Anthropic API.
+  If the network or the API is down at the table, the only fallbacks are the keypad keys and a
+  typed dispatcher command with a grid position, `run fetch {"u": 0.5, "v": 0.5}`. Rehearse that
+  one. A reviewer finding on this version was open at 11:20 AM: a malformed placement reply from
+  the model can still turn into a plain handover.
 - Block 3 needs two keys on the demo machine: OpenAI (boxes and speech) and Anthropic (choosing and
   routing). Gemini was removed at 10:34 AM. Keep pieces 9 to 10 cm apart: in simulation the open
   jaws knocked neighbours at 6 cm. Keep pieces apart on the mat (two touching pieces come back as one box), avoid

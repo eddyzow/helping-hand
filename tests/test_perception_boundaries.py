@@ -29,21 +29,21 @@ def test_chooser_flag():
         "json": json, "re": re, "detect": lambda frame: boxes}
     functions("see.py", {"parse_reply", "_number", "to_matches", "to_choice", "choose", "find_all"}, scope)
     scope["math"] = __import__("math")
-    spot = {"u": .4, "v": .6, "on_top": True}
-    malformed = [{"matches": [1], "place": spot}]
-    malformed += [{"matches": [1], "place": spot, "put_down": value}
+    spot = {"u": .4, "v": .6, "height_mm": 19}
+    malformed = [{"matches": [1], "place": spot, "pick_height_mm": 0}, {"matches": [1], "place": spot, "put_down": True}]
+    malformed += [{"matches": [1], "place": spot, "pick_height_mm": 0, "put_down": value}
                   for value in (None, "true", 0, 1, [], {})]
     for answer in malformed:  # no true/false flag: nothing is picked, so nothing can be handed over
         scope["ask_claude"] = lambda *args: json.dumps(answer)
         with contextlib.redirect_stderr(io.StringIO()):
-            hits, _, _, placing, place = scope["find_all"](frame, "put roof next to purple")
+            hits, _, _, placing, place, _ = scope["find_all"](frame, "put roof next to purple")
         assert hits == [] and not placing and place is None, (answer, hits, placing, place)
-    bad_place = {"u": "0.4", "v": .6, "on_top": True}
+    bad_place = {"u": "0.4", "v": .6, "height_mm": 19}
     for flag, given, placing_expected, place_expected in (
             (False, None, False, None), (True, None, True, None), (True, bad_place, True, None), (True, spot, True, spot)):
-        scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "put_down": flag, "place": given})
+        scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "pick_height_mm": 0, "put_down": flag, "place": given})
         with contextlib.redirect_stderr(io.StringIO()):
-            hits, _, _, placing, place = scope["find_all"](frame, "request")
+            hits, _, _, placing, place, _ = scope["find_all"](frame, "request")
         assert len(hits) == 1 and placing is placing_expected and place == place_expected, (flag, given, placing, place)
 
 
@@ -55,10 +55,10 @@ def test_standalone_placement():
     scope = {"sys": sys, "see": SimpleNamespace(load_env=lambda: None, grab_frame=lambda: None),
              "load": lambda name: {}, "grasp": lambda *args: calls.append("grasp"), "EDGE": .05}
     functions("pick.py", {"main"}, scope)
-    for spot, problem in ((None, "I can't work out where to put it."), ((.5, .5, 0.), None), (None, None)):
+    for spot, problem, lift in ((None, "I can't work out where to put it.", 0.), ((.5, .5, 0.), None, 0.), (None, None, .5), (None, None, 0.)):
         calls.clear()
-        scope["locate"] = lambda *args: ([target], "request", spot, problem)
-        handover = spot is None and problem is None
+        scope["locate"] = lambda *args: ([target], "request", spot, problem, lift)
+        handover = spot is None and problem is None and not lift
         with patch.dict(sys.modules, {"arm": arm}), \
                 patch.object(sys, "argv", ["pick.py", "--go", "request"]), \
                 contextlib.redirect_stdout(io.StringIO()):
