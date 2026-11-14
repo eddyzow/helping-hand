@@ -25,7 +25,7 @@ CUE_WAIT_S = 120
 
 
 def run(arm, params, stop):
-    from core import cue, key_down, waiting
+    from core import cue, key_down, key_events, waiting
     from tap_pattern import command_times, read_pattern
 
     # "enter" mode: with the game on the level's Play screen, the arm's first press starts the level
@@ -57,7 +57,7 @@ def run(arm, params, stop):
     if not arm.to_key():
         return STOPPED
     cue.clear()
-    feels_key = False
+    feels_key = key_events[0] > 0  # the keypad listener has been reporting the jump key to this dispatcher
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)
     try:
         while True:
@@ -116,6 +116,7 @@ def run(arm, params, stop):
                     if cue.is_set():
                         break
                     time.sleep(0.0005)
+                watch()  # the press may have registered during that wait: note it before releasing
                 arm.release()
             else:
                 settle = time.perf_counter() + 0.3  # catch the last release
