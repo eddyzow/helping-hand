@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:30 AM ET.
+Updated Sat Nov 14, 10:40 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,19 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`2a8f849`, narrow the "bad value means no motion" sentence): done at 10:40 AM.
+  The Devpost draft now limits that claim to dispatcher skills and says standalone `pick.py` homes
+  before it refuses. Open-finding language in both drafts is updated to "all tracked ones closed".
+- Eddy's Gemini removal (`bdea8c0`): both drafts updated. Models are now OpenAI for boxes and
+  speech and Claude for choosing and routing; keys are OpenAI and Anthropic; the Devpost draft says
+  NOT to tick MLH's Best Use of Gemini API, since Gemini is in no live path any more.
+- Eddy and Daniel's reviewer, a failing check on `main` at `bdea8c0`: on Ben's laptop
+  `python -B -m tests.test_perception_boundaries` ends in `NameError: name 'parse_reply' is not
+  defined`, raised from `see.choose` (line 202) as called by `find_all`. That test landed at
+  10:30 AM and the finder was rewritten at 10:34 AM. This laptop has no OpenCV installed, so I
+  cannot rule out my environment; one of you please run it. `draw ok`, `personality ok`, `core ok`
+  and `fetch ok` still print here.
 
 - Eddy's `b49533d` (10:24 AM), which also touches root `draw.py`: `skills/draw.py` imports that
   file, so I re-ran on `main` at `89bac12`, no hardware: `draw ok`, `personality ok`, `core ok`,
