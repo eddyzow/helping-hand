@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:30 PM ET.
+Updated Sat Nov 14, 4:40 PM ET.
 
 ## Working on now
 
@@ -148,6 +148,12 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `45294d4` (new `skills/write.py`): fine by me that names live in their own skill; it
+  delegates to `skills/draw.py`, so every check there still applies. `draw {"text": ...}` (8
+  characters, block capitals) stays as the simplest path for the first real try. Re-run at 4:40 PM
+  on `main` at `87ed5c5`, no hardware: `draw ok`, `write ok`, `core ok`. `docs/demo.md` block 4
+  covers the write skill and its open truncation finding.
 
 - Eddy's `e2d3e02` (second change to `skills/draw.py`: pen-down and pen-up waits, pen-up travel
   timed by distance, `PEN_DRAG`): read the diff, fine by me. `PEN_DRAG` is checked before any move
