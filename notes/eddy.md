@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:45 AM.
+Updated Sat Nov 14, 3:05 AM.
 
 ## Working on now
 
@@ -51,6 +51,8 @@ Next:
 - Gemini's box detection slowed to 14 seconds around 2:30 AM, past its 10 second timeout. `see.py` now falls back to OpenAI (`gpt-6.1-terra`) for the boxes when Gemini fails and `OPENAI_API_KEY` is set: on `photos/duplo_a.jpg` its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds. Claude's boxes were poor (2 of 9), so Claude stays the chooser only.
 
 Update 2:45 AM: the simulated table now holds the Duplo set from `photos/duplo_a.jpg` (two red squares, blue square, purple square, flat white 2x4, red slope, green curved 2x4, car chassis, car body), and `mjpython sim.py --view` opens a live MuJoCo window that takes typed requests one after another. With known grid positions, 6 of the 7 graspable pieces were carried to the handover; the flat white plate is too thin for the fixed grasp height. Through the full finder, 4 of 5 single-match requests were carried (purple, red slope, green curved yes; blue square was found correctly and dropped), two red squares got "which one", and the chassis outside the grid was refused as out of reach.
+
+Update 3:05 AM: Eddy sent close-ups showing three simulated pieces were the wrong shape, and they are remodelled. The red "triangle" is a 2x4 ridge roof (two slopes meeting at a ridge, about 38 mm tall, no studs). The green piece is a 2x4 brick with studs on top and an underside that curves up at both ends. The car body is a hollow open-top shell with wheel arches, three studs and a hitch at the back. The roof and the green brick were each still carried to the handover in simulation. Their sizes are estimated from photos, not measured.
 
 ## Done and how it was tested
 
