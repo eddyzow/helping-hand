@@ -1,8 +1,8 @@
 # Helping Hand (working name)
 
-A voice-commanded vehicle with an SO-101 robot arm on the front. Tell it where to go and what to bring back; it drives there by camera, picks the item up, and returns. Built at HackUMass XIV, November 13 to 15, 2026.
+A voice-controlled SO-101 robot arm for people with limited hand use. It fetches objects you name, feeds you from a bowl, and counts the coins on the table. Built at HackUMass XIV, November 13 to 15, 2026.
 
-Status: the object finder works on still images. The vehicle and the arm control are not built yet. Read [PLAN.md](PLAN.md) for the current plan. `context.md` describes an earlier idea (a Duplo builder); its hardware setup section is still correct.
+Status: the object finder works on still images. The arm is not wired in yet. Read [PLAN.md](PLAN.md) for scope, schedule, lanes and the track choice. `context.md` describes an earlier idea (a Duplo builder); its hardware setup section is still correct.
 
 ## Try the object finder
 
