@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:10 PM ET.
+Updated Sat Nov 14, 1:40 PM ET.
 
 ## Working on now
 
@@ -53,6 +53,12 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel or Jonathan (1:40 PM): commit `f1e8a18` says the arm completes Stereo Madness. If someone
+  watched it reach Level Complete, please write three lines in your note: how many attempts out of
+  how many, which macro, and whether it was filmed. That is the strongest thing in the demo and
+  the Devpost draft, and right now both can only call it an owner's report. If it was not filmed,
+  film the next clean run: it is also the backup video.
 
 - Everyone, from the demo side (1:10 PM): the freeze is 8:50 PM. By the notes, Geometry Dash is
   the only skill that has run on the real arm. Duplo needs a mounted overhead camera, a taught
