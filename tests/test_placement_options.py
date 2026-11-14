@@ -25,6 +25,7 @@ def test_fetch_options():
         (folder / "table.json").write_text(json.dumps({"n": 2, "up": [up] * 4, "down": [down] * 4}))
         with patch.object(core.arm, "POSES", folder):
             for key, bad_values in {"to_lift": [-.1, 1.1, float("nan"), float("inf"), True, "0.5", None],
+                                    "lift": [-.1, 1.1, float("nan"), float("inf"), True, "0.5", None],
                                     "hold": [-1, 31, float("nan"), float("inf"), True, "3", None]}.items():
                 for value in bad_values:
                     calls.clear()
@@ -37,6 +38,9 @@ def test_fetch_options():
             assert fetch.run(arm, {"u": .5, "v": .5, "to_u": .5, "to_v": .5, "to_lift": .5}, stop)["ok"]
             assert [5.] * 5 + [fetch.GRIP_OPEN] in calls
             assert waits == []
+            calls.clear()
+            assert fetch.run(arm, {"u": .5, "v": .5, "lift": .25, "hold": 0}, stop)["ok"]
+            assert [2.5] * 5 + [fetch.GRIP_CLOSED] in calls
 
 
 if __name__ == "__main__":
