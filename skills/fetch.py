@@ -23,6 +23,7 @@ DESCRIPTION = "Pick up an object from the table and hand it to the person"
 PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red brick'",
           "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py",
           "to_u": "optional: where to put it down instead of handing it over", "to_v": "optional",
+          "lift": "optional: 0 to 1, how far above the table to grasp it (when it sits on top of something)",
           "to_lift": "optional: 0 to 1, how far above the table to let go (for putting it on top of something)",
           "hold": "optional: seconds to hold it up before letting go",
           "turn": "optional: degrees to turn the jaws to match the object, from pick.jaw_turn"}
@@ -92,9 +93,10 @@ def run(arm, params, stop):
     if placing and not all(type(n) in (int, float) and math.isfinite(n) and -EDGE <= n <= 1 + EDGE
                            for n in (to_u, to_v)):
         return {"ok": False, "reason": "the place to put it down is out of reach"}
-    lift, hold = params.get("to_lift", 0), params.get("hold", HOLD_SECONDS)
-    if not (type(lift) in (int, float) and math.isfinite(lift) and 0 <= lift <= 1):
-        return {"ok": False, "reason": "to_lift must be a number from 0 to 1"}
+    grasp_lift, lift, hold = params.get("lift", 0), params.get("to_lift", 0), params.get("hold", HOLD_SECONDS)
+    if not all(type(n) in (int, float) and math.isfinite(n) and 0 <= n <= 1 for n in (grasp_lift, lift)):
+        return {"ok": False, "reason": "lift and to_lift must be numbers from 0 to 1"}
+    down = {joint: low + grasp_lift * (up[joint] - low) for joint, low in down.items()}  # partway up, off a stack
     if not (type(hold) in (int, float) and math.isfinite(hold) and 0 <= hold <= 30):
         return {"ok": False, "reason": "hold must be a number of seconds from 0 to 30"}
 

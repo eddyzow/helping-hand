@@ -39,8 +39,8 @@ HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds t
 EDGE = 0.05  # how far outside the taught grid a target may be
 GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
 SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
-STACK_LIFT = float(os.environ.get("STACK_LIFT", "0.5"))  # "on top of": how far up from the table layer to the lifted
-# layer to let go, 0 to 1. Set it so the held brick just touches the one below.
+LAYER_GAP_MM = float(os.environ.get("LAYER_GAP_MM", "40"))  # how far the taught lifted layer is above the taught
+# table layer, in mm. Measure it on the real grid: stacking heights are worked out from it.
 
 
 def to_uv(x: float, y: float, corners: list[list[float]]) -> tuple[float, float]:
@@ -78,9 +78,11 @@ def load(name: str):
 def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
-    Marks outputs/last.jpg. Returns (targets, said, place, problem): place is (u, v, lift) if the
-    person asked to put it somewhere, else None; problem is a sentence to say when they asked and
-    it cannot be done. Check problem first: a placement asked for must never become a handover."""
+    Marks outputs/last.jpg. Returns (targets, said, place, problem, lift): place is (u, v, lift) if
+    the person asked to put it somewhere, else None; problem is a sentence to say when the request
+    cannot be done (check it first: a placement asked for must never become a handover); lift is how
+    high the picked object sits now. A lift is a share of the way from the table layer to the lifted
+    layer, 0 to 1: 0 on the table, more when it is on top of other pieces."""
     corners = json.loads(CORNERS.read_text())
 
     def describe(box):  # where this box is on the table, for the model to reason with
@@ -88,7 +90,7 @@ def locate(frame, command=None, audio=None):
         return (f"centre u={sum(us) / 4:.2f} v={sum(vs) / 4:.2f}; "
                 f"spans u {min(us):.2f} to {max(us):.2f}, v {min(vs):.2f} to {max(vs):.2f}")
 
-    hits, said, boxes, placing, place = see.find_all(frame, command, audio, describe, GRID_ASPECT)
+    hits, said, boxes, placing, place, pick_height = see.find_all(frame, command, audio, describe, GRID_ASPECT)
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
     targets = []
@@ -103,8 +105,10 @@ def locate(frame, command=None, audio=None):
         problem = "I can't work out where to put it."
     elif placing and not (-EDGE <= place["u"] <= 1 + EDGE and -EDGE <= place["v"] <= 1 + EDGE):
         problem = "That spot is out of my reach."
-    spot = (place["u"], place["v"], STACK_LIFT if place["on_top"] else 0.0) if placing and not problem else None
-    return targets, said, spot, problem
+    elif max(pick_height, place["height_mm"] if placing else 0) > LAYER_GAP_MM:
+        problem = "That is stacked too high for me."
+    spot = (place["u"], place["v"], place["height_mm"] / LAYER_GAP_MM) if placing and not problem else None
+    return targets, said, spot, problem, pick_height / LAYER_GAP_MM
 
 
 def jaw_turn(frame, box, corners) -> float:
@@ -160,10 +164,10 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        targets, said, spot, problem = locate(frame, command, audio)
+        targets, said, spot, problem, lift = locate(frame, command, audio)
         target = targets[0] if len(targets) == 1 else None
-        if spot or problem:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
-            print("This script only hands things over. Use voice/route.py to put something down.")
+        if spot or problem or lift:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
+            print("This script only hands things over from the table. Use voice/route.py for stacks and putting down.")
         elif not targets:
             print(f"I can't see that. (heard: {said})")
         elif len(targets) > 1:  # never pick one silently: ask

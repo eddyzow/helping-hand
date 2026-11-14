@@ -19,6 +19,7 @@ home has the elbow at 127 degrees; the model stops at 97).
 import importlib
 import json
 import math
+import os
 import sys
 import threading
 from pathlib import Path
@@ -39,15 +40,21 @@ TOP_CAMERA = {"pos": (0.25, 0.0, 0.50), "fovy": 45.0}  # looks straight down; im
 
 # the taught grid, in metres on the table: x is away from the arm, y is to its left
 # Pointing straight down, this model reaches about 12 to 30 cm from its base and lifts about 5 cm.
-FAR, NEAR, LEFT, RIGHT = 0.235, 0.125, 0.145, -0.145  # the far right corner is out of reach beyond this
-GRASP_Z, CLEAR_Z = 0.010, 0.050  # gripper tip height when closing on a brick, and when carrying
+FAR, NEAR, LEFT, RIGHT = 0.235, 0.120, 0.145, -0.145  # the far right corner is out of reach beyond this
+GRASP_Z, CLEAR_Z = 0.004, 0.050  # gripper tip height when closing on a brick, and when carrying. At 10 mm only
+# the top of a 19 mm brick was between the jaws and two of seven pieces tipped out on the way to the handover.
 GRID_N = 9           # taught points per side. On the first, smaller grid: 3 was 7 mm off between points and
                      # grasps failed, 5 was under 2 mm. This grid is wider, so it uses 7.
 GRIP_OFFSET = 0.004  # the model's reference point is one jaw's tip; the brick sits this far toward the other.
                      # Measured here: a 32 mm brick is carried at 0 to 8 mm and dropped at -10 or +16.
-JAW_ACROSS = math.pi / 2   # every taught pose has the jaws closing left-right across the table
+JAW_ACROSS = -math.pi / 2  # the jaws close left-right, with the wrist camera on the far side: facing the other way,
+                            # the camera mount hits the shoulder near the middle of the table
 ROLL_TURNS_JAW = 1.0       # which way the roll joint turns the jaws on this model: 1 or -1
-JAW_ARM_MM = -16.0         # measured on this model: the point between the jaws is 16 mm off the wrist's turning axis
+# core/arm.py starts every move from the measured joints. A held brick stops the jaw at about 17 with a
+# command of 5, so each new move restarts the gripper command at 17: no squeeze just as the arm speeds up,
+# and the brick slips. True here keeps the squeeze; False shows what core/arm.py does today.
+KEEP_SQUEEZE = os.environ.get("KEEP_SQUEEZE", "1") == "1"
+JAW_ARM_MM = 16.0         # measured on this model: the point between the jaws is 16 mm off the wrist's turning axis
 HOME_DEG = [95, -95, 90, 70, 0, 20]      # folded to the side, out of the camera's view
 HANDOVER_DEG = [-50, -30, 30, 50, 0, 0]  # held out to the front right
 
@@ -55,7 +62,8 @@ RED, BLUE, PURPLE = "0.85 0.08 0.08 1", "0.25 0.62 0.72 1", "0.75 0.62 0.86 1"
 CREAM, LIME, BLACK = "0.93 0.89 0.82 1", "0.68 0.78 0.13 1", "0.06 0.06 0.06 1"
 GRIP = 'friction="2 0.1 0.01" condim="6"'
 
-# The Duplo set from photos/duplo_a.jpg: name, shape, colour, x, y, turn in degrees.
+# The Duplo set from photos/duplo_a.jpg: name, shape, colour, x, y, turn in degrees. This is the --fixed
+# layout; by default scatter() below moves every piece, the chassis and car body included, onto the grid.
 # Pieces sit about 10 cm apart: at 6 cm the open jaws knocked the neighbours on the way down.
 # Long pieces lie across the arm's reach so the jaws close on their 32 mm width. The chassis and the
 # car body sit beyond the taught grid: the camera sees them and fetch should refuse them.
@@ -71,6 +79,28 @@ PIECES = [
     ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]
 NAMES = [piece[0] for piece in PIECES]
+FOOTPRINT = {"2x2": (0.032, 0.032), "plate": (0.064, 0.032), "roof": (0.064, 0.032), "boat": (0.064, 0.032),
+             "chassis": (0.070, 0.054), "carbody": (0.100, 0.062)}  # length, width on the table, metres
+
+
+def scatter(rng) -> list:
+    """The same pieces at random places and turns, every centre on the taught grid (so in reach) and
+    no two closer than a gap. The gap starts at 3 cm and shrinks only if the table is too full."""
+    for gap in [g for g in (0.030, 0.025, 0.020, 0.015, 0.010, 0.005) for _ in range(30)]:  # 30 tries at each gap
+        placed = {}
+        for piece in sorted(PIECES, key=lambda p: -FOOTPRINT[p[1]][0] * FOOTPRINT[p[1]][1]):  # big ones first
+            length, width = FOOTPRINT[piece[1]]
+            for _ in range(500):
+                x, y, turn = rng.uniform(NEAR + 0.005, FAR - 0.005), rng.uniform(RIGHT + 0.005, LEFT - 0.005), rng.uniform(-90, 90)
+                rect = ((x * 1000, y * 1000), ((length + gap) * 1000, (width + gap) * 1000), turn)
+                if all(cv2.rotatedRectangleIntersection(rect, other)[0] == cv2.INTERSECT_NONE for other, _ in placed.values()):
+                    placed[piece[0]] = (rect, (*piece[:3], round(x, 4), round(y, 4), round(turn)))
+                    break
+            else:
+                break  # no room at this gap: start again with a smaller one
+        else:
+            return [placed[piece[0]][1] for piece in PIECES]
+    raise RuntimeError("could not fit the pieces on the table")
 
 
 def _studs(across: int, along: int, top: float, rgba: str) -> str:
@@ -182,6 +212,7 @@ class SimArm(MockArm):
     def __init__(self, view: bool = False):
         super().__init__()
         self.halt = _NoWait()
+        self.grip = None
         self.model = mujoco.MjModel.from_xml_string(scene_xml())
         self.data = mujoco.MjData(self.model)
         self.steps = max(1, round(1 / HZ / self.model.opt.timestep))
@@ -203,9 +234,13 @@ class SimArm(MockArm):
         self.settle(0.3)
 
     def _read(self) -> list[float]:
-        return to_team_units(self.data.qpos[:6])
+        joints = to_team_units(self.data.qpos[:6])
+        if KEEP_SQUEEZE and self.grip is not None:
+            joints[5] = self.grip  # start the next move from the gripper's last command, not where the brick stopped it
+        return joints
 
     def _write(self, joints: list[float]) -> None:
+        self.grip = joints[5]
         low, high = self.model.actuator_ctrlrange[:6].T
         self.data.ctrl[:6] = np.clip(to_radians(joints), low, high)
         mujoco.mj_step(self.model, self.data, self.steps)
@@ -325,8 +360,8 @@ def request(arm, args: list[str]) -> None:
             see.load_env()
             pick.CORNERS = SIM_POSES / "table_corners.json"
             pick.GRID_ASPECT = (LEFT - RIGHT) / (FAR - NEAR)
-            pick.STACK_LIFT = 0.0192 / (CLEAR_Z - GRASP_Z)  # one Duplo brick high
-            targets, said, spot, problem = pick.locate(arm.top_view(), command=" ".join(args))
+            pick.LAYER_GAP_MM = 1000 * (CLEAR_Z - GRASP_Z)
+            targets, said, spot, problem, lift = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2), f"turn {turn:.0f}") for u, v, label, turn in targets])
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
@@ -334,10 +369,10 @@ def request(arm, args: list[str]) -> None:
             if problem:
                 print(f"Not moving: {problem}")
                 return
-            params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
+            params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3], "lift": lift}
             if spot:
                 params["to_u"], params["to_v"], params["to_lift"] = spot
-                print(f"  putting it at u={spot[0]:.2f} v={spot[1]:.2f}, {'on top' if spot[2] else 'on the table'}")
+                print(f"  putting it at u={spot[0]:.2f} v={spot[1]:.2f}, {f'{spot[2] * pick.LAYER_GAP_MM:.0f} mm up' if spot[2] else 'on the table'}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 
     lifted = dict(before)
@@ -379,6 +414,15 @@ def main() -> None:
     args = sys.argv[1:]
     view = "--view" in args
     args = [a for a in args if a != "--view"]
+    if "--fixed" in args:  # the original two rows, for comparing runs
+        args.remove("--fixed")
+    else:
+        import random
+
+        seed = int(args.pop(args.index("--seed") + 1)) if "--seed" in args else random.randrange(10000)
+        args = [a for a in args if a != "--seed"]
+        PIECES[:] = scatter(random.Random(seed))
+        print(f"Random layout {seed}. Same again: add --seed {seed}. The two tidy rows: add --fixed.")
     if not (MODEL / "so101.xml").exists():
         sys.exit("No arm model. Run: python keypad/geometry_dash/fetch_so101_model.py")
     OUT.mkdir(exist_ok=True)

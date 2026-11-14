@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 11:08 AM.
+Updated Sat Nov 14, 11:43 AM.
 
 ## Working on now
 
@@ -171,3 +171,12 @@ Eddy: "your system looks like it uses hardcoded keywords. that wont work if we a
 - Known: a box at the robot's own base was once picked as "the triangle brick"; the prompt now says boxes at v above 1 are the robot.
 
 - For Daniel's reviewer: I changed four of your tests to follow this rewrite. `tests/test_placement_options.py`: the two `drop_spot` checks are gone with the function; the fetch `to_lift` and `hold` checks are kept. `tests/test_perception_boundaries.py`: the chooser check now covers `put_down` plus `place`, and the standalone check covers a place, a problem, and a plain handover. All ten modules in `tests/` print ok.
+
+## Simulator findings that matter on the real arm, Sat Nov 14, 11:43 AM
+
+- Daniel, when teaching the table grid: put the jaw tips almost on the table (3 to 6 mm up). With the tips 10 mm up, only the top of a 19 mm brick was between the jaws and two of seven simulated pieces tipped out during the swing to the handover; at 3 to 6 mm, six of seven were carried (the thin white plate still is not).
+- Daniel: check which way round the wrist is when you teach. In the model, with the jaws one way round the wrist camera mount hits the arm's own shoulder for targets near the middle of the table, 12 to 16 cm out; the other way round, nothing collides anywhere on the grid. That was why the blue brick was never lifted.
+- I tested my earlier worry that `core/arm.py` relaxes the squeeze at the start of each move: in the simulator, keeping the squeeze made no difference to the drops, so it is lower priority than I said. `KEEP_SQUEEZE=0` in `sim.py` shows today's behaviour.
+- Stacks: the chooser now returns heights in mm (`pick_height_mm`, `place.height_mm`), and fetch takes `lift` (grasp height) and `to_lift` (release height), both as a share of the way from the table layer to the lifted layer. `pick.LAYER_GAP_MM` (default 40) must be measured on the real grid. `STACK_LIFT` and `on_top` are gone.
+- Simulated: a brick onto a plate works. A second brick onto that stack is carried to the right height (29 mm) but knocks the stack on release; not solved. Picking a brick off a stack went to the wrong piece once.
+- `sim.py` now starts with a random layout, all nine pieces with their centres on the grid; `--seed N` repeats one, `--fixed` gives the two tidy rows. With nine pieces in a 29 by 11.5 cm grid they sit 0.5 to 3 cm apart, so the open jaws do knock neighbours.

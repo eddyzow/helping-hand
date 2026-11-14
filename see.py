@@ -50,29 +50,33 @@ means smaller v, "in front of" it means larger v, "left" smaller u, "right" larg
 and boxes at v above 1 are usually parts of the robot itself: never pick those or put things there.
 The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showing its hollow
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
-three round holes in a row. One box may hold two touching pieces.
+three round holes in a row. One box may hold two touching pieces, or one piece stacked on another.
+A Duplo brick is 19 mm tall and a flat plate is 10 mm; pieces stacked on each other add up.
 The person said: "{command}"
 
 "matches": the numbered objects they asked to pick up. Use the positions to settle words such as left,
 right, closest, farthest, middle. A different kind of object does not fit. If several fit equally and
 the words do not settle it, list them all; but if they ask for "a" or "any" such object, choose one.
 
+"pick_height_mm": how far above the table the bottom of the picked object is now: 0 if it rests on the
+table, otherwise the total height of the pieces under it.
+
 If they also said where to put it, "put_down" is true and "place" is where the CENTRE of the picked
-object should end up:
-- On another object ("on", "onto", "on top of"): "on_top" is true, and u, v lie inside that object's
-  span. A named part of it, such as "the far right end of the green brick", means against that end,
+object should end up, with "height_mm" the height of the surface it will rest on: 0 for the table,
+otherwise the total height of everything that will be under it (a brick on a plate is 29).
+- On another object ("on", "onto", "on top of"): u, v lie inside that object's span. A named part of it, such as "the far right end of the green brick", means against that end,
   moved in by half the picked object's own size so it does not hang over the edge.
-- Beside another object ("next to", "left of", "behind", ...): "on_top" is false; go to the side they
+- Beside another object ("next to", "left of", "behind", ...): on the table; go to the side they
   named, or with no side named the side the picked object is on now. Leave a gap of about half the
   picked object's size between the two, and do not overlap any other object's span.
-- A spot on the table ("the front left corner", "the middle"): those coordinates, "on_top" false.
-Unless "on_top" is true, the picked object's span at the new place must not overlap any other
+- A spot on the table ("the front left corner", "the middle"): those coordinates.
+When it goes on the table, the picked object's span at the new place must not overlap any other
 object's span: if the spot they named is taken, use the nearest free spot to it.
 Keep u and v between 0.05 and 0.95. If the place they named is not there, or you cannot tell which
 object they mean, "place" is null.
 
-Return only JSON: {{"matches": [numbers], "put_down": true or false,
-"place": {{"u": number, "v": number, "on_top": true or false}} or null}}. Use [] when nothing fits."""
+Return only JSON: {{"matches": [numbers], "pick_height_mm": number, "put_down": true or false,
+"place": {{"u": number, "v": number, "height_mm": number}} or null}}. Use [] when nothing fits."""
 
 
 def load_env():
@@ -213,8 +217,9 @@ def numbered(frame, boxes):
 def choose(frame, boxes, command, describe=None, aspect=1.0):
     """Which boxes match the request, and where should the object be put?
     describe(box) gives the box's position on the table as text, so the model can work with it.
-    Returns (indexes to pick up, placing, place): placing says whether the person asked to put it
-    somewhere; place is {"u", "v", "on_top"} or None when that could not be worked out."""
+    Returns (indexes to pick up, placing, place, pick_height): placing says whether the person asked
+    to put it somewhere; place is {"u", "v", "height_mm"} or None when that could not be worked out;
+    pick_height is how many mm above the table the picked object sits now."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
@@ -226,16 +231,18 @@ def choose(frame, boxes, command, describe=None, aspect=1.0):
 
 
 def to_choice(answer, count):
-    """The chooser's reply -> (picked indexes, placing, place). A reply without a true/false
-    "put_down" is malformed: nothing is picked, so nothing moves. A place that is not two finite
-    numbers and a true/false comes back as None, which the caller must refuse, never hand over."""
-    if not (isinstance(answer, dict) and isinstance(answer.get("put_down"), bool)):
-        return [], False, None
+    """The chooser's reply -> (picked indexes, placing, place, pick_height). A reply without a
+    true/false "put_down" and a pick height of 0 or more is malformed: nothing is picked, so nothing
+    moves. A place that is not three finite numbers comes back as None, which the caller must refuse,
+    never hand over."""
+    height = answer.get("pick_height_mm") if isinstance(answer, dict) else None
+    if not (isinstance(answer, dict) and isinstance(answer.get("put_down"), bool) and _number(height) and height >= 0):
+        return [], False, None, 0.0
     place = answer.get("place")
-    if not (isinstance(place, dict) and _number(place.get("u")) and _number(place.get("v"))
-            and isinstance(place.get("on_top"), bool)):
+    if not (isinstance(place, dict) and all(_number(place.get(k)) for k in ("u", "v", "height_mm"))
+            and place["height_mm"] >= 0):
         place = None
-    return to_matches(answer, count), answer["put_down"] or place is not None, place
+    return to_matches(answer, count), answer["put_down"] or place is not None, place, float(height)
 
 
 def long_axis(frame, box):
@@ -268,9 +275,9 @@ def long_axis(frame, box):
 
 
 def find_all(frame, command=None, audio_path=None, describe=None, aspect=1.0):
-    """Every object that matches the request. Returns (hits, said, boxes, placing, place): hits are
-    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; placing and
-    place are as in choose()."""
+    """Every object that matches the request. Returns (hits, said, boxes, placing, place, pick_height):
+    hits are (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; the
+    rest are as in choose()."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -278,11 +285,11 @@ def find_all(frame, command=None, audio_path=None, describe=None, aspect=1.0):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes, False, None
+        return [], command, boxes, False, None, 0.0
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
                         boxes[i]["label"], boxes[i])
-    picked, placing, place = choose(frame, boxes, command, describe, aspect)
-    return [centre(i) for i in picked], command, boxes, placing, place
+    picked, placing, place, pick_height = choose(frame, boxes, command, describe, aspect)
+    return [centre(i) for i in picked], command, boxes, placing, place, pick_height
 
 
 def find(frame, command=None, audio_path=None):
@@ -327,13 +334,15 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
-    spot = {"u": 0.4, "v": 0.6, "on_top": True}
-    assert to_choice({"matches": [1], "put_down": False, "place": None}, 3) == ([0], False, None)
-    assert to_choice({"matches": [1], "put_down": True, "place": spot}, 3) == ([0], True, spot)
-    assert to_choice({"matches": [1], "put_down": True, "place": None}, 3) == ([0], True, None)
-    for bad in [{"u": "0.4", "v": 0.6, "on_top": True}, {"u": 0.4, "v": float("nan"), "on_top": True},
-                {"u": 0.4, "v": 0.6, "on_top": 1}, [0.4, 0.6]]:
-        assert to_choice({"matches": [1], "put_down": True, "place": bad}, 3) == ([0], True, None), bad
-    for bad in [{"matches": [1]}, {"matches": [1], "put_down": "true"}, [1], None]:
-        assert to_choice(bad, 3) == ([], False, None), bad  # a missing or non-boolean flag never becomes a handover
+    spot = {"u": 0.4, "v": 0.6, "height_mm": 19}
+    ok = {"matches": [1], "pick_height_mm": 0}
+    assert to_choice({**ok, "put_down": False, "place": None}, 3) == ([0], False, None, 0.0)
+    assert to_choice({**ok, "put_down": True, "place": spot, "pick_height_mm": 10}, 3) == ([0], True, spot, 10.0)
+    assert to_choice({**ok, "put_down": True, "place": None}, 3) == ([0], True, None, 0.0)
+    for bad in [{"u": "0.4", "v": 0.6, "height_mm": 0}, {"u": 0.4, "v": float("nan"), "height_mm": 0},
+                {"u": 0.4, "v": 0.6, "height_mm": -1}, {"u": 0.4, "v": 0.6}, [0.4, 0.6]]:
+        assert to_choice({**ok, "put_down": True, "place": bad}, 3) == ([0], True, None, 0.0), bad
+    for bad in [{"matches": [1], "pick_height_mm": 0}, {**ok, "put_down": "true"}, {"matches": [1], "put_down": False},
+                {"matches": [1], "put_down": False, "pick_height_mm": -5}, [1], None]:
+        assert to_choice(bad, 3) == ([], False, None, 0.0), bad  # a malformed reply never becomes a handover
     main()
