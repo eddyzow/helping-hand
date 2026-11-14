@@ -50,6 +50,7 @@ MAX_STEP = 15.0          # LeRobot's own per-command limit, in degrees
 EASE_S = 3.0             # at the start and after a hold the follower glides to the leader over this long
 WINDOW_S = 4.0           # how much history the tremor measurement looks at
 GRIP_FLOOR = 4.0         # the follower's claw is never commanded tighter than this (0 to 100)
+GRIP_SQUEEZE = 6.0       # nor more than this far past where the jaws really are: that bounds the grip effort
 ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
@@ -163,6 +164,10 @@ def main() -> None:
     follower = SO101Follower(SO101FollowerConfig(
         port=os.environ.get("FOLLOWER_PORT", "COM3"), id="follower", max_relative_target=MAX_STEP))
     leader = SO101Leader(SO101LeaderConfig(port=os.environ.get("LEADER_PORT", "COM4"), id="leader"))
+    # An arm that holds is safer than an arm that drops. So on ANY exit the follower's motors stay on,
+    # unless a person at the keyboard confirms they are holding it (the prompt in the clean shutdown).
+    follower.config.disable_torque_on_disconnect = False
+    clean = False
     ask("The follower's motors switch off and on while connecting. Hold it or check it is resting, then Enter. ")
     follower.connect()
     leader.connect()
@@ -191,11 +196,18 @@ def main() -> None:
             OFFSETS.write_text(json.dumps({k: round(float(follow[k]) - float(lead[k]), 2) for k in KEYS}, indent=1))
             follower.bus.enable_torque()
             ask("The follower is holding again. Let go of it, take the leader, then Enter to start. ")
-        offset = np.array([json.loads(OFFSETS.read_text())[k] for k in KEYS])
+        offset = np.array([float(json.loads(OFFSETS.read_text())[k]) for k in KEYS])
+        if not np.all(np.isfinite(offset)):   # checked before anything is sent to the arm
+            raise ValueError(f"{OFFSETS} holds a value that is not a number; run steady.py --measure again")
 
         def read_leader():
+            """The leader's six joints in the follower's terms. Raises if any is not a finite number:
+            a bad reading must never become a command."""
             action = leader.get_action()
-            return np.array([float(action[k]) for k in KEYS]) + offset
+            joints = np.array([float(action[k]) for k in KEYS]) + offset
+            if not np.all(np.isfinite(joints)):
+                raise ValueError(f"the leader sent a reading that is not a number: {joints}")
+            return joints
 
         observation = follower.get_observation()
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
@@ -211,27 +223,33 @@ def main() -> None:
             if seconds is not None and now - began > seconds:
                 break
             dt, last = max(1e-3, now - last), now
-            with lock:
-                steady, hold, cutoff = state["steady"], state["hold"], state["cutoff"]
-            raw = read_leader()
+            raw = read_leader()   # this can block for a moment, so the keys are read AFTER it, not before
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
                 raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
+            with lock:
+                steady, hold, cutoff = state["steady"], state["hold"], state["cutoff"]
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
-            want = filtered if steady else raw
-            if hold:
-                want = sent
-            elif was_hold:  # coming out of a hold: glide back to the hand, do not jump
-                ease_from, ease_start = now, sent.copy()
+            if not hold:   # while held, the target does not change at all: no easing, no stepping
+                want = filtered if steady else raw
+                if was_hold:  # coming out of a hold: glide back to the hand, do not jump
+                    ease_from, ease_start = now, sent.copy()
+                share = min(1.0, (now - ease_from) / EASE_S)
+                if share < 1.0:
+                    want = ease_start + (want - ease_start) * share
+                step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
+                moved = sent + step
+                with lock:   # a stop that arrived while this was being worked out still wins
+                    hold = state["hold"]
+                if not hold:
+                    sent = moved
             was_hold = hold
-            share = min(1.0, (now - ease_from) / EASE_S)
-            if share < 1.0:
-                want = ease_start + (want - ease_start) * share
-            step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
-            sent = sent + step
             # never drive the claw hard into its closed stop: at 0 it pressed at 98 % load the whole
             # time the leader's claw was shut (first real run), which only heats the motor
-            sent[5] = min(100.0, max(GRIP_FLOOR, sent[5]))
+            # Second real run: with a floor of 4 the claw still pressed at 98 %, because the jaws meet
+            # a little above 4. So the squeeze itself is capped: the claw is never told to be more
+            # than GRIP_SQUEEZE tighter than where it really is, whatever it is closing on.
+            sent[5] = min(100.0, max(GRIP_FLOOR, float(observation["gripper.pos"]) - GRIP_SQUEEZE, sent[5]))
             # the follower's elbow stops at about +65 (its calibration range is stored in the motor as
             # a limit). Asking for more does nothing but lag and a warning on every tick.
             if sent[2] > ELBOW_MAX:
@@ -283,14 +301,24 @@ def main() -> None:
                           f"{tremor_hz:4.1f} Hz -> arm {out_mm:5.1f} mm ({removed:3.0f}% removed)  grip {effort.get('gripper', 0):4.1f}%",
                           flush=True)
             time.sleep(max(0.0, 1.0 / HZ - (time.perf_counter() - now)))
+        clean = True
     except KeyboardInterrupt:
-        pass
+        clean = True
     finally:
-        try:      # whatever goes wrong with the files, the arms are still let go below
+        try:      # whatever goes wrong with the files, the arms are still dealt with below
             log.close()
             save_history()
         finally:
-            ask("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
+            # The motors are switched off ONLY after a normal stop AND a person at the keyboard saying
+            # they have the arm. After a fault, or with --yes (nobody there), they stay on and holding.
+            if clean and "--yes" not in sys.argv:
+                try:
+                    input("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
+                    follower.config.disable_torque_on_disconnect = True
+                except (EOFError, KeyboardInterrupt):
+                    pass
+            if not follower.config.disable_torque_on_disconnect:
+                print("The follower's motors stay ON and holding. Hold the arm and cut its power, or start steady.py again.", flush=True)
             try:
                 leader.disconnect()
             finally:
