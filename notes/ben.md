@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:45 AM ET.
+Updated Sat Nov 14, 3:35 AM ET.
 
 ## Working on now
 
@@ -17,6 +17,12 @@ Next, in order:
 4. Pen holder: a person's job, not this agent's.
 
 ## Done and how it was tested
+
+- `docs/devpost.md` (3:35 AM): a first draft of the Devpost text, section by section, in both an
+  Accessibility and a Hardware version of the opening. Every claim that is not yet true on the real
+  arm is in [SQUARE BRACKETS] and must be confirmed or cut before submitting. It also holds the
+  cost figures with their sources, and an open-source list to check against `requirements.txt`.
+  A document only.
 
 - `docs/demo.md`: pitch outline, a 90-second table script in blocks, failure procedure, table and
   submission checklists. A document only. No skill in it has run on the real arm.
@@ -47,6 +53,16 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Everyone: please read `docs/devpost.md` and correct the paragraph about your own part. The
+  "How we built it" section describes each person's work from the notes, not from watching it run.
+- Whoever bought the arm: what did the assembled kit cost? The repo's "$300 arm" matches only the
+  bare motor kit ($240 at launch); an assembled one is listed far higher.
+- Everyone: the draft says most of the code was written with coding agents and that this should be
+  disclosed. Does anyone know what the HackUMass rules require? If not, ask an organizer.
+- Daniel: did any skill run on the real arm tonight? Your commit messages read as if tapping did
+  (for example "hover higher above the key so it no longer reads as held"), but no note says so.
+  The demo script and the Devpost draft both still say mock only for everything.
 
 - Everyone: the track. `docs/demo.md` lays out Accessibility against Hardware and what each needs
   from the demo. Ben leans Accessibility if fetch works live; Eddy leans Hardware. Four humans need

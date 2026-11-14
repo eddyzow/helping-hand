@@ -28,8 +28,11 @@ not a measurement. Eddy leans Hardware (`notes/eddy.md`).
 1. Who it is for, in one sentence. Draft: "Some people cannot reach, grip or write. This arm does
    those things when you press one key or say one sentence."
 2. What it is: one low-cost arm, one dispatcher, a library of skills, a stop key that always works.
-3. Cost line. TO VERIFY before judging: what our kit cost, and the price of one commercial
-   assistive feeding or fetching device. Do not say a number we have not looked up.
+3. Cost line. Looked up at 3:30 AM, with sources in `docs/devpost.md`: the bare motor kit for this
+   arm launched at $240; a robotic feeding device is listed around $8,200 to $9,600; a
+   wheelchair-mounted assistive arm was reported at about $35,000. Still to find out: what our
+   assembled kit actually cost, which is likely well over $240. Do not say "$300 arm" and do not
+   say it replaces those devices.
 4. What is honest: which skills are hard-coded and which use the camera. Say it before a judge asks.
 
 ## Table script (target 90 seconds, each block stands alone)
