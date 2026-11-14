@@ -4,7 +4,7 @@
     python -m core.dispatcher            # real follower: its motors switch on
 
 Type a command, or send it as one line to TCP port 8765 (the keypad and voice scripts do this):
-    run <skill> [json params]   |   stop   |   home   |   cue   |   ready   |   list
+    run <skill> [json params]   |   stop   |   home   |   status   |   cue   |   ready   |   list
 To quit: type home, wait for it to finish, then Ctrl+C. Quitting never moves the arm: it stops,
 then asks you to hold the arm before the motors switch off.
 """
@@ -25,6 +25,7 @@ _arm = None
 _worker = None
 _lock = threading.Lock()
 _closing = False  # set by shutdown(): no new skill may start after it
+_last = {}        # the last finished skill and its result, for `status`
 
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it
@@ -74,6 +75,8 @@ def _run(skill, params: dict) -> None:
         result = skill.run(_arm, params, _arm.halt)
     except Exception as err:  # a broken skill must not kill the dispatcher; the arm holds where it is
         result = {"ok": False, "reason": f"{type(err).__name__}: {err}"}
+    global _last
+    _last = {"skill": skill.NAME, **result}
     print(f"[{skill.NAME}] {result}", flush=True)
 
 
@@ -111,6 +114,8 @@ def handle(line: str):
         return stop_all()
     if command == "list":
         return list_skills()
+    if command == "status":
+        return {"ok": True, "busy": bool(_worker and _worker.is_alive()), "last": _last}
     if command == "home":
         return dispatch("home")
     if command == "key":  # the keypad listener reports the jump key: "key down" / "key up"

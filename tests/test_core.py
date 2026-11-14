@@ -303,12 +303,15 @@ def test_cli_cue():
                 break
             time.sleep(0.1)
         assert ask("ready")["ok"] is True
+        assert ask("status")["busy"] is True
         assert ask("cue")["ok"] is True
         line = ""
         while "[geometry_dash] {" not in line:
             line = proc.stdout.readline()
             assert line, "dispatcher exited before the replay finished"
         assert "'ok': True" in line, line
+        done = ask("status")
+        assert done["busy"] is False and done["last"]["skill"] == "geometry_dash" and done["last"]["ok"] is True
     finally:
         proc.stdin.close()
         proc.wait(10)
