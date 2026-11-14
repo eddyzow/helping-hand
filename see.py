@@ -46,7 +46,10 @@ numbered badge. The objects (the detector's guess at what each is may be wrong; 
 Positions are on the robot's table grid. u runs from the robot's left (0) to its right (1). v runs from
 the far edge (0) to the edge nearest the robot (1); the robot sits beyond v = 1. So "behind" an object
 means smaller v, "in front of" it means larger v, "left" smaller u, "right" larger u. One unit of u is
-{aspect} times as long on the table as one unit of v. Anything outside 0 to 1 is beyond the robot's reach,
+{aspect} times as long on the table as one unit of v. Each object also has its distance from the
+robot: "closest", "nearest" and "farthest" mean by that number, unless they name something else to be
+close to. For those words pick the single object with the smallest (or largest) number, however small
+the difference. Anything outside 0 to 1 is beyond the robot's reach,
 and boxes at v above 1 are usually parts of the robot itself: never pick those or put things there.
 The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showing its hollow
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
@@ -63,7 +66,8 @@ table, otherwise the total height of the pieces under it.
 
 If they also said where to put it, "put_down" is true and "place" is where the CENTRE of the picked
 object should end up, with "height_mm" the height of the surface it will rest on: 0 for the table,
-otherwise the total height of everything that will be under it (a brick on a plate is 29).
+otherwise the total height of everything that will be under it (a brick on a plate is 29). "onto" is
+the number of the object it will rest on, or null when it goes on the table.
 - On another object ("on", "onto", "on top of"): u, v lie inside that object's span. A named part of it, such as "the far right end of the green brick", means against that end,
   moved in by half the picked object's own size so it does not hang over the edge.
 - Beside another object ("next to", "left of", "behind", ...): on the table; go to the side they
@@ -76,7 +80,8 @@ Keep u and v between 0.05 and 0.95. If the place they named is not there, or you
 object they mean, "place" is null.
 
 Return only JSON: {{"matches": [numbers], "pick_height_mm": number, "put_down": true or false,
-"place": {{"u": number, "v": number, "height_mm": number}} or null}}. Use [] when nothing fits."""
+"place": {{"u": number, "v": number, "height_mm": number, "onto": number or null}} or null}}.
+Use [] when nothing fits."""
 
 
 def load_env():
@@ -124,12 +129,18 @@ def record_wav():
 
 
 def parse_reply(text):
-    """Pull the JSON object or list out of the reply, which may be wrapped in a code fence."""
-    match = re.search(r"\[.*\]|\{.*\}", text, re.S)
-    try:
-        return json.loads(match.group(0)) if match else {}
-    except ValueError:
-        return {}  # a malformed reply counts as "nothing found", never as a guess
+    """Pull the JSON object or list out of the reply. The model may explain itself first, with brackets
+    in the explanation, so in order: a fenced block, then the widest [...] or {...}, whichever opens
+    first in the text, then the other."""
+    spans = sorted((text.find(opener), opener, closer) for opener, closer in ("[]", "{}") if opener in text)
+    tries = re.findall(r"```(?:json)?\s*(.*?)```", text, re.S)[::-1]
+    tries += [text[at:text.rfind(closer) + 1] for at, _, closer in spans]
+    for found in tries:
+        try:
+            return json.loads(found)
+        except ValueError:
+            pass
+    return {}  # a malformed reply counts as "nothing found", never as a guess
 
 
 def ask_claude(prompt, jpg=None, model=None, max_tokens=2000):
@@ -240,7 +251,8 @@ def to_choice(answer, count):
         return [], False, None, 0.0
     place = answer.get("place")
     if not (isinstance(place, dict) and all(_number(place.get(k)) for k in ("u", "v", "height_mm"))
-            and place["height_mm"] >= 0):
+            and place["height_mm"] >= 0 and "onto" in place
+            and (place["onto"] is None or type(place["onto"]) is int and 1 <= place["onto"] <= count)):
         place = None
     return to_matches(answer, count), answer["put_down"] or place is not None, place, float(height)
 
@@ -289,6 +301,8 @@ def find_all(frame, command=None, audio_path=None, describe=None, aspect=1.0):
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
                         boxes[i]["label"], boxes[i])
     picked, placing, place, pick_height = choose(frame, boxes, command, describe, aspect)
+    if place and place["onto"]:
+        place = {**place, "box": boxes[place["onto"] - 1]}  # the object it goes on, so the caller can line up with it
     return [centre(i) for i in picked], command, boxes, placing, place, pick_height
 
 
@@ -324,6 +338,10 @@ def main():
 if __name__ == "__main__":
     assert parse_reply('```json\n{"matches": [2, 5]}\n```')["matches"] == [2, 5]
     assert parse_reply("nothing here") == {}
+    assert parse_reply('Object 8 (spans [0.1 to 0.2]) fits.\n```json\n{"matches": [8]}\n```') == {"matches": [8]}
+    assert parse_reply('It spans [0.1 to 0.2]. {"matches": [8]}') == {"matches": [8]}
+    assert parse_reply('[{"box_2d": [1, 2, 3, 4]}]') == [{"box_2d": [1, 2, 3, 4]}]  # a one-object list stays a list
+    assert parse_reply('[{"box_2d": [1, 2, 3, 4]}, {"box_2d": [5, 6, 7, 8]}]')[1]["box_2d"] == [5, 6, 7, 8]
     # malformed model replies produce no target
     good = {"box_2d": [100, 200, 300, 400], "label": "brick"}
     assert to_boxes([good], 1000, 1000) == [{"x0": 200, "y0": 100, "x1": 400, "y1": 300, "label": "brick"}]
@@ -334,13 +352,14 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
-    spot = {"u": 0.4, "v": 0.6, "height_mm": 19}
+    spot = {"u": 0.4, "v": 0.6, "height_mm": 19, "onto": 2}
     ok = {"matches": [1], "pick_height_mm": 0}
     assert to_choice({**ok, "put_down": False, "place": None}, 3) == ([0], False, None, 0.0)
     assert to_choice({**ok, "put_down": True, "place": spot, "pick_height_mm": 10}, 3) == ([0], True, spot, 10.0)
     assert to_choice({**ok, "put_down": True, "place": None}, 3) == ([0], True, None, 0.0)
-    for bad in [{"u": "0.4", "v": 0.6, "height_mm": 0}, {"u": 0.4, "v": float("nan"), "height_mm": 0},
-                {"u": 0.4, "v": 0.6, "height_mm": -1}, {"u": 0.4, "v": 0.6}, [0.4, 0.6]]:
+    assert to_choice({**ok, "put_down": True, "place": {**spot, "onto": None}}, 3)[2]["onto"] is None
+    for bad in [{**spot, "u": "0.4"}, {**spot, "v": float("nan")}, {**spot, "height_mm": -1}, {"u": 0.4, "v": 0.6},
+                {"u": 0.4, "v": 0.6, "height_mm": 0}, {**spot, "onto": 9}, {**spot, "onto": "2"}, [0.4, 0.6]]:
         assert to_choice({**ok, "put_down": True, "place": bad}, 3) == ([0], True, None, 0.0), bad
     for bad in [{"matches": [1], "pick_height_mm": 0}, {**ok, "put_down": "true"}, {"matches": [1], "put_down": False},
                 {"matches": [1], "put_down": False, "pick_height_mm": -5}, [1], None]:
