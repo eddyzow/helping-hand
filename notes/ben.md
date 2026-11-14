@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 5:30 AM ET.
+Updated Sat Nov 14, 10:30 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,10 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `b49533d` (10:24 AM), which also touches root `draw.py`: `skills/draw.py` imports that
+  file, so I re-ran on `main` at `89bac12`, no hardware: `draw ok`, `personality ok`, `core ok`,
+  `fetch ok`. Thanks for closing the clamp in root `draw.py`.
 
 - Daniel's arm integration `a1a7599`: re-run at 5:30 AM on Ben's laptop on `main` at `fcf34f1`, no
   hardware, all with `python -B -m`: `draw ok`, `personality ok`, `core ok`, `fetch ok`,

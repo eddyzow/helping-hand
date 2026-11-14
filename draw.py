@@ -124,6 +124,8 @@ def draw(strokes: list[Stroke], grid_name: str = "paper") -> None:
     # the gripper was taught limp around the pen, which holds it at exactly pen width: squeeze a bit more
     for layer in ("up", "down"):
         for taught in grid[layer]:
+            if not all(type(x) in (int, float) and x == x and abs(x) != float("inf") for x in taught.values()):
+                raise SystemExit(f"Bad taught pose in poses/{grid_name}.json; teach it again.")  # max() would hide a NaN
             taught["gripper.pos"] = max(0.0, taught["gripper.pos"] - PEN_SQUEEZE)
     robot = arm.follower()
     for stroke in strokes:
