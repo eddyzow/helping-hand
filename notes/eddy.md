@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 11:43 AM.
+Updated Sat Nov 14, 12:24 PM.
 
 ## Working on now
 
@@ -180,3 +180,12 @@ Eddy: "your system looks like it uses hardcoded keywords. that wont work if we a
 - Stacks: the chooser now returns heights in mm (`pick_height_mm`, `place.height_mm`), and fetch takes `lift` (grasp height) and `to_lift` (release height), both as a share of the way from the table layer to the lifted layer. `pick.LAYER_GAP_MM` (default 40) must be measured on the real grid. `STACK_LIFT` and `on_top` are gone.
 - Simulated: a brick onto a plate works. A second brick onto that stack is carried to the right height (29 mm) but knocks the stack on release; not solved. Picking a brick off a stack went to the wrong piece once.
 - `sim.py` now starts with a random layout, all nine pieces with their centres on the grid; `--seed N` repeats one, `--fixed` gives the two tidy rows. With nine pieces in a 29 by 11.5 cm grid they sit 0.5 to 3 cm apart, so the open jaws do knock neighbours.
+
+## Lining up when stacking, Sat Nov 14, 12:24 PM
+
+- Eddy saw a brick put onto another land turned and slide off. Fix: the chooser names the piece it goes onto (`place.onto`), `pick.locate` reads that piece's direction from the image, and fetch takes `to_turn` so the wrist is turned to match it at release. On the table it keeps the turn it was picked up with. `pick.locate`'s place is now `(u, v, lift, turn)`.
+- This also fixed the second layer: without the turn at release, the second brick knocked the stack every time; with it, blue on purple on the white plate stands (blue resting 28 mm up), both with exact positions and through the camera.
+- "Closest" went to the farthest piece once. Each object's distance from the robot is now in the text the chooser gets (`pick.ROBOT_UV`, default u 0.5, v 1.6: measure where the arm's base is relative to the taught grid). Two runs since: both picked the nearer red piece.
+- `see.parse_reply` used to return nothing when Claude explained itself with brackets before the JSON, which showed up as "0 match" on some runs. It now tries a fenced block first, then the widest list or object.
+- Random layouts, purple onto green: placed and lined up on seeds 3 and 11. On seed 11 the car body was knocked while reaching past it; pieces are close together in random layouts.
+- All ten modules in `tests/` print ok. `tests/test_perception_boundaries.py` was edited again for the `onto` field.

@@ -361,6 +361,7 @@ def request(arm, args: list[str]) -> None:
             pick.CORNERS = SIM_POSES / "table_corners.json"
             pick.GRID_ASPECT = (LEFT - RIGHT) / (FAR - NEAR)
             pick.LAYER_GAP_MM = 1000 * (CLEAR_Z - GRASP_Z)
+            pick.ROBOT_UV = (0.5, FAR / (FAR - NEAR))  # the arm's base is at x = 0, y = 0
             targets, said, spot, problem, lift = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2), f"turn {turn:.0f}") for u, v, label, turn in targets])
             if len(targets) != 1:
@@ -371,7 +372,7 @@ def request(arm, args: list[str]) -> None:
                 return
             params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3], "lift": lift}
             if spot:
-                params["to_u"], params["to_v"], params["to_lift"] = spot
+                params["to_u"], params["to_v"], params["to_lift"], params["to_turn"] = spot
                 print(f"  putting it at u={spot[0]:.2f} v={spot[1]:.2f}, {f'{spot[2] * pick.LAYER_GAP_MM:.0f} mm up' if spot[2] else 'on the table'}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 

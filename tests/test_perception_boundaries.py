@@ -29,7 +29,7 @@ def test_chooser_flag():
         "json": json, "re": re, "detect": lambda frame: boxes}
     functions("see.py", {"parse_reply", "_number", "to_matches", "to_choice", "choose", "find_all"}, scope)
     scope["math"] = __import__("math")
-    spot = {"u": .4, "v": .6, "height_mm": 19}
+    spot = {"u": .4, "v": .6, "height_mm": 19, "onto": None}
     malformed = [{"matches": [1], "place": spot, "pick_height_mm": 0}, {"matches": [1], "place": spot, "put_down": True}]
     malformed += [{"matches": [1], "place": spot, "pick_height_mm": 0, "put_down": value}
                   for value in (None, "true", 0, 1, [], {})]
@@ -38,7 +38,7 @@ def test_chooser_flag():
         with contextlib.redirect_stderr(io.StringIO()):
             hits, _, _, placing, place, _ = scope["find_all"](frame, "put roof next to purple")
         assert hits == [] and not placing and place is None, (answer, hits, placing, place)
-    bad_place = {"u": "0.4", "v": .6, "height_mm": 19}
+    bad_place = {"u": "0.4", "v": .6, "height_mm": 19, "onto": None}
     for flag, given, placing_expected, place_expected in (
             (False, None, False, None), (True, None, True, None), (True, bad_place, True, None), (True, spot, True, spot)):
         scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "pick_height_mm": 0, "put_down": flag, "place": given})

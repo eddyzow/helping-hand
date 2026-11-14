@@ -78,7 +78,7 @@ def locate(thing: str) -> tuple[list[dict], str | None]:
     if len(found) == 1 and lift:  # it sits on top of other pieces: grasp it up there
         found[0].update(lift=round(lift, 3))
     if len(found) == 1 and spot:  # "put it on the green brick": add where to put it down
-        found[0].update(to_u=round(spot[0], 3), to_v=round(spot[1], 3), to_lift=spot[2])
+        found[0].update(to_u=round(spot[0], 3), to_v=round(spot[1], 3), to_lift=round(spot[2], 3), to_turn=round(spot[3], 1))
     return found, problem
 
 

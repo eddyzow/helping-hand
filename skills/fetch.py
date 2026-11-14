@@ -26,7 +26,8 @@ PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red b
           "lift": "optional: 0 to 1, how far above the table to grasp it (when it sits on top of something)",
           "to_lift": "optional: 0 to 1, how far above the table to let go (for putting it on top of something)",
           "hold": "optional: seconds to hold it up before letting go",
-          "turn": "optional: degrees to turn the jaws to match the object, from pick.jaw_turn"}
+          "turn": "optional: degrees to turn the jaws to match the object, from pick.jaw_turn",
+          "to_turn": "optional: degrees to turn the jaws when putting it down, to line it up with what it goes on"}
 
 GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper value when squeezing
@@ -50,6 +51,32 @@ def _joints(pose: dict, grip: float) -> list[float]:
     return [pose[f"{j}.pos"] for j in JOINTS[:5]] + [grip]
 
 
+def _aim(table, u, v, turn, lift):
+    """The lifted and lowered poses over grid point u, v, with the jaws turned `turn` degrees and the
+    lowered pose `lift` of the way up to the lifted one (0 = on the table, for stacks more).
+    Returns (up, down), or a sentence saying why the arm cannot do it."""
+    if turn:  # jaws closing one way or the opposite way are the same grasp: take the turn the wrist can reach
+        taught = [interpolate(table[layer], table["n"], u, v)["wrist_roll.pos"] for layer in ("up", "down")]
+        fits = [t for t in (turn, turn - math.copysign(180, turn))
+                if all(ROLL_MIN <= roll + ROLL_SIGN * t <= ROLL_MAX for roll in taught)]
+        if not fits:
+            return "the wrist cannot turn far enough to line up with it"
+        turn = fits[0]
+    if turn and JAW_ARM_MM and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:
+        swing = math.radians(turn)
+        u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
+        v -= math.sin(swing) * JAW_ARM_MM / GRID_DEPTH_MM
+        if not (math.isfinite(u) and math.isfinite(v) and -EDGE <= u <= 1 + EDGE and -EDGE <= v <= 1 + EDGE):
+            return f"out of reach once the wrist is turned: u={u:.2f} v={v:.2f}"
+    up = interpolate(table["up"], table["n"], u, v)
+    down = interpolate(table["down"], table["n"], u, v)
+    for pose in (up, down):  # the wrist turns before the jaws come down, and stays turned while lifting
+        pose["wrist_roll.pos"] += ROLL_SIGN * turn
+        if turn and not ROLL_MIN <= pose["wrist_roll.pos"] <= ROLL_MAX:
+            return "the wrist cannot turn far enough to line up with it"
+    return up, {joint: low + lift * (up[joint] - low) for joint, low in down.items()}
+
+
 def run(arm, params, stop):
     # everything is checked before the first move, settings included: they come from the environment
     if not all(math.isfinite(g) and 0 <= g <= 100 for g in (GRIP_OPEN, GRIP_CLOSED)):
@@ -64,41 +91,26 @@ def run(arm, params, stop):
     table_file = core.arm.POSES / "table.json"  # looked up now, so tests can point it elsewhere
     if not table_file.exists():
         return {"ok": False, "reason": "No table grid. Teach it: python arm.py teach table"}
-    turn = params.get("turn", 0)
-    if not (type(turn) in (int, float) and math.isfinite(turn) and -90 <= turn <= 90):
-        return {"ok": False, "reason": "turn must be a number of degrees from -90 to 90"}
-    table = json.loads(table_file.read_text())
-    if turn:  # jaws closing one way or the opposite way are the same grasp: take the turn the wrist can reach
-        taught = [interpolate(table[layer], table["n"], u, v)["wrist_roll.pos"] for layer in ("up", "down")]
-        fits = [t for t in (turn, turn - math.copysign(180, turn))
-                if all(ROLL_MIN <= roll + ROLL_SIGN * t <= ROLL_MAX for roll in taught)]
-        if not fits:
-            return {"ok": False, "reason": "the wrist cannot turn far enough to line up with it"}
-        turn = fits[0]
-    if turn and JAW_ARM_MM and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:
-        swing = math.radians(turn)
-        u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
-        v -= math.sin(swing) * JAW_ARM_MM / GRID_DEPTH_MM
-        if not (math.isfinite(u) and math.isfinite(v) and -EDGE <= u <= 1 + EDGE and -EDGE <= v <= 1 + EDGE):
-            return {"ok": False, "reason": f"out of reach once the wrist is turned: u={u:.2f} v={v:.2f}"}
-    up = interpolate(table["up"], table["n"], u, v)
-    down = interpolate(table["down"], table["n"], u, v)
-    for pose in (up, down):  # the wrist turns before the jaws come down, and stays turned while lifting
-        pose["wrist_roll.pos"] += ROLL_SIGN * turn
-        if turn and not ROLL_MIN <= pose["wrist_roll.pos"] <= ROLL_MAX:
-            return {"ok": False, "reason": "the wrist cannot turn far enough to line up with it"}
-    handover = arm.load_pose("handover")[:5]
+    turn, to_turn = params.get("turn", 0), params.get("to_turn", 0)
+    if not all(type(n) in (int, float) and math.isfinite(n) and -90 <= n <= 90 for n in (turn, to_turn)):
+        return {"ok": False, "reason": "turn and to_turn must be numbers of degrees from -90 to 90"}
+    grasp_lift, lift, hold = params.get("lift", 0), params.get("to_lift", 0), params.get("hold", HOLD_SECONDS)
+    if not all(type(n) in (int, float) and math.isfinite(n) and 0 <= n <= 1 for n in (grasp_lift, lift)):
+        return {"ok": False, "reason": "lift and to_lift must be numbers from 0 to 1"}
+    if not (type(hold) in (int, float) and math.isfinite(hold) and 0 <= hold <= 30):
+        return {"ok": False, "reason": "hold must be a number of seconds from 0 to 30"}
     to_u, to_v = params.get("to_u"), params.get("to_v")
     placing = to_u is not None or to_v is not None
     if placing and not all(type(n) in (int, float) and math.isfinite(n) and -EDGE <= n <= 1 + EDGE
                            for n in (to_u, to_v)):
         return {"ok": False, "reason": "the place to put it down is out of reach"}
-    grasp_lift, lift, hold = params.get("lift", 0), params.get("to_lift", 0), params.get("hold", HOLD_SECONDS)
-    if not all(type(n) in (int, float) and math.isfinite(n) and 0 <= n <= 1 for n in (grasp_lift, lift)):
-        return {"ok": False, "reason": "lift and to_lift must be numbers from 0 to 1"}
-    down = {joint: low + grasp_lift * (up[joint] - low) for joint, low in down.items()}  # partway up, off a stack
-    if not (type(hold) in (int, float) and math.isfinite(hold) and 0 <= hold <= 30):
-        return {"ok": False, "reason": "hold must be a number of seconds from 0 to 30"}
+    table = json.loads(table_file.read_text())
+    aimed = [_aim(table, u, v, turn, grasp_lift)] + ([_aim(table, to_u, to_v, to_turn, lift)] if placing else [])
+    for problem in aimed:
+        if isinstance(problem, str):
+            return {"ok": False, "reason": problem}
+    up, down = aimed[0]
+    handover = arm.load_pose("handover")[:5]
 
     moves = [
         (_joints(up, GRIP_OPEN), 1.5),
@@ -107,9 +119,7 @@ def run(arm, params, stop):
         (_joints(up, GRIP_CLOSED), 1.0),
     ]
     if placing:  # carry it over, set it down, let go, lift clear
-        above = interpolate(table["up"], table["n"], to_u, to_v)
-        on_table = interpolate(table["down"], table["n"], to_u, to_v)
-        on_table = {joint: low + lift * (above[joint] - low) for joint, low in on_table.items()}  # partway up, to stack
+        above, on_table = aimed[1]
         after = [(_joints(on_table, GRIP_OPEN), 0.6), (_joints(above, GRIP_OPEN), 1.0)]
         moves += [(_joints(above, GRIP_CLOSED), 2.0), (_joints(on_table, GRIP_CLOSED), 1.0)]
     else:

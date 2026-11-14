@@ -39,6 +39,9 @@ HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds t
 EDGE = 0.05  # how far outside the taught grid a target may be
 GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
 SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
+# Where the robot's base is, in grid coordinates (u, v), so "closest" can be worked out. v above 1 is nearer
+# than the grid's near edge. Measure it: how many grid depths the base sits in front of the far edge.
+ROBOT_UV = tuple(float(n) for n in os.environ.get("ROBOT_UV", "0.5,1.6").split(","))
 LAYER_GAP_MM = float(os.environ.get("LAYER_GAP_MM", "40"))  # how far the taught lifted layer is above the taught
 # table layer, in mm. Measure it on the real grid: stacking heights are worked out from it.
 
@@ -78,8 +81,8 @@ def load(name: str):
 def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
-    Marks outputs/last.jpg. Returns (targets, said, place, problem, lift): place is (u, v, lift) if
-    the person asked to put it somewhere, else None; problem is a sentence to say when the request
+    Marks outputs/last.jpg. Returns (targets, said, place, problem, lift): place is (u, v, lift, turn)
+    if the person asked to put it somewhere, else None (turn lines the jaws up with what it goes on); problem is a sentence to say when the request
     cannot be done (check it first: a placement asked for must never become a handover); lift is how
     high the picked object sits now. A lift is a share of the way from the table layer to the lifted
     layer, 0 to 1: 0 on the table, more when it is on top of other pieces."""
@@ -87,8 +90,10 @@ def locate(frame, command=None, audio=None):
 
     def describe(box):  # where this box is on the table, for the model to reason with
         us, vs = zip(*(to_uv(x, y, corners) for x in (box["x0"], box["x1"]) for y in (box["y0"], box["y1"])))
-        return (f"centre u={sum(us) / 4:.2f} v={sum(vs) / 4:.2f}; "
-                f"spans u {min(us):.2f} to {max(us):.2f}, v {min(vs):.2f} to {max(vs):.2f}")
+        u, v = sum(us) / 4, sum(vs) / 4
+        away = math.hypot((u - ROBOT_UV[0]) * GRID_ASPECT, v - ROBOT_UV[1])
+        return (f"centre u={u:.2f} v={v:.2f}; spans u {min(us):.2f} to {max(us):.2f}, "
+                f"v {min(vs):.2f} to {max(vs):.2f}; distance from the robot {away:.2f}")
 
     hits, said, boxes, placing, place, pick_height = see.find_all(frame, command, audio, describe, GRID_ASPECT)
     out = see.numbered(frame, boxes)
@@ -107,7 +112,10 @@ def locate(frame, command=None, audio=None):
         problem = "That spot is out of my reach."
     elif max(pick_height, place["height_mm"] if placing else 0) > LAYER_GAP_MM:
         problem = "That is stacked too high for me."
-    spot = (place["u"], place["v"], place["height_mm"] / LAYER_GAP_MM) if placing and not problem else None
+    spot = None
+    if placing and not problem:  # on another piece: jaws lined up with it. On the table: as it was picked up.
+        turn = jaw_turn(frame, place["box"], corners) if "box" in place else (targets[0][3] if targets else 0.0)
+        spot = (place["u"], place["v"], place["height_mm"] / LAYER_GAP_MM, turn)
     return targets, said, spot, problem, pick_height / LAYER_GAP_MM
 
 
