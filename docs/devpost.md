@@ -63,8 +63,8 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Writes a name. [CONFIRM ON ARM; the riskiest one] With a felt-tip marker taped to its gripper.
 - Stops. One keypad key always stops the arm where it is. [CONFIRM ON ARM]
 - In simulation only, and we say so: the same code picks up and stacks Duplo by voice and sketches
-  what you ask for. The real arm's servos are too weak to grip and not accurate enough to place
-  pieces, so these are shown as simulator video.
+  what you ask for. On the real arm, gripping a pencil and placing pieces did not work, so these are
+  shown as simulator video. [State the cause only if someone has diagnosed it.]
 
 ## How we built it
 
@@ -101,9 +101,9 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 
 ## Challenges we ran into
 
-- The arm itself. It is strong enough to press a key and not strong enough to grip a pencil, and
-  it cannot place a brick within the few millimetres stacking needs. We found that out on the real
-  arm on Saturday afternoon, after building picking, stacking and drawing in simulation.
+- The arm itself. It presses a key reliably, but on Saturday afternoon it could not grip a pencil
+  or place a brick where stacking needs it, after we had built picking, stacking and drawing in
+  simulation. [We have a report of the failure, not a measured cause.]
   [CONFIRM the wording with whoever ran those tests, and add the numbers if anyone measured them.]
 - One arm, four people. Everyone wrote against a mock arm with the same interface and booked the
   real arm in short slots.

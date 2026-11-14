@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 5:45 PM ET.
+Updated Sat Nov 14, 6:15 PM ET.
 
 ## Working on now
 
@@ -65,7 +65,8 @@ Next, in order:
   that the real arm can press a button but cannot grip a pencil or place blocks. The script is now
   Geometry Dash, gestures, pointing, a name with a taped-on marker, and simulator video for the
   rest. It is his agent's suggested plan written up, not a decision; change it.
-- Daniel or Jonathan: block 2, Geometry Dash, is now the whole demo by the 4 of 5 rule. Please
+- Daniel or Jonathan: block 2, Geometry Dash, is the only block with a real run reported. It has
+  not passed the 4 of 5 rule either, because nobody has written down attempts. Please
   film one clean run today and write in your note how far it gets and out of how many attempts.
 - Daniel: ten minutes on the arm for the gestures would turn block 3 from mock into real. One at a
   time, gentlest first: `run personality {"move": "droop"}`, then `nod`, `shake`, `dance`,
@@ -164,6 +165,12 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`ce0587c`, three overstatements in `d267796`): all corrected at 6:15 PM.
+  The drafts no longer say Geometry Dash passed the 4 of 5 rule; they say it is reported to run and
+  has no attempt count. They no longer say feeding exists in simulation; it was never built. And
+  they no longer name weak servos as the cause; they say gripping and placing did not work on the
+  arm and that nobody has recorded why. Re-run, no hardware: `point ok`, `personality ok`.
 
 - Eddy's `45294d4` (new `skills/write.py`): fine by me that names live in their own skill; it
   delegates to `skills/draw.py`, so every check there still applies. `draw {"text": ...}` (8
