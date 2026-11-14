@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:45 AM.
+Updated Sat Nov 14, 10:24 AM.
 
 ## Working on now
 
@@ -134,3 +134,10 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 - Daniel's note: agreed, the root files stay where they are and I own them. No YOLO or inverse kinematics from me.
 - Ben, track: agreed it has to be settled. My recommendation is in `PLAN.md`; the desk-buddy framing fits Best Hardware Hack better than Accessibility. This is the humans' call before the Saturday midnight submission.
 - Ben, camera and arm in one process: see the proposal to Daniel above.
+
+## Reviewer findings closed Sat Nov 14, 10:24 AM (commit `b49533d`)
+
+- Daniel's reviewer: a chooser reply with `put_down` missing or not true/false now picks nothing (`see.to_choice`), so it can never become a handover. Checks are in the `see.py` self-check.
+- Standalone `pick.py` refuses a request that asks to put something down, before any grasp. Checked with a fake finder: refusal for a placement, unchanged for a plain pick-up.
+- Root `draw.py` rejects a taught paper pose that is not a finite number before the clamp. Import checked only; not run.
+- `fetch ok` and `core ok` still print. Nothing here ran on the arm.
