@@ -61,8 +61,8 @@ PIECES = [
     ("purple_square", "2x2", PURPLE, 0.165, -0.030, 45),
     ("red_square_right", "2x2", RED, 0.165, -0.090, 30),
     ("white_flat", "plate", CREAM, 0.228, 0.085, 90),
-    ("red_triangle", "slope", RED, 0.228, 0.0, 90),
-    ("green_curved", "arch", LIME, 0.228, -0.085, 90),
+    ("red_triangle", "roof", RED, 0.228, 0.0, 90),
+    ("green_curved", "boat", LIME, 0.228, -0.085, 90),
     ("car_chassis", "chassis", BLACK, 0.350, 0.100, 20),
     ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]
@@ -84,10 +84,10 @@ def _shape(kind: str, rgba: str) -> str:
         return box(0.0159, 0.0159, 0.0096, 0.0096, 0.012) + _studs(2, 2, 0.0192, rgba)
     if kind == "plate":     # the flat 2x4: 64 x 32 x 10 mm
         return box(0.0319, 0.0159, 0.0048, 0.0048, 0.012) + _studs(2, 4, 0.0096, rgba)
-    if kind == "slope":     # the "triangle" 2x4: full height at one end, sloping down to the other
-        return f'<geom type="mesh" mesh="slope" rgba="{rgba}" mass="0.02" {GRIP}/>'
-    if kind == "arch":      # the curved-top 2x4
-        return f'<geom type="mesh" mesh="arch" rgba="{rgba}" mass="0.02" {GRIP}/>'
+    if kind == "roof":      # the "triangle": a 2x4 ridge roof, two slopes meeting at a ridge across its width
+        return f'<geom type="mesh" mesh="roof" rgba="{rgba}" mass="0.02" {GRIP}/>'
+    if kind == "boat":      # the curved 2x4: flat top with studs, underside curving up at both ends
+        return f'<geom type="mesh" mesh="boat" rgba="{rgba}" mass="0.02" {GRIP}/>' + _studs(2, 4, 0.0192, rgba)
     if kind == "chassis":   # a flat base on four wheels
         wheels = "".join(
             f'<geom type="cylinder" size="0.012 0.005" pos="{x} {y} 0.012" euler="90 0 0" rgba="{BLACK}" mass="0.004" {GRIP}/>'
@@ -95,9 +95,24 @@ def _shape(kind: str, rgba: str) -> str:
             f'contype="0" conaffinity="0" density="0"/>'
             for x in (-0.022, 0.022) for y in (-0.021, 0.021))
         return box(0.032, 0.0159, 0.004, 0.014, 0.02) + _studs(2, 4, 0.018, rgba) + wheels
-    if kind == "carbody":   # a rough car shell: body plus cabin, too wide for the gripper
-        return (box(0.05, 0.026, 0.011, 0.011, 0.03)
-                + f'<geom type="box" size="0.024 0.023 0.01" pos="-0.008 0 0.032" rgba="{rgba}" mass="0.01" {GRIP}/>')
+    if kind == "carbody":   # an open-top car shell: hollow, wheel arches on both sides, studs and a hitch at the back
+        part = lambda sx, sy, sz, x, y, z: (f'<geom type="box" size="{sx} {sy} {sz}" pos="{x} {y} {z}" '
+                                            f'rgba="{rgba}" mass="0.002" {GRIP}/>')
+        stud = lambda x, y, top: (f'<geom type="cylinder" size="0.0047 0.0023" pos="{x} {y} {top + 0.0023}" '
+                                  f'rgba="{rgba}" contype="0" conaffinity="0" density="0"/>')
+        shell = part(0.014, 0.026, 0.009, 0.036, 0, 0.023)             # bonnet
+        shell += part(0.004, 0.022, 0.006, 0.020, 0, 0.034)            # windscreen
+        shell += part(0.012, 0.018, 0.012, -0.038, 0, 0.026)           # rear deck
+        shell += part(0.003, 0.013, 0.008, -0.022, 0, 0.022)           # seat back
+        shell += part(0.003, 0.003, 0.004, -0.053, 0, 0.012)           # hitch arm
+        shell += (f'<geom type="cylinder" size="0.004 0.008" pos="-0.058 0 0.012" rgba="{rgba}" mass="0.001" {GRIP}/>')
+        for side in (-1, 1):
+            shell += part(0.036, 0.004, 0.005, 0.0, side * 0.022, 0.031)   # rail along the cockpit
+            for x in (-0.024, 0.024):
+                shell += part(0.019, 0.004, 0.004, x, side * 0.026, 0.023)  # top of a wheel arch
+            for x in (-0.046, 0.0, 0.046):
+                shell += part(0.005, 0.004, 0.0115, x, side * 0.026, 0.0115)  # legs between the arches
+        return shell + stud(-0.038, -0.008, 0.038) + stud(-0.038, 0.008, 0.038) + stud(-0.026, 0.026, 0.027)
     raise ValueError(kind)
 
 
@@ -106,10 +121,12 @@ def _hull(points) -> str:
 
 
 def scene_xml() -> str:
-    slope = [(x, y, z) for y in (-0.0159, 0.0159)
-             for x, z in ((-0.0319, 0), (-0.0319, 0.0192), (0, 0.0192), (0.0319, 0.004), (0.0319, 0))]
-    arch = [(0.0319 * math.cos(t), y, 0.022 * math.sin(t)) for y in (-0.0159, 0.0159)
-            for t in [math.pi * k / 10 for k in range(11)]]
+    # side profiles (along the length, height), swept across the 32 mm width
+    roof = [(x, y, z) for y in (-0.0159, 0.0159)
+            for x, z in ((-0.0319, 0), (-0.0319, 0.006), (0, 0.0384), (0.0319, 0.006), (0.0319, 0))]
+    curve = [(0.014 + 0.018 * math.sin(a), 0.018 - 0.018 * math.cos(a)) for a in [math.pi / 2 * k / 6 for k in range(7)]]
+    profile = [(-0.0319, 0.0192), (0.0319, 0.0192)] + curve + [(-x, z) for x, z in curve]
+    boat = [(x, y, z) for y in (-0.0159, 0.0159) for x, z in profile]
     pieces = "".join(f'<body name="{name}" pos="{x} {y} 0.0005" euler="0 0 {turn}"><freejoint/>{_shape(kind, rgba)}</body>'
                      for name, kind, rgba, x, y, turn in PIECES)
     cam = TOP_CAMERA
@@ -122,8 +139,8 @@ def scene_xml() -> str:
     <headlight ambient="0.35 0.35 0.35" diffuse="0.35 0.35 0.35" specular="0 0 0"/>
   </visual>
   <asset>
-    <mesh name="slope" vertex="{_hull(slope)}"/>
-    <mesh name="arch" vertex="{_hull(arch)}"/>
+    <mesh name="roof" vertex="{_hull(roof)}"/>
+    <mesh name="boat" vertex="{_hull(boat)}"/>
   </asset>
   <worldbody>
     <light pos="0.2 0 1" dir="0 0 -1" directional="true" diffuse="0.3 0.3 0.3" specular="0 0 0"/>
