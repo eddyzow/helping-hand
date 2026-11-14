@@ -44,7 +44,7 @@ def run(arm, params, stop):
     if commands[0].at < 0:
         return {"ok": False, "reason": "the timing lead is longer than the wait before the first press"}
 
-    if not (arm.home() and arm.move_joints(arm.hover_pose(), 1.5)):
+    if not arm.to_key():
         return STOPPED
     cue.clear()
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)
@@ -75,5 +75,5 @@ def run(arm, params, stop):
 
 
 def _finish(arm, reason):
-    done = arm.release() and arm.home()
+    done = arm.release() and arm.from_key()
     return {"ok": bool(done and not reason), "reason": reason if done else "stopped"}

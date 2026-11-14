@@ -18,7 +18,7 @@ def test_core():
     # the same made-up poses on every machine, whatever is taught in the real poses/ folder
     core.arm.POSES = Path(tempfile.mkdtemp())
     for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80],
-                         "tap_key": [10, -20, 40, 70, 0, 0]}.items():
+                         "tap_key": [10, -20, 40, 70, 0, 30]}.items():
         (core.arm.POSES / f"{name}.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, joints)}))
     arm = get_arm(mock=True)
     dispatcher.load(arm)
@@ -44,28 +44,29 @@ def test_core():
 
     # after a stop the next skill runs to the end and finishes at home
     assert dispatcher.handle('run gd_tap {"times": 2, "gap_s": 0.05}')["ok"] is True
-    dispatcher._worker.join(10)
+    dispatcher._worker.join(25)
     assert not dispatcher._worker.is_alive() and close(arm.get_joints(), arm.load_pose("home"))
 
     # a tap goes down and comes back
-    hover = [10, -20, 37, 70, 0, 0]                            # tap_key with the elbow raised 3 degrees
-    assert arm.tap(3.0) and close(arm.get_joints(), hover)
-    pressed = arm.load_pose("tap_key")                         # a press comes down to the taught pose, no lower
+    hover = [10, -20, 40, 70, 0, 22]                           # tap_key with the jaw lifted 8 units
+    assert arm.tap(3.0) and close(arm.get_joints(), hover)     # only the jaw moved
+    pressed = arm.load_pose("tap_key")                         # a press opens the jaw to the taught spot, no further
     assert arm.press() and close(arm.get_joints(), pressed)
     assert dispatcher.handle('run wave {"roll": 999}')["ok"] is True  # refused inside the skill, before motion
     dispatcher._worker.join(2)
     assert close(arm.get_joints(), pressed)
-    assert dispatcher.handle('run gd_tap {"press_deg": 50}')["ok"] is True  # too deep: refused, no motion
+    assert dispatcher.handle('run gd_tap {"press": 50}')["ok"] is True  # too deep: refused, no motion
     dispatcher._worker.join(2)
-    assert close(arm.get_joints(), pressed) and arm.press_deg == 0.0
-    assert dispatcher.handle('run gd_tap {"lift_deg": 0}')["ok"] is True     # no hover height: refused
+    assert close(arm.get_joints(), pressed) and arm.press_extra == 0.0
+    assert dispatcher.handle('run gd_tap {"lift": 0}')["ok"] is True     # no lift: refused
     dispatcher._worker.join(2)
-    assert close(arm.get_joints(), pressed) and arm.lift_deg == 3.0
+    assert close(arm.get_joints(), pressed) and arm.lift == 8.0
+    assert arm.key_pose(500)[5] == 100.0 and arm.key_pose(-500)[5] == 0.0   # the jaw stays in its range
 
     # Geometry Dash replay: waits for the cue, then presses and releases on the recording's clock
     log = []
     real_write = arm._write
-    arm._write = lambda joints: (log.append((time.perf_counter(), joints[2])), real_write(joints))
+    arm._write = lambda joints: (log.append((time.perf_counter(), joints[5])), real_write(joints))
     assert dispatcher.handle("ready")["ok"] is False
     assert dispatcher.handle('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 2}')["ok"] is True
     for _ in range(100):                                        # home, approach, then it waits
@@ -79,7 +80,7 @@ def test_core():
     dispatcher._worker.join(8)
     assert not dispatcher._worker.is_alive() and dispatcher.handle("ready")["ok"] is False
     presses = [(round(t - t0, 2), elbow) for t, elbow in log[:4]]
-    assert [e for _, e in presses] == [40, 37, 40, 37], presses          # down, up, down, up
+    assert [e for _, e in presses] == [30, 22, 30, 22], presses          # down, up, down, up
     assert all(abs(t - want) < 0.06 for (t, _), want in zip(presses, (0.30, 0.38, 0.68, 0.76))), presses
     arm._write = real_write
     before_gd = arm.get_joints()
@@ -171,7 +172,7 @@ def test_core():
     dispatcher._worker.join(5)
 
     # a bad tap default from the environment is refused when the arm is created, not at the first press
-    for name, bad in (("PRESS_DEG", float("nan")), ("PRESS_DEG", 50.0), ("LIFT_DEG", float("nan")), ("LIFT_DEG", 0.0)):
+    for name, bad in (("PRESS", float("nan")), ("PRESS", 50.0), ("LIFT", float("nan")), ("LIFT", 0.0)):
         good = getattr(core.arm, name)
         setattr(core.arm, name, bad)
         try:
@@ -182,7 +183,7 @@ def test_core():
         finally:
             setattr(core.arm, name, good)
     odd = get_arm(mock=True)
-    odd.press_deg = float("nan")                               # even set behind the setter's back
+    odd.press_extra = float("nan")                               # even set behind the setter's back
     try:
         odd.press()
         raise AssertionError("pressed with a NaN depth")

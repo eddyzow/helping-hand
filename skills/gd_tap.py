@@ -1,13 +1,15 @@
 """Tap the key under the fingertip. The seed of the Geometry Dash skill: timings come later.
 
-Teach ONE pose by hand, fingertip resting on the key: python arm.py pose tap_key
-The arm hovers above that pose and each tap comes down to it and lifts again. Tune on the real key:
-    run gd_tap {"lift_deg": 3}     how high it hovers (default 3 degrees of elbow, about 1 cm)
-    run gd_tap {"press_deg": -1}   stop short of the taught pose if it presses too hard; positive goes deeper
+The arm holds still and only the gripper jaw taps. Teach ONE pose by hand: python arm.py pose tap_key
+    gripper lying level just above the keypad, turned so the moving jaw is underneath,
+    jaw opened down until its tip rests on the jump key (touching, not pushing).
+The jaw waits lifted off the key and each tap opens it back down to the taught spot. Tune on the real key:
+    run gd_tap {"press": -2}   lighter: stop 2 units short of the taught spot (positive presses further)
+    run gd_tap {"lift": 8}     how far the jaw lifts between taps (default 8 units, about 1 cm at the tip)
 """
 NAME = "gd_tap"
 DESCRIPTION = "Tap the jump key for Geometry Dash"
-PARAMS = {"times": "int", "gap_s": "float", "lift_deg": "float", "press_deg": "float"}
+PARAMS = {"times": "int", "gap_s": "float", "lift": "float", "press": "float"}
 
 STOPPED = {"ok": False, "reason": "stopped"}
 
@@ -19,12 +21,12 @@ def run(arm, params, stop):
     if type(gap_s) not in (int, float) or not 0 <= gap_s <= 10:
         return {"ok": False, "reason": "gap_s must be 0 to 10 seconds"}
     try:  # stays set for later taps and for geometry_dash
-        arm.set_tap(params.get("lift_deg"), params.get("press_deg"))
+        arm.set_tap(params.get("lift"), params.get("press"))
     except ValueError as err:
         return {"ok": False, "reason": str(err)}
-    if not (arm.home() and arm.move_joints(arm.hover_pose(), 1.5)):
+    if not arm.to_key():
         return STOPPED
     for _ in range(times):
         if not arm.tap(3.0) or stop.wait(gap_s):  # the wait ends at once on stop
             return STOPPED
-    return {"ok": True, "reason": ""} if arm.home() else STOPPED
+    return {"ok": True, "reason": ""} if arm.from_key() else STOPPED
