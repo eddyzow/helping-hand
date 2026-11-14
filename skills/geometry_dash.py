@@ -17,15 +17,25 @@ sys.path.insert(0, str(GD))
 
 NAME = "geometry_dash"
 DESCRIPTION = "Play the start of Geometry Dash (Stereo Madness) by tapping the jump key"
-PARAMS = {"first_taps": "int", "press_lead_ms": "float", "release_lead_ms": "float", "pattern": "str"}
+PARAMS = {"first_taps": "int", "press_lead_ms": "float", "release_lead_ms": "float", "pattern": "str",
+          "enter": "bool: the arm's own first press starts the level", "enter_delay_ms": "float"}
 
 STOPPED = {"ok": False, "reason": "stopped"}
 CUE_WAIT_S = 120
 
 
 def run(arm, params, stop):
-    from core import cue, waiting
+    from core import cue, key_down, waiting
     from tap_pattern import command_times, read_pattern
+
+    # "enter" mode: with the game on the level's Play screen, the arm's first press starts the level
+    # and the replay clock starts from that same press, enter_delay_ms later (the game's own
+    # fade-in before the level begins; tune it once by watching whether the jumps are early or late).
+    enter, enter_delay_ms = params.get("enter", False), params.get("enter_delay_ms", 0)
+    if type(enter) is not bool:
+        return {"ok": False, "reason": "enter must be true or false"}
+    if type(enter_delay_ms) not in (int, float) or not 0 <= enter_delay_ms <= 10000:
+        return {"ok": False, "reason": "enter_delay_ms must be 0 to 10000"}
 
     # everything is read and checked before the arm moves
     first = params.get("first_taps")
@@ -50,16 +60,30 @@ def run(arm, params, stop):
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)
     try:
         while True:
-            waiting.set()
             began = time.perf_counter()
-            while not cue.wait(0.05):
-                if stop.is_set():
+            if enter:
+                enter = False  # only the first round; a later restart (R) uses the cue as usual
+                if not arm.press():
                     return STOPPED
-                if time.perf_counter() - began > CUE_WAIT_S:
-                    return _finish(arm, "no restart key within 2 minutes")
-            waiting.clear()
-            cue.clear()
-            start = time.perf_counter()
+                while not key_down.is_set():  # the clock starts when the key really registers
+                    if stop.is_set():
+                        return STOPPED
+                    if time.perf_counter() - began > 0.5:
+                        return _finish(arm, "the entering press did not register; run tap_calibrate")
+                    time.sleep(0.0005)
+                start = time.perf_counter() + enter_delay_ms / 1000
+                if stop.wait(0.08) or not arm.release():
+                    return STOPPED
+            else:
+                waiting.set()
+                while not cue.wait(0.05):
+                    if stop.is_set():
+                        return STOPPED
+                    if time.perf_counter() - began > CUE_WAIT_S:
+                        return _finish(arm, "no restart key within 2 minutes")
+                waiting.clear()
+                cue.clear()
+                start = time.perf_counter()
             for event in commands:
                 while not cue.is_set() and (left := event.at - (time.perf_counter() - start)) > 0:
                     if stop.wait(min(left, 0.02)):

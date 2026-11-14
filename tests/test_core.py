@@ -88,6 +88,29 @@ def test_core():
     assert dispatcher.handle(f"run geometry_dash {late}")["ok"] is True
     dispatcher._worker.join(2)                                 # a press before the cue is refused, no motion
     assert not dispatcher._worker.is_alive() and arm.get_joints() == before_gd
+    # enter mode: the arm's own first press starts the level and the clock; no restart cue is needed
+    from core import key_down as jump_key
+    seen = []
+
+    def key_follows_tip(joints):
+        real_write(joints)
+        (jump_key.set if joints[2] >= 40 and joints[1] == -20 else jump_key.clear)()
+        seen.append((time.perf_counter(), joints[2]))
+
+    arm._write = key_follows_tip
+    jump_key.clear()
+    enter = '{"pattern": "demo_taps.csv", "first_taps": 1, "enter": true, "enter_delay_ms": 200}'
+    assert dispatcher.handle(f"run geometry_dash {enter}")["ok"] is True
+    dispatcher._worker.join(30)
+    arm._write = real_write
+    jump_key.clear()
+    assert dispatcher.handle("status")["last"]["ok"] is True, dispatcher.handle("status")
+    downs = [t for t, elbow in seen if elbow == 40]            # the entering press, then the recorded one
+    assert len(downs) == 2 and abs((downs[1] - downs[0]) - 0.5) < 0.08, downs   # 200 ms delay + 300 ms in the recording
+    assert dispatcher.handle('run geometry_dash {"enter": "yes"}')["ok"] is True
+    dispatcher._worker.join(2)
+    assert dispatcher.handle("status")["last"]["ok"] is False  # refused before moving
+
     assert dispatcher.handle('run geometry_dash {"pattern": "../../see.py"}')["ok"] is True
     dispatcher._worker.join(2)
     assert not dispatcher._worker.is_alive()                   # refused at once, no motion, no waiting

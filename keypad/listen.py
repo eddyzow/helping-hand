@@ -3,8 +3,8 @@
 The keypad needs no configuring. The first run asks you to press its three keys once (wave,
 jump, stop) and saves what they send to keypad/keys.json. After that:
     wave key  -> the arm waves
-    jump key  -> Windows sees an Up arrow (the Geometry Dash jump), whatever the key really sends.
-                 This is the key the arm taps.
+    jump key  -> a left mouse click while the Geometry Dash window is in front (jump, or Play on the
+                 level page), an Up arrow anywhere else. This is the key the arm taps.
     stop key  -> the arm stops at once. Test it at the start of every session.
 Geometry Dash sync: when the geometry_dash skill is ready, this presses R (restart) in the game
 window and tells the arm to start at that same instant. If the game is not focused, press R yourself.
@@ -106,7 +106,13 @@ def main() -> None:
                         user32.PostQuitMessage(0)
             return
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
-            if vk != VK_UP:
+            title = ctypes.create_unicode_buffer(200)
+            user32.GetWindowTextW(user32.GetForegroundWindow(), title, 200)
+            if GAME_TITLE.lower() in title.value.lower():
+                # in the game: a left mouse click. It jumps in a level and presses Play on the level
+                # page (park the mouse pointer on the Play button), so the arm can start the level itself.
+                user32.mouse_event(0x0002 if down else 0x0004, 0, 0, 0, 0)
+            elif vk != VK_UP:  # anywhere else a click could hit anything, so stay with the harmless Up arrow
                 user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
             send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
         elif down and vk == keys["wave"]:
