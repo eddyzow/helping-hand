@@ -38,6 +38,12 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Main vision 029a874: model-response validation
+
+Reviewed the two-stage finder, changed `pick.locate` return contract and callers, and Eddy's `73710c0` voice update. Voice now returns without dispatching fetch when multiple candidates match. The original fetch target-preflight code is unchanged, so the fetch candidate remains held.
+
+Independent checks used a synthetic 100x100 frame, an empty fake provider environment, and replaced `_gemini`; no request, key access, camera, or hardware call occurred. Reproduced: `{"matches":[true]}` selects zero-based box 0 because Python treats bool as int; `[900,900,100,100]` produces a reversed pixel box (90,90)-(10,10); a string coordinate raises TypeError rather than dropping the malformed entry as documented. Validate the reply container and match IDs as non-bool integers, and each box as four finite numeric non-bool values with ordered bounds within the stated 0-to-1000 range before emitting targets. Leave a small malformed-response regression. This is already-main vision code, separate from held fetch/calibration candidates.
+
 ### Browser tooling integration b4ecf89
 
 Merged Jonathan's isolated `0386284`: browser-local recorder/replay, a separate soundtrack-aligned CSV, Playwright requirement, and documentation. Its prior ancestry was already on main. This supports the browser demo without altering the held physical arm-core candidate. The requirements conflict retained both upstream Anthropic and branch Playwright entries. A rebase preserved Ben's concurrent demo update; only documentation changed after the combined check.
