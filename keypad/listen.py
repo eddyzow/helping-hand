@@ -13,9 +13,9 @@ Needs the dispatcher running for wave and stop. No extra packages.
 
     python keypad\\listen.py --learn    # relearn the three keys, then quit
     python keypad\\listen.py --record my_macro
-        Record your own run. With the game on the level's Play page and the pointer on Play, press the
-        jump key: that click starts the level and is time zero. Play with the jump key, then press the
-        stop key. Replay: run geometry_dash {"enter": true, "pattern": "my_macro.csv"}
+        Record your own run. Inside the level, press R (restart): that is time zero. Play with the
+        jump key, then press the stop key. Dying and pressing R again starts the recording over.
+        Replay: run geometry_dash {"pattern": "my_macro.csv"}  (the listener presses R for the arm)
 """
 import ctypes
 import json
@@ -157,11 +157,7 @@ def main() -> None:
                 user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
             if not recording:
                 notify("key down" if down else "key up")  # lets the arm feel the key: see skills/tap_calibrate.py
-            elif in_game and "t0" not in recording:
-                if down:  # the press that clicks Play is time zero and is not itself part of the macro
-                    recording["t0"] = now
-                    print("Recording. Play the level; press the STOP key when done.", flush=True)
-            elif in_game and (down or recording["events"]):  # skip the release of that first press
+            elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
             print(f"wave -> {send('run wave')}", flush=True)
@@ -214,7 +210,14 @@ def main() -> None:
                     if DEVICE and DEVICE in device_name(raw.hDevice):
                         on_key(raw.VKey, down)
                     elif down and raw.VKey == VK_RESTART:  # the level restarts: start the replay clock now
-                        send("cue", 0.2)
+                        if recording:
+                            # Time zero of a recording is the restart key: a restart begins the level at
+                            # once, with no click release or loading in between, and the replay starts
+                            # from the same key. Each restart begins the recording again.
+                            recording["t0"], recording["events"] = time.perf_counter(), []
+                            print("Recording from this restart. Play; press the STOP key when done.", flush=True)
+                        else:
+                            send("cue", 0.2)
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
     proc = WNDPROC(wndproc)  # keep a reference so it is not garbage collected
