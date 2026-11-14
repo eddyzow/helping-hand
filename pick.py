@@ -20,6 +20,7 @@ too far from the point under the camera: off by (object height / camera height) 
 its distance from that point. A 3 cm object 20 cm out under a 60 cm camera is 1 cm off.
 """
 import json
+import math
 import os
 import sys
 import time
@@ -36,6 +37,8 @@ GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 t
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
+GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
+SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
 DROP_GAP = float(os.environ.get("DROP_GAP", "0.3"))  # how far beside an object to put something, as a share of the grid
 
 
@@ -72,7 +75,8 @@ def load(name: str):
 
 
 def locate(frame, command=None, audio=None):
-    """Every object matching the request, as (u, v, label) on the taught grid.
+    """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
+    many degrees to rotate the jaws so they close across the object's narrow side.
     Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
     asked to have it put next to, in the same form."""
     hits, said, boxes, beside = see.find_all(frame, command, audio)
@@ -80,18 +84,36 @@ def locate(frame, command=None, audio=None):
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
     targets = []
-    for x, y, label in hits:
+    for x, y, label, box in hits:
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
-        targets.append((u, v, label))
+        targets.append((u, v, label, jaw_turn(frame, box, corners)))
     targets = narrow(targets, said)
     near = []
-    for x, y, label in beside:
+    for x, y, label, box in beside:
         cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
-        near.append((*to_uv(x, y, corners), label))
+        near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     return targets, said, near
+
+
+def jaw_turn(frame, box, corners) -> float:
+    """Degrees to turn the jaws from their taught direction (closing left-right across the grid)
+    so they close across the object's narrow side. 0 if the object's direction cannot be read.
+    Positive turns from the grid's left-right line towards its near edge."""
+    axis = see.long_axis(frame, box)
+    if not axis:
+        return 0.0
+    angle, stretch = axis
+    cx, cy = (box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2
+    reach = 0.25 * max(box["x1"] - box["x0"], box["y1"] - box["y0"])
+    u0, v0 = to_uv(cx, cy, corners)
+    u1, v1 = to_uv(cx + reach * math.cos(math.radians(angle)), cy + reach * math.sin(math.radians(angle)), corners)
+    lies = math.degrees(math.atan2(v1 - v0, (u1 - u0) * GRID_ASPECT))  # the long side, on the table
+    if stretch < SQUARE_BELOW:
+        return (lies + 45.0) % 90.0 - 45.0   # square: either pair of faces will do, take the smaller turn
+    return (lies + 90.0 + 90.0) % 180.0 - 90.0  # long: close across it, at right angles to the long side
 
 
 # Words that settle "which one?" by position. The model does not know where the arm is, so code does it.
@@ -165,7 +187,7 @@ def main() -> None:
             print(f"I can't see that. (heard: {said})")
         elif len(targets) > 1:  # never pick one silently: ask
             print(f"I see {len(targets)} of those: " + "; ".join(
-                f"{label} at u={u:.2f} v={v:.2f}" for u, v, label in targets) + ". Which one?")
+                f"{label} at u={u:.2f} v={v:.2f}" for u, v, label, _ in targets) + ". Which one?")
         elif not (-EDGE <= target[0] <= 1 + EDGE and -EDGE <= target[1] <= 1 + EDGE):
             print(f"{target[2]} is outside my reach (u={target[0]:.2f}, v={target[1]:.2f}).")
         else:

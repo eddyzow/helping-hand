@@ -39,12 +39,15 @@ TOP_CAMERA = {"pos": (0.25, 0.0, 0.50), "fovy": 45.0}  # looks straight down; im
 
 # the taught grid, in metres on the table: x is away from the arm, y is to its left
 # Pointing straight down, this model reaches about 12 to 30 cm from its base and lifts about 5 cm.
-FAR, NEAR, LEFT, RIGHT = 0.25, 0.14, 0.12, -0.12
-GRASP_Z, CLEAR_Z = 0.010, 0.055  # gripper tip height when closing on a brick, and when carrying
+FAR, NEAR, LEFT, RIGHT = 0.245, 0.14, 0.115, -0.115
+GRASP_Z, CLEAR_Z = 0.010, 0.050  # gripper tip height when closing on a brick, and when carrying
 GRID_N = 7           # taught points per side. On the first, smaller grid: 3 was 7 mm off between points and
                      # grasps failed, 5 was under 2 mm. This grid is wider, so it uses 7.
 GRIP_OFFSET = 0.004  # the model's reference point is one jaw's tip; the brick sits this far toward the other.
                      # Measured here: a 32 mm brick is carried at 0 to 8 mm and dropped at -10 or +16.
+JAW_ACROSS = math.pi / 2   # every taught pose has the jaws closing left-right across the table
+ROLL_TURNS_JAW = 1.0       # which way the roll joint turns the jaws on this model: 1 or -1
+JAW_ARM_MM = -16.0         # measured on this model: the point between the jaws is 16 mm off the wrist's turning axis
 HOME_DEG = [95, -95, 90, 70, 0, 20]      # folded to the side, out of the camera's view
 HANDOVER_DEG = [-50, -30, 30, 50, 0, 0]  # held out to the front right
 
@@ -90,8 +93,8 @@ def _shape(kind: str, rgba: str) -> str:
         return f'<geom type="mesh" mesh="boat" rgba="{rgba}" mass="0.02" {GRIP}/>' + _studs(2, 4, 0.0192, rgba)
     if kind == "chassis":   # a flat base on four wheels
         wheels = "".join(
-            f'<geom type="cylinder" size="0.012 0.005" pos="{x} {y} 0.012" euler="90 0 0" rgba="{BLACK}" mass="0.004" {GRIP}/>'
-            f'<geom type="cylinder" size="0.007 0.0055" pos="{x} {y} 0.012" euler="90 0 0" rgba="{CREAM}" '
+            f'<geom type="cylinder" size="0.012 0.005" pos="{x} {y} 0.012" euler="{math.pi / 2} 0 0" rgba="{BLACK}" mass="0.004" {GRIP}/>'
+            f'<geom type="cylinder" size="0.007 0.0055" pos="{x} {y} 0.012" euler="{math.pi / 2} 0 0" rgba="{CREAM}" '
             f'contype="0" conaffinity="0" density="0"/>'
             for x in (-0.022, 0.022) for y in (-0.021, 0.021))
         return box(0.032, 0.0159, 0.004, 0.014, 0.02) + _studs(2, 4, 0.018, rgba) + wheels
@@ -120,7 +123,9 @@ def scene_xml() -> str:
     curve = [(0.014 + 0.018 * math.sin(a), 0.018 - 0.018 * math.cos(a)) for a in [math.pi / 2 * k / 6 for k in range(7)]]
     profile = [(-0.0319, 0.0192), (0.0319, 0.0192)] + curve + [(-x, z) for x, z in curve]
     boat = [(x, y, z) for y in (-0.0159, 0.0159) for x, z in profile]
-    pieces = "".join(f'<body name="{name}" pos="{x} {y} 0.0005" euler="0 0 {turn}"><freejoint/>{_shape(kind, rgba)}</body>'
+    # the arm model sets angles to radians for the whole file, so turns are converted here
+    pieces = "".join(f'<body name="{name}" pos="{x} {y} 0.0005" euler="0 0 {math.radians(turn)}"><freejoint/>'
+                     f'{_shape(kind, rgba)}</body>'
                      for name, kind, rgba, x, y, turn in PIECES)
     cam = TOP_CAMERA
     return f"""<mujoco>
@@ -232,24 +237,39 @@ class SimArm(MockArm):
         out.release()
 
 
-def solve(model, x: float, y: float, z: float, seed=None) -> list[float]:
+def _jaw_angle(data, site) -> float:
+    """Which way the jaws close, as an angle on the table (radians, 0 = away from the arm)."""
+    across = data.site_xmat[site].reshape(3, 3)[:, 2]
+    return math.atan2(across[1], across[0])
+
+
+def _half_turn(angle: float) -> float:
+    """Jaws closing one way or the opposite way are the same grasp: fold into -90..90 degrees."""
+    return (angle + math.pi / 2) % math.pi - math.pi / 2
+
+
+def solve(model, x: float, y: float, z: float, seed=None, jaw: float | None = JAW_ACROSS) -> list[float]:
     """Inverse kinematics: joint angles (team units, gripper left at 0) that put the gripper tip
-    at x, y, z pointing straight down."""
+    at x, y, z pointing straight down, with the jaws closing along the table angle `jaw`."""
     data = mujoco.MjData(model)
     data.qpos[:5] = seed if seed is not None else [math.atan2(y, x), -0.3, 0.6, 1.2, 0.0]
     site = model.site("gripperframe").id
     low, high = model.jnt_range[:5].T
     jac_pos, jac_rot = np.zeros((3, model.nv)), np.zeros((3, model.nv))
-    for _ in range(400):
+    for _ in range(600):
         mujoco.mj_forward(model, data)
         approach = data.site_xmat[site].reshape(3, 3)[:, 0]  # the fingers point along the site's x axis
         error = np.concatenate([np.array([x, y, z]) - data.site_xpos[site],
                                 0.3 * np.cross(approach, [0, 0, -1])])
-        if np.linalg.norm(error) < 1e-4:
+        # a full turn, not a half: the jaws must face the same way at every taught point, or the
+        # wrist-turn correction in skills/fetch.py would flip sign across the table
+        twist = (jaw - _jaw_angle(data, site) + math.pi) % (2 * math.pi) - math.pi if jaw is not None else 0.0
+        if np.linalg.norm(error) < 1e-4 and abs(twist) < 2e-3:
             break
         mujoco.mj_jacSite(model, data, jac_pos, jac_rot, site)
         jac = np.vstack([jac_pos[:, :5], 0.3 * jac_rot[:, :5]])
         step = jac.T @ np.linalg.solve(jac @ jac.T + 1e-4 * np.eye(6), error)
+        step[4] += ROLL_TURNS_JAW * twist  # pointing down, the wrist roll joint is what turns the jaws
         data.qpos[:5] = np.clip(data.qpos[:5] + 0.5 * step, low, high)
     mujoco.mj_forward(model, data)
     miss = np.linalg.norm(np.array([x, y, z]) - data.site_xpos[site])
@@ -258,15 +278,16 @@ def solve(model, x: float, y: float, z: float, seed=None) -> list[float]:
     return to_team_units(list(data.qpos[:5]) + [math.radians(-10)])
 
 
-def solve_grasp(model, x: float, y: float, z: float) -> list[float]:
+def solve_grasp(model, x: float, y: float, z: float, jaw: float | None = JAW_ACROSS) -> list[float]:
     """solve(), shifted so the point between the jaws, not the jaw tip, ends up over x, y."""
-    joints = solve(model, x, y, z)
+    joints = solve(model, x, y, z, jaw=jaw)
     data = mujoco.MjData(model)
     for _ in range(3):  # the shift depends on which way the wrist ends up facing
         data.qpos[:6] = to_radians(joints)
         mujoco.mj_forward(model, data)
         across = data.site("gripperframe").xmat.reshape(3, 3)[:, 2]  # the direction the jaws close along
-        joints = solve(model, x - GRIP_OFFSET * across[0], y - GRIP_OFFSET * across[1], z, seed=to_radians(joints)[:5])
+        joints = solve(model, x - GRIP_OFFSET * across[0], y - GRIP_OFFSET * across[1], z,
+                       seed=to_radians(joints)[:5], jaw=jaw)
     return joints
 
 
@@ -295,19 +316,20 @@ def request(arm, args: list[str]) -> None:
     else:
         skill = importlib.import_module("skills.fetch")
         if args[:1] == ["--at"]:
-            params = {"u": float(args[1]), "v": float(args[2])}
+            params = {"u": float(args[1]), "v": float(args[2]), "turn": float(args[3]) if len(args) > 3 else 0.0}
         else:
             import pick
             import see
 
             see.load_env()
             pick.CORNERS = SIM_POSES / "table_corners.json"
+            pick.GRID_ASPECT = (LEFT - RIGHT) / (FAR - NEAR)
             targets, said, near = pick.locate(arm.top_view(), command=" ".join(args))
-            print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2)) for u, v, label in targets])
+            print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2), f"turn {turn:.0f}") for u, v, label, turn in targets])
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
                 return
-            params = {"u": targets[0][0], "v": targets[0][1]}
+            params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
             if len(near) == 1:
                 params["to_u"], params["to_v"] = pick.drop_spot(targets[0], near[0])
                 print(f"  putting it beside: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f}")
@@ -358,6 +380,9 @@ def main() -> None:
     arm = SimArm(view)
     write_poses(arm.model)
     core.arm.POSES = SIM_POSES  # skills load poses from here, never from the real poses/ folder
+    fetch = importlib.import_module("skills.fetch")  # tell fetch this table's size and this gripper's geometry
+    fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 1000 * (LEFT - RIGHT), 1000 * (FAR - NEAR)
+    fetch.JAW_ARM_MM = JAW_ARM_MM
     if args:
         request(arm, args)
     while view and arm.window.is_running():  # live window: keep taking requests until it is closed

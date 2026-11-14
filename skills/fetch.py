@@ -22,11 +22,19 @@ NAME = "fetch"
 DESCRIPTION = "Pick up an object from the table and hand it to the person"
 PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red brick'",
           "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py",
-          "to_u": "optional: where to put it down instead of handing it over", "to_v": "optional"}
+          "to_u": "optional: where to put it down instead of handing it over", "to_v": "optional",
+          "turn": "optional: degrees to turn the jaws to match the object, from pick.jaw_turn"}
 
 GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper value when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
+ROLL_SIGN = float(os.environ.get("ROLL_SIGN", "-1"))      # which way wrist_roll turns the jaws; flip if it turns the wrong way
+# Turning the wrist swings the jaws around its axis, so the grasp point moves. To cancel that, give the
+# distance from that axis to the point between the jaws (along the jaws; measure by turning the wrist a
+# quarter turn and seeing how far the tip moves) and the taught grid's real size. 0 = no correction.
+JAW_ARM_MM = float(os.environ.get("JAW_ARM_MM", "0"))
+GRID_WIDTH_MM = float(os.environ.get("GRID_WIDTH_MM", "0"))
+GRID_DEPTH_MM = float(os.environ.get("GRID_DEPTH_MM", "0"))
 EDGE = 0.05  # how far outside the taught grid a target may be
 STOPPED = {"ok": False, "reason": "stopped"}
 
@@ -45,9 +53,18 @@ def run(arm, params, stop):
     table_file = core.arm.POSES / "table.json"  # looked up now, so tests can point it elsewhere
     if not table_file.exists():
         return {"ok": False, "reason": "No table grid. Teach it: python arm.py teach table"}
+    turn = params.get("turn", 0)
+    if not (type(turn) in (int, float) and math.isfinite(turn) and -90 <= turn <= 90):
+        return {"ok": False, "reason": "turn must be a number of degrees from -90 to 90"}
     table = json.loads(table_file.read_text())
+    if turn and JAW_ARM_MM and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:
+        swing = math.radians(turn)
+        u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
+        v -= math.sin(swing) * JAW_ARM_MM / GRID_DEPTH_MM
     up = interpolate(table["up"], table["n"], u, v)
     down = interpolate(table["down"], table["n"], u, v)
+    for pose in (up, down):  # the wrist turns before the jaws come down, and stays turned while lifting
+        pose["wrist_roll.pos"] += ROLL_SIGN * turn
     handover = arm.load_pose("handover")[:5]
     to_u, to_v = params.get("to_u"), params.get("to_v")
     placing = to_u is not None or to_v is not None

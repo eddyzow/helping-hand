@@ -89,7 +89,8 @@ def locate(thing: str) -> list[dict]:
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
     targets, _, near = pick.locate(frame, command=thing)
-    found = [{"object": label, "u": round(u, 3), "v": round(v, 3)} for u, v, label in targets]
+    found = [{"object": label, "u": round(u, 3), "v": round(v, 3), "turn": round(turn, 1)}
+             for u, v, label, turn in targets]
     if len(found) == 1 and len(near) == 1:  # "put it next to the car": add where to put it down
         to_u, to_v = pick.drop_spot(targets[0], near[0])
         found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3), beside=near[0][2])

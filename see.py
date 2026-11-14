@@ -33,6 +33,7 @@ CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
 TIMEOUT_MS = 10000  # Gemini rejects anything under 10 seconds; a normal answer takes 1 to 2
 RETRY_SECONDS = 3
 SAMPLE_RATE = 16000
+AXIS_CONTRAST = float(os.environ.get("AXIS_CONTRAST", "22"))  # how different from the table counts as the object
 CHOOSER_LONG_EDGE = 1024  # the numbered image is shrunk to this before it goes to the chooser
 
 # Keep this prompt as a bare list. Wrapping it in an object, or asking for the transcript in the
@@ -223,9 +224,38 @@ def choose(frame, boxes, command):
     return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near")
 
 
+def long_axis(frame, box):
+    """Which way the object in this box lies: (angle of its long side in the image in degrees,
+    0 = along the image's x axis, turning towards y; how many times longer than wide it is).
+    None if the object cannot be told apart from the table. Plain image processing: the table
+    colour is taken from the rim of the box, and what differs from it is the object."""
+    import numpy as np
+
+    h, w = frame.shape[:2]
+    pad = int(0.12 * max(box["x1"] - box["x0"], box["y1"] - box["y0"])) + 2
+    x0, y0, x1, y1 = max(box["x0"] - pad, 0), max(box["y0"] - pad, 0), min(box["x1"] + pad, w), min(box["y1"] + pad, h)
+    crop = cv2.cvtColor(cv2.GaussianBlur(frame[y0:y1, x0:x1], (5, 5), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
+    if crop.shape[0] < 12 or crop.shape[1] < 12:
+        return None
+    rim = np.concatenate([crop[:3].reshape(-1, 3), crop[-3:].reshape(-1, 3),
+                          crop[:, :3].reshape(-1, 3), crop[:, -3:].reshape(-1, 3)])
+    mask = (np.linalg.norm(crop - np.median(rim, axis=0), axis=2) > AXIS_CONTRAST).astype(np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    if not contours:
+        return None
+    outline = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(outline) < 0.15 * mask.size:
+        return None
+    (_, _), (rw, rh), angle = cv2.minAreaRect(outline)
+    if min(rw, rh) < 1:
+        return None
+    return (angle if rw >= rh else angle + 90.0) % 180.0, max(rw, rh) / min(rw, rh)
+
+
 def find_all(frame, command=None, audio_path=None):
     """Every object that matches the request. Returns (hits, said, boxes, near): hits are
-    (x_px, y_px, label) at the centre of each matching box; said is what was asked; near is the
+    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; near is the
     same for any object the person asked to have it put next to."""
     from concurrent.futures import ThreadPoolExecutor
 
@@ -236,13 +266,13 @@ def find_all(frame, command=None, audio_path=None):
     if not boxes or not command:
         return [], command, boxes, []
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
-                        boxes[i]["label"])
+                        boxes[i]["label"], boxes[i])
     picked, near = choose(frame, boxes, command)
     return [centre(i) for i in picked], command, boxes, [centre(i) for i in near]
 
 
 def find(frame, command=None, audio_path=None):
-    """The first matching object as (x_px, y_px, label), or None. Prefer find_all: when two
+    """The first matching object as (x_px, y_px, label, box), or None. Prefer find_all: when two
     objects match, this picks one without saying so."""
     hits = find_all(frame, command, audio_path)[0]
     return hits[0] if hits else None
@@ -261,12 +291,12 @@ def main():
         sys.exit(f"Could not read {image}")
     hits, said, boxes, _ = find_all(frame, command, audio)
     out = numbered(frame, boxes)
-    for x, y, _ in hits:
+    for x, y, *_ in hits:
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     print(f'heard "{said}", saw {len(boxes)} objects, {len(hits)} match -> outputs/last.jpg')
-    for x, y, label in hits:
+    for x, y, label, _ in hits:
         print(f"  {label}: pixel ({x}, {y})")
 
 
