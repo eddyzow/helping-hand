@@ -28,6 +28,7 @@ import cv2
 # gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CHOOSER = os.environ.get("CHOOSER_MODEL", "claude-sonnet-5-5")
+BACKUP_DETECTOR = os.environ.get("BACKUP_DETECTOR", "gpt-6.1-terra")  # boxes the frame when Gemini fails
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
 TIMEOUT_MS = 10000  # Gemini rejects anything under 10 seconds; a normal answer takes 1 to 2
 RETRY_SECONDS = 3
@@ -108,18 +109,18 @@ def parse_reply(text):
         return {}  # a malformed reply counts as "nothing found", never as a guess
 
 
-def _gemini(parts):
+def _gemini(parts, attempts=3):
     from google import genai
     from google.genai import types
 
     client = genai.Client(http_options=types.HttpOptions(timeout=TIMEOUT_MS))
     parts = [types.Part.from_bytes(data=p[0], mime_type=p[1]) if isinstance(p, tuple) else p for p in parts]
-    for attempt in (1, 2, 3):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
+    for attempt in range(1, attempts + 1):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
         try:
             return parse_reply(client.models.generate_content(model=MODEL, contents=parts).text or "")
         except Exception as err:
             print(f"Gemini error (attempt {attempt}): {str(err)[:200]}", file=sys.stderr)
-            if attempt == 3:
+            if attempt == attempts:
                 raise
             time.sleep(RETRY_SECONDS)
 
@@ -152,8 +153,26 @@ def to_matches(answer, count):
 
 
 def detect(frame):
-    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label."""
-    reply = _gemini([(cv2.imencode(".jpg", frame)[1].tobytes(), "image/jpeg"), DETECT])
+    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label.
+    Gemini first. If it fails and OPENAI_API_KEY is set, OpenAI boxes the frame instead: on our
+    Duplo photo its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds."""
+    jpg = cv2.imencode(".jpg", frame)[1].tobytes()
+    backup = os.environ.get("OPENAI_API_KEY")
+    try:
+        reply = _gemini([(jpg, "image/jpeg"), DETECT], attempts=1 if backup else 3)
+    except Exception:
+        if not backup:
+            raise
+        import openai
+
+        print(f"Gemini failed; {BACKUP_DETECTOR} is boxing the frame.", file=sys.stderr)
+        answer = openai.OpenAI(timeout=30.0, max_retries=1).chat.completions.create(
+            model=BACKUP_DETECTOR, reasoning_effort="low",
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {
+                    "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
+                {"type": "text", "text": DETECT}]}])
+        reply = parse_reply(answer.choices[0].message.content or "")
     return to_boxes(reply, frame.shape[1], frame.shape[0])
 
 

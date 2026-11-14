@@ -23,7 +23,7 @@ DESCRIPTION = "Pick up an object from the table and hand it to the person"
 PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red brick'",
           "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py"}
 
-GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "60"))      # gripper value when open, 0 to 100
+GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper value when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be

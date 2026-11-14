@@ -23,7 +23,7 @@ On the laptop with the arm and the overhead camera. Set up once:
 ```
 python arm.py pose home        # arm parked out of the camera's view
 python arm.py pose handover    # where the arm holds the object out
-python arm.py teach table      # 3 by 3 grid: open gripper on the table, then lifted clear
+python arm.py teach table      # 5 by 5 grid, with a brick between the jaws at each point, then lifted clear
 python arm.py check table      # slow pass through the in-between points; watch for dips
 python pick.py --corners       # click the grid's corners: far-left, far-right, near-right, near-left
 ```
@@ -37,6 +37,17 @@ python pick.py --go                       # voice loop: Enter, speak, Enter
 ```
 
 Run the dry run first and check the green outline and red cross in `outputs/last.jpg`. Redo `--corners` if the camera or the arm's base moves. If the gripper opens or closes the wrong amount, set `GRIP_OPEN` and `GRIP_CLOSED` (defaults 60 and 5). The gripper keeps the angle it was taught at, so long objects need to lie the way the gripper closes.
+
+## Simulation (no arm needed)
+
+```
+python keypad/geometry_dash/fetch_so101_model.py     # once: downloads the SO-101 model
+python sim.py "pick up the red brick"                # camera, finder, fetch, end to end in MuJoCo
+python sim.py --at 0.5 0.5                           # fetch at a grid position, no AI calls
+python sim.py --skill wave                           # any skill in skills/
+```
+
+It writes `outputs/sim.mp4` and prints whether the brick was carried to the handover. Its poses are generated, not taught, and its joint zero differs from the real arm's, so it checks logic, reach and grasping, not the real arm's poses.
 
 ## Drawing
 

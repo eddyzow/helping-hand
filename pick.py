@@ -32,7 +32,7 @@ import see
 
 HERE = Path(__file__).parent
 CORNERS = HERE / "poses" / "table_corners.json"
-GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "60"))      # gripper.pos when open
+GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
