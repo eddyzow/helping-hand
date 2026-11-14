@@ -91,6 +91,7 @@ def main() -> None:
     learn_only = "--learn" in sys.argv
     keys = {} if learn_only or not KEYS_FILE.exists() else json.loads(KEYS_FILE.read_text())  # role -> vk
     held = set()
+    jump_as = {}  # what the last jump press was sent as, so its release matches
     # --record NAME: your own presses of the jump key in the game become keypad/geometry_dash/NAME.csv
     recording = {"name": sys.argv[sys.argv.index("--record") + 1], "events": []} if "--record" in sys.argv else {}
 
@@ -117,6 +118,10 @@ def main() -> None:
             title = ctypes.create_unicode_buffer(200)
             user32.GetWindowTextW(user32.GetForegroundWindow(), title, 200)
             in_game = GAME_TITLE.lower() in title.value.lower()
+            if down:
+                jump_as["click"] = in_game
+            else:  # release what was pressed, even if another window came to the front in between
+                in_game = jump_as.get("click", in_game)
             if in_game:
                 # in the game: a left mouse click. It jumps in a level and presses Play on the level
                 # page (park the mouse pointer on the Play button), so the arm can start the level itself.
@@ -134,16 +139,20 @@ def main() -> None:
         elif down and vk == keys["wave"]:
             print(f"wave -> {send('run wave')}", flush=True)
         elif down and vk == keys["stop"]:
+            print(f"STOP -> {send('stop')}", flush=True)  # the stop goes out first; nothing may delay or block it
             if recording.get("events"):
-                events = recording["events"]
+                events = list(recording["events"])
                 if events[-1][1]:  # still held when stop was pressed: drop the unfinished press
                     events.pop()
                 path = Path(__file__).with_name("geometry_dash") / f"{recording['name']}.csv"
-                path.write_text("time_ms,state\n" + "".join(
-                    f"{t * 1000:.3f},{'down' if d else 'up'}\n" for t, d in events))
-                print(f"saved {len(events) // 2} presses to {path}", flush=True)
-                recording.clear()
-            print(f"STOP -> {send('stop')}", flush=True)
+                try:
+                    path.write_text("time_ms,state\n" + "".join(
+                        f"{t * 1000:.3f},{'down' if d else 'up'}\n" for t, d in events))
+                except OSError as err:  # keep the events: the next stop press tries again
+                    print(f"could not save {path}: {err}. Press stop again to retry.", flush=True)
+                else:
+                    print(f"saved {len(events) // 2} presses to {path}", flush=True)
+                    recording.clear()
 
     told = []  # so the "click the game" hint prints once per wait, not twice a second
 
