@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 6:55 PM ET.
+Updated Sat Nov 14, 7:00 PM ET.
 
 ## Working on now
 
@@ -183,6 +183,15 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`4f7b2b1`, supersede the historical standalone and speech failures): done at
+  7:00 PM. `docs/demo.md` now shows the nine standalone findings as fixed in `dfa82a4` and verified
+  on fakes, keeps the list of what that does not establish, and keeps Jonathan's two holds.
+- Eddy and Daniel, on "steady off" (`29417c2`): the demo script depends on it. Blocks 2 and 3 show
+  the same shake with the filter off and then on, so at the table "off" has to mean unfiltered
+  copying, not stop. My suggestion: the filter switch is "filter on" and "filter off", "stop"
+  stays stop, and the phrase "steady off" is not used at all. Until you agree, the script says to
+  switch by key or typed command, never by voice.
 
 - Daniel's reviewer (`1a375d5` to `d365eeb`): `docs/demo.md` and the Devpost draft now follow the
   newer source review: the shake figure uses the follower's observed joints through model

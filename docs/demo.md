@@ -18,8 +18,8 @@ within millimetres. Here the person does the aiming.
 | Piece | Evidence so far | Passed 4 of 5 on the arm? |
 |---|---|---|
 | Plain leader-to-follower teleoperation (`teleop_sync.py`) | Ran on both real arms | Not counted |
-| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests with nominal timing: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Both versions are held in review at 6:38 PM, on findings reproduced with fake devices, not observed on the arm. Dispatcher skill: the start-up move can request more than the speed cap; the leader can be opened on the follower's port. Standalone `steady.py`: a stop arriving during a leader read is missed for one more command; "hold" still changes its target during start-up; after a leader read error the cleanup requests torque-off with no confirmation, which could drop an unsupported arm; a NaN in the saved offset reaches the (fake) send call unchecked. A hardware run does not close these | No |
-| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Limits found in review, as of 6:48 PM: the arm's shake figure now comes from the follower's own joint readings through a model of the arm (per source review of `c92d6bd`), but the plotted "arm" line still uses the commands sent; neither is a measurement of the pen tip. The shake frequency is still wrong in the first second of a run (a 6 Hz test read as 12 Hz). The `--shake` test mode crashes on that commit | No |
+| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests with nominal timing: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Standalone `steady.py`: all nine findings reproduced on fake devices were fixed in `dfa82a4` and verified on fakes at 6:53 PM (stop during a leader read, hold, torque kept on after a fault, bad offsets and readings refused, sample clock). Not established by that: real stop latency, grip safety, meter accuracy with uneven timing, calibration. Dispatcher `skills/steady.py`: still held (start-up move can exceed the speed cap; leader can be opened on the follower's port). Neither branch is approved for `main` or hardware by the reviewer | No |
+| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip, and timing with uneven samples is unchecked | No |
 | Simulated comparison (`sim_steady.py`, Jonathan, 6:44 PM) | His report, not re-run by anyone: placing a brick with a simulated 3 degree, 5 Hz shake succeeded 1 time in 6 unfiltered and 6 in 6 filtered. The simulated servos are stronger and more exact than ours, and the "hand" is a script | Simulation |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
 | Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
@@ -73,7 +73,7 @@ be stopped. Daniel's lane publishes the counted numbers.
 |---|---|---|---|
 | 1 | Teammate | The three pitch sentences | |
 | 2 | Teammate | Steady mode OFF. Holds the leader and shakes it on purpose; the follower shakes too. The dashboard shows both lines moving | Skip to 3 |
-| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the arm's shake, from its own joint readings" for the number and do not point at the plotted arm line as a measurement, unless that line has been switched to the readings by then | Stop key, one retry, then show the recorded clip |
+| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the arm's shake, from its own joint readings" | Stop key, one retry, then show the recorded clip |
 | 4 | Judge | Takes the leader, shakes it, and watches the arm hold still. Then makes a slow deliberate move, and the arm follows | Teammate takes over |
 | 5 | Teammate | "Hold this": hands the claw a marker or a Duplo brick; it holds it steady and gives it back | Skip |
 | 6 | Teammate | Extras, only those that passed: Geometry Dash as proof of precise timing, a gesture, a voice command | Skip |
@@ -81,6 +81,11 @@ be stopped. Daniel's lane publishes the counted numbers.
 
 Notes:
 
+- "Steady mode off" in blocks 2 and 3 means the filter is off and the follower copies the hand
+  unfiltered. That is what `steady.py` does with "steady off". Eddy's note says the spoken phrase
+  "steady off" should mean stop instead, and the reviewer has blocked voice use until the team
+  agrees one meaning. Until then, switch the filter with a key or a typed command at the table,
+  never by voice, and say "filter off" and "filter on" out loud so nobody hears it as "stop".
 - Blocks 2 and 3 are the whole argument: the same shake with the filter off and on. Run them back
   to back every time. If only one thing is filmed tonight, film these two.
 - Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the
