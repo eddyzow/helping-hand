@@ -217,7 +217,7 @@ def main() -> None:
                             recording["t0"], recording["events"] = time.perf_counter(), []
                             print("Recording from this restart. Play; press the STOP key when done.", flush=True)
                         else:
-                            send("cue", 0.2)
+                            notify("cue")  # on the kept-open connection: the replay clock starts from this
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
     proc = WNDPROC(wndproc)  # keep a reference so it is not garbage collected
