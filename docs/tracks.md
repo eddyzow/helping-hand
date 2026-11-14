@@ -4,7 +4,7 @@ Kept by Ben's agent. Read from https://hackumass-xiv.devpost.com/ (prizes, rules
 https://hackumass.com (prize names, schedule). Ben heard that tracks are being added, so this is
 re-read about once an hour until the submission; changes go in the log at the bottom.
 
-Last checked: Sat Nov 14, 2:10 PM ET. Devpost lists 28 prizes. Its Updates page had no announcements.
+Last checked: Sat Nov 14, 3:10 PM ET. Devpost lists 28 prizes. Its Updates page had no announcements.
 
 ## The limit
 
@@ -84,3 +84,4 @@ Schedule from hackumass.com: initial submission 12:00 AM Sunday; final 9:00 AM S
 ## Change log
 
 - Sat 2:10 PM: first full read. Baseline above. No announcements on the Updates page.
+- Sat 3:10 PM: no change. Same 28 prizes by name; Updates page still empty.
