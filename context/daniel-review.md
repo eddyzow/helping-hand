@@ -7,6 +7,34 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Held-grip history: arm 99babfd held
+
+`MockArm.move_joints` (inherited by Arm) now holds the last requested gripper value constant when a later move asks for the same value. The consecutive-move control passes with a fake jaw blocked at 19 while commanded to 5. However, `_grip_sent` is updated only in move_joints; play moves to its first trajectory point through that method, then writes later points directly without refreshing history.
+
+Exact MockArm.play/move_joints with a fake blocked jaw and no-wait stop object reproduces both directions: play 60 -> 5 then move to grip 5 sends 14.333, 9.667, 5, relaxing the grip the change intends to retain; play 5 -> 60 then move to grip 5 sends 5, 5, 5, skipping the requested closing ramp. These are requested commands in fakes, not measured physical motion. The real follower's existing measured-position cap is still present and must stay intact.
+
+Keep shared command history consistent across every path that actually commands the gripper, including trajectory and calibration writes; a tap-only write to another joint must not pretend it commanded the gripper. Preserve ordinary opening/closing ramps, failure/stop semantics and the measured step bound. Caller tracing covered play, tap/calibration, home/gripper, draw/fetch/personality/wave and simulator overrides. The newly committed handover pose has not been physically validated by Codex. Prior arm holds remain open.
+
+QA `442b835`, `python -B -m tests.test_grip_history`, passes normal consecutive holding and a failed-write control (failure propagates, last successful grip remains effective), and fails both trajectory cases. History must be updated only after successful writes. Combined WSL `python -B -m tests.test_core` prints `core ok`; Windows tests.test_pending_boundaries passes EOF cleanup and the measured tap-step cap. No actual serial, native input, model call or simulation ran; passing baseline checks do not close this new hold.
+
+Interview questions: Why does caching a command require tracing every writer? How does a blocked measured jaw differ from its requested target? Which invariants must survive a stop or failed write?
+
+## Drawing expansion: main 27595d3
+
+Documentation follow-up 6edbd95: Ben reports repeating draw/sketch boundary checks; acknowledged without repeating unchanged code. Draft claims need scope: cached draw.sketch skips provider calls, but voice.route.main still calls by_model before reaching that cache. Also draw.sketch uses failed blind recognition to trigger one retry, then returns the second selection without a second recognition check. It is feedback, not a guaranteed recognition gate. Requested wording corrections in Daniel's note; the owner-reported simulation recognition results remain separate.
+
+Ben's 789e304 corrects both statements in the demo and Devpost draft. Documentation requests closed after reading the diff; executable source and the open fallback finding are unchanged.
+
+Root draw.sketch builds/caches strokes, voice.route.main resolves params.what before sending them, and skills.draw.run validates strokes and plans all moves before executing. The new simulator calls the same skill against a synthetic paper grid. Reviewed all three sketch callers (CLI, voice, simulator), model parsing, fallback and cached paths; no simulator or real provider ran.
+
+**New software finding:** the advertised model-unavailable database fallback still depends on the failed provider. Exact draw.sketch with a recognized category, fake available database doodles and a provider that always raises: three generation failures select database candidates, but one candidate then fails in looks_like and two fail in best_of. QA `6282fce`, `python -B -m tests.test_sketch_fallback`, reproduces both. Use the validated available fallback without mandatory unavailable ranking/recognition. A fresh database fetch can still require networking; this finding is model-unavailable fallback, not a promise of uncached offline drawing.
+
+Windows `python -B -m skills.draw`, tests.test_model_adapters and tests.test_perception_boundaries pass. New `python -B -m tests.test_sketch_boundaries` passes 80-stroke/4000-point limits and invalid type/nonfinite/out-of-range coordinates, all checked-in sketch caches, actual smooth model parsing with a fake reply, cached lookup without provider calls, exact voice stroke forwarding and no dispatch on generation failure. Invalid strokes return before fake motion. Only fake speech/transport/provider objects and temporary cache files were used.
+
+sim_draw.py's synthetic pen is an offset point, not a gripped physical pen; its ink metric compares drawn endpoints with resampled intended points. Simulation rendering, live viewer, friction/slip, taught paper/home clearance, real provider recognition and the reported 12/12 results were not independently executed or validated. Existing placement/calibration findings on main and arm branch holds remain unaffected.
+
+Interview questions: Where are generated strokes validated before motion? Why must a fallback avoid the dependency that failed? What does the simulated ink-distance metric omit about real pen contact?
+
 ## Retained calibration depth: 2a835de held
 
 **Follow-up 555c7f9 closes this specific hold in fakes.** The final effective press is now bounded against the unchanged travel limit, checked and used for all three verification taps before saving; the result includes the retained depth. All four targeted checks pass: zero-depth control, retained 0.2 with available travel (target 41.25), positive prior depth at the edge, and negative prior depth. The strengthened regression also confirms that the eventual effective press target appeared in three verification writes. Physical calibration/force remains operator work. Prior sequencer focus/completion and timeout/retry holds are unaffected, so the arm branch remains held.

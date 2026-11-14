@@ -13,7 +13,7 @@ water also tomorrow."
 |---|---|---|
 | Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. All of it is on `main` since 5:24 AM (`a1a7599`): the replay skill, tap calibration and delay measurement, macro recording, a software-only replay and a browser timing study. That study reports "no crash heard", not a cleared level. At 1:27 PM a commit on Daniel's branch (`f1e8a18`, not on `main`) is titled "the arm completes Stereo Madness", with replay timed on Windows. That is the owner's report: the reviewer notes the script's own "completed" cannot tell a late death from a win, so it needs someone who watched the level finish, and ideally a video |
 | Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. The finding open at the merge (a missing placement destination became a handover) has a fix on `main` from Eddy at 4:45 AM (`f271764`), checked by Daniel's reviewer at 4:54 AM: a valid placement works. The two related cases left open then were fixed by Eddy at 10:24 AM (`b49533d`) and checked by Daniel's reviewer at 10:30 AM. At 10:34 AM the finder was rebuilt without Gemini (`bdea8c0`); that version has not been reviewed. Finder tested on two real phone photos, not from the real camera position |
-| Drawing | Ben, Eddy | `skills/draw.py` on `main`, mock only. Needs a pen holder and a taught paper grid. Planned for Saturday |
+| Drawing | Ben, Eddy | `skills/draw.py` on `main` writes a word or, since 2:46 PM, sketches a thing you name ("a cat"): Claude makes the strokes, 17 are cached in `drawings/`. Mock and simulation only: in Eddy's simulator a blind viewer named 12 of 12 sketches. Never tried with a real pen. Needs a pen holder and a taught paper grid |
 | Feeding food and water | Daniel | Nothing in the repo yet. Planned for Saturday |
 
 Wave and the personality moves (`skills/wave.py`, `skills/personality.py`) are on `main`, mock only.
@@ -54,6 +54,7 @@ A skill is in the table demo only if it passes 4 runs out of 5 on the real arm a
 |---|---|---|
 | Geometry Dash, first section | about 20 s | A guess; set by how many taps are replayed. Jonathan or Daniel to correct |
 | Duplo by voice | about 25 to 30 s | A simulated request took about 13 s end to end after Gemini was removed (Eddy, 10:34 AM), plus the real arm's travel. Not timed on the arm |
+| Drawing a sketch | 25 to 40 s, plus 10 to 20 s to generate one that is not cached | Eddy's simulator, 2:44 PM. Not timed on the arm |
 | Drawing a name | 31 to 54 s | Planned from the stroke plan at the default pen speed, not timed on the arm. "HI" 31 s, "HELLO" 35 s, "BEN" 42 s, "JONATHAN" 54 s |
 | Feeding | unknown | Not built |
 
@@ -68,7 +69,7 @@ at the freeze by which passed the gate most cleanly.
 | 1 | Teammate speaks | The one-sentence pitch | | Ben |
 | 2 | Teammate runs `geometry_dash`; the keypad listener restarts the level | Arm taps through the start of Stereo Madness, holds included. A teammate presses stop (Z) once on purpose and the arm freezes | Show the recorded clip | Jonathan, Daniel |
 | 3 | Judge says "pick up the red brick" or "put the roof next to the purple brick" | Arm picks the piece from the mat and hands it over or sets it down. If two match, it asks "which one?" | Typed request; then a taped-spot pick | Eddy, Daniel |
-| 4 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy |
+| 4 | Judge names a thing to draw, or gives their name | Arm sketches it, or writes the name, on a card the judge keeps | Draw one of the cached sketches; then hand over a card made earlier | Ben, Eddy |
 | 5 | Teammate says "feed me" | Arm scoops and holds the spoon out, short of the face; the teammate leans in. Water: a lidded cup with a straw | Skip it. Do not improvise near a person | Daniel |
 | 6 | Teammate speaks | Cost line, and what is next | | Ben |
 
@@ -89,6 +90,10 @@ Notes on the blocks:
   jaws knocked neighbours at 6 cm. Keep pieces apart on the mat (two touching pieces come back as one box), avoid
   thin plates and hollow pieces, and have the typed request ready: the hall will be loud, and the
   microphone has been tried once, in a quiet room.
+- Block 4: a sketch the judge names needs the Anthropic API and 10 to 20 seconds before the pen
+  moves. The 17 cached sketches in `drawings/sketch_*.json` skip that generation step, so offer the
+  judge a short list ("a dog, a robot, a dragon...") if the network is slow. They are not
+  network-free: a spoken or typed sentence still goes to the model first to pick the skill.
 - Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
   `PEN_SPEED` if the writing stays legible, or write one initial live and hand over a full-name
   card made earlier.

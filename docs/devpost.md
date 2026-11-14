@@ -61,7 +61,8 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Handles Duplo by voice. [CONFIRM ON ARM] Say "pick up the red brick" or "put the roof next to
   the purple brick". A camera looks at the table, and the arm picks the piece up and hands it over
   or sets it down. If two pieces match, it asks which one.
-- Writes. [CONFIRM ON ARM] Give it a short word and it writes it on a card with a pen.
+- Draws and writes. [CONFIRM ON ARM] Name a thing and it sketches it on a card with a pen, or
+  give it a short word and it writes it.
 - Feeds. [CONFIRM ON ARM; not built as of this draft] It scoops dry food from a bowl and holds the
   spoon out, stopping short of the face so the person leans in, and offers water from a lidded cup
   with a straw.
@@ -83,7 +84,10 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
-  a taught grid over the paper.
+  a taught grid over the paper. For a sketch, Claude draws the thing as strokes three times, guided
+  by the most typical doodles of it from Google's Quick, Draw! dataset. A second call that is not
+  told the subject is asked to name the drawing; if it names something else, the sketch is redone
+  once with that feedback.
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint
