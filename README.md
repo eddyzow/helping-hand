@@ -16,6 +16,26 @@ echo "GEMINI_API_KEY=your-key" > .env        # key from aistudio.google.com/apik
 
 It prints the pixel to grasp and saves the marked-up frame to `outputs/last.jpg`. Set `CAMERA=1` to use a different camera. On a Mac, the terminal needs camera and microphone permission in System Settings.
 
+## Drawing
+
+```
+.venv/bin/python draw.py cat                # a doodle from the Quick, Draw! database
+.venv/bin/python draw.py --text "Eddy"      # write a word
+.venv/bin/python draw.py --gen "a rocket"   # Gemini invents the strokes (about 20 seconds)
+```
+
+Each run saves a preview to `outputs/draw.png`. Add `--go` to draw it with the arm, after teaching the paper grid.
+
+## Arm commands (on the laptop with the arm; not yet tested on hardware)
+
+```
+python arm.py teach paper     # hand-pose the arm over a 3 by 3 grid on the paper, pen down then pen up
+python arm.py record wave     # move the leader, the follower copies, the motion is saved
+python arm.py replay wave     # the follower repeats it
+```
+
+Set `FOLLOWER_PORT` and `LEADER_PORT` if they differ from `/dev/ttyACM1` and `/dev/ttyACM0`. Keep someone on the power switch for first runs.
+
 ## Working in this repo
 
 - Commit small and often, straight to `main`. Pull with `git pull --rebase` before you push.

@@ -2,6 +2,19 @@
 
 HackUMass XIV, Nov 13 to 15 2026. Current as of late Fri Nov 13. The team looked at a Duplo builder (`context.md`) and a fetch vehicle tonight and came back to this plan. Section 10 of `context.md` (arm hardware, WSL setup, teleoperation commands) and its rules for AI agents still apply.
 
+## Skill list (updated Sat 12:15 AM)
+
+The team's current list, grouped by the mechanism each one uses. Build one skill per mechanism first.
+
+| Mechanism | Skills | Code |
+|---|---|---|
+| Replayed motion | Feed food, feed water, fixed drawings | `arm.py record` and `arm.py replay` |
+| See, point, pick | Command-guided pick up, Duplo building | `see.py`, plus a taught grid (`arm.py teach`, `grid.py`) |
+| Taught grid plus strokes | Draw what you ask for: database, text, or generated | `draw.py` |
+| Timed key presses | Stereo Madness, hardcoded tap timings | not written yet |
+
+Ping pong is a stretch. Where a skill can be hardcoded, hardcode it. The sections below were written before this list and still describe fetch, feeding and the schedule.
+
 ## Status (Fri night, read this first)
 
 We are building fetch first. Target commands: "pick up the mouse", "pick up the lanyard", "pick up the red brick", "pick up the triangular brick". The bricks are Duplo, which are bigger than Lego and easier to grip.
