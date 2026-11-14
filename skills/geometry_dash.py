@@ -109,24 +109,53 @@ def run(arm, params, stop):
                 cue.clear()
             start += offset_ms / 1000  # the one knob: plus makes every jump later, minus earlier
             seen, last = [], [key_down.is_set()]  # what the keypad really did, to report after the run
+            sent, repairs = [], []
+
+            # What we last asked the key to be, when, and how often we have already had to insist.
+            asked = {"down": False, "at": real_now(), "tries": 0}
 
             def watch():
                 state = key_down.is_set()
                 if state != last[0]:
                     last[0] = state
                     seen.append((real_now() - start, state))
+                # Repair, using the keypad's own report. The arm and the keypad drift against each
+                # other by fractions of a degree over a run, and then a press stops registering or a
+                # key stays down. If the key is not where we asked 0.15 s after asking, ask again a
+                # little harder, and keep the stronger setting for the rest of the run.
+                if not feels_key or state == asked["down"] or asked["tries"] >= 2:
+                    return
+                if real_now() - asked["at"] < 0.15:
+                    return
+                asked["tries"] += 1
+                asked["at"] = real_now()
+                try:
+                    if asked["down"]:
+                        arm.set_tap(press=min(arm.press_extra + 0.7, 3.0))
+                        arm.press()
+                    else:
+                        arm.set_tap(lift=min(arm.lift + 1.0, 9.0))
+                        arm.release()
+                except ValueError:
+                    return
+                repairs.append([round(real_now() - start, 2), "press deeper" if asked["down"] else "lift higher",
+                                round(arm.press_extra, 2), round(arm.lift, 2)])
 
             for event in commands:
                 while not cue.is_set() and (left := event.at - (real_now() - start)) > 0:
                     watch()
                     if stop.wait(min(left, 0.002)):
                         # hold where it is; stop never commands a move
+                        _record(events, seen, sent, repairs)
                         return {**STOPPED, "timing": _timing(seen, events) if feels_key else ""}
                 if cue.is_set():            # the level was restarted: let go and start the clock again
                     arm.release()
                     break
                 if event.down:
+                    before = real_now() - start
                     arm.press()
+                    asked.update(down=True, at=real_now(), tries=0)
+                    sent.append([round(before, 4), round(real_now() - start, 4), True])
                     continue
                 # A short tap's release can come due before the press has even registered (the press
                 # takes 110 to 164 ms on this arm), and lifting then cancels the jump. When the keypad
@@ -139,7 +168,10 @@ def run(arm, params, stop):
                         break
                     time.sleep(0.0005)
                 watch()  # the press may have registered during that wait: note it before releasing
+                before = real_now() - start
                 arm.release()
+                asked.update(down=False, at=real_now(), tries=0)
+                sent.append([round(before, 4), round(real_now() - start, 4), False])
             else:
                 settle = real_now() + 0.3  # catch the last release
                 while feels_key and real_now() < settle and not stop.is_set():
@@ -148,14 +180,23 @@ def run(arm, params, stop):
                 result = _finish(arm, "")
                 if feels_key:
                     result["timing"] = _timing(seen, events)
-                    # the raw record, for when the summary looks wrong: what was asked and what the keypad saw
-                    (GD / "outputs").mkdir(exist_ok=True)
-                    (GD / "outputs" / "last_replay.json").write_text(json.dumps({
-                        "wanted": [[round(e.at, 4), e.down] for e in events],
-                        "seen": [[round(t, 4), down] for t, down in seen]}))
+                    _record(events, seen, sent, repairs)
+                    result["repairs"] = len(repairs)
                 return result
     finally:
         waiting.clear()
+
+
+def _record(events, seen, sent, repairs=()) -> None:
+    """The raw record of a run, kept for when it dies or the summary looks wrong: what was asked,
+    when each command was handed to the motor [before the write, after it, press?], and what the
+    keypad saw."""
+    (GD / "outputs").mkdir(exist_ok=True)
+    (GD / "outputs" / "last_replay.json").write_text(json.dumps({
+        "wanted": [[round(e.at, 4), e.down] for e in events],
+        "seen": [[round(t, 4), down] for t, down in seen],
+        "sent": sent,
+        "repairs": list(repairs)}))  # [at s, what, press setting after, lift setting after]
 
 
 def _timing(seen, events) -> str:

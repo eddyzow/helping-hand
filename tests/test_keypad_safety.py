@@ -87,7 +87,11 @@ def test_notify_retry():
     node = next(n for n in ast.parse(path.read_text()).body
                 if isinstance(n, ast.FunctionDef) and n.name == "notify")
     code = compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec")
-    for command, retry, expected in (("cue", False, 1), ("key down", True, 2)):
+    # Since 14 Nov notify looks at the kept connection BEFORE sending. A connection found closed has
+    # had nothing sent on it, so the command goes out exactly once on a fresh connection, cue or not.
+    # (Before, the send went into the closed connection first and was lost without an error: the
+    # first key event after every dispatcher restart vanished, and a calibration ran to its limit.)
+    for command, retry, expected in (("cue", False, 1), ("key down", True, 1)):
         accepted, closed, connections = [], [], []
 
         class Socket:
@@ -111,10 +115,9 @@ def test_notify_retry():
         exec(code, scope)
         scope["notify"](command, retry=retry)
         assert accepted == [command] * expected and closed == [stale]
-        if not retry:
-            assert not scope["_open"] and not connections
-            scope["notify"]("cue", retry=False)
-            assert accepted == ["cue", "cue"] and len(connections) == 1
+        assert len(connections) == 1 and scope["_open"] == connections  # one fresh connection, kept
+        scope["notify"](command, retry=retry)                           # the next one reuses it
+        assert accepted == [command] * 2 and len(connections) == 1
 
 
 def test_software_replay():
