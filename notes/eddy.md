@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:08 PM.
+Updated Sat Nov 14, 2:44 PM.
 
 ## Working on now
 
@@ -238,3 +238,13 @@ Then these numbers, each measured once on the real arm (all are environment vari
 What will not carry over: real Duplo studs have to be pressed together and lined up to a millimetre or two, and the simulator has no studs; the real arm repeats to a few millimetres at best; shadows and glare on the grey table can break the outline step (it falls back to the detector's box). Expect pick-up and handover first, putting beside second, resting one brick on another third, pressed-on stacks and the car body last or not at all.
 
 Can be done before the arm is free: mount the camera, photograph the real table from it, run `python see.py --image that.jpg "..."` and `python pick.py --image` on it, and try a spoken request on the Windows side.
+
+## Drawing anything, in the simulator, Sat Nov 14, 2:44 PM
+
+Eddy asked for: say what to draw, and the simulated arm holds a pen and sketches it. Ben, this touches your `skills/draw.py`; details below.
+
+- `draw.sketch(what)` in root `draw.py`: Claude Sonnet 5.5 draws the thing three times at once as strokes, and picks the best. If the thing is one of the 345 in the public Quick, Draw! database, it is first shown the dozen most typical of people's doodles of it (found by comparing a few hundred doodles with their average) as a guide to what to include. A second call that is not told the subject then names the drawing; if it names something else, there is one more round, told what it was mistaken for. With no model reachable, the doodles themselves are used. Results are cached in `drawings/sketch_*.json`: 17 are committed, so those are instant and need no Wi-Fi. A new one takes about 10 seconds (20 if it needs the second round).
+- `sim_draw.py`: paper, a pen below the jaws, and ink wherever the tip touches. It runs the real `skills/draw.py` on a 5 by 5 "taught" paper grid. `python sim_draw.py a cat` saves `outputs/sim_drawing.png` and a video; `mjpython sim_draw.py --view` is the live window (the window itself I could not check from here, only the video).
+- Result on 12 subjects I had not tuned on (elephant, dog, fish, coffee cup, car, butterfly, flower, umbrella, dinosaur, lighthouse, snowman, penguin): the blind viewer named all 12 from the simulated ink. The ink was 0.7 to 0.9 mm from the intended line on average, about 2 mm at worst, on a 12 cm page. Each took 25 to 40 seconds to draw.
+- Ben, changes to `skills/draw.py`: `run draw {"strokes": [[[u, v], ...], ...]}` draws ready-made strokes (checked before any move: 1 to 80 strokes, numbers from 0 to 1, at most 4000 points); `plan` takes text or strokes; the description and `PARAMS` now mention sketches; its self-check covers the new path and still prints `draw ok`. `voice/route.py` turns `params.what` ("a cat") into strokes before sending.
+- For the real arm, from the simulator: the first move from a folded-away home to the page dipped the pen through the table at the page's corner. Teach a home, or a rest pose, that holds the pen above the page. Not modelled: the pen slipping or tilting in the jaws, and paper friction.
