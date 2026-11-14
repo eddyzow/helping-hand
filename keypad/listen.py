@@ -22,6 +22,7 @@ import json
 import os
 import socket
 import sys
+import threading
 import time
 from ctypes import wintypes
 from pathlib import Path
@@ -195,9 +196,18 @@ def main() -> None:
             told.append(1)
             print(f"Arm is ready. Click the {GAME_TITLE} window and press {chr(VK_RESTART)} to start.", flush=True)
 
+    def poll_ready() -> None:
+        """Ask the dispatcher twice a second, on a thread of its own. This used to run on a timer
+        inside the key-handling loop, where each question could block for up to 0.2 s: a jump key
+        pressed during that time reached the game late, by as much as a second when several piled up."""
+        while True:
+            try:
+                start_game_when_ready()
+            except Exception as err:  # never let this helper die quietly
+                print(f"ready check failed: {err}", flush=True)
+            time.sleep(0.3)
+
     def wndproc(hwnd, msg, wparam, lparam):
-        if msg == WM_TIMER:
-            start_game_when_ready()
         if msg == WM_INPUT:
             raw = RAWKEYBOARD()
             size = wintypes.UINT(ctypes.sizeof(raw))
@@ -228,7 +238,7 @@ def main() -> None:
     rid = RAWINPUTDEVICE(1, 6, 0x100, hwnd)  # keyboards, delivered even without focus
     if not hwnd or not user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(rid)):
         raise SystemExit(f"Could not listen for keys (Windows error {ctypes.get_last_error()}).")
-    user32.SetTimer(hwnd, 1, 500, None)
+    threading.Thread(target=poll_ready, daemon=True).start()
     if not prompt():
         print("Keypad ready: wave, jump (Up arrow), stop. Ctrl+C to quit.", flush=True)
     msg = wintypes.MSG()
