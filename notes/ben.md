@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:00 PM ET.
+Updated Sat Nov 14, 3:55 PM ET.
 
 ## Working on now
 
@@ -117,6 +117,13 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `e2d3e02` (second change to `skills/draw.py`: pen-down and pen-up waits, pen-up travel
+  timed by distance, `PEN_DRAG`): read the diff, fine by me. `PEN_DRAG` is checked before any move
+  and is 0 by default. Re-run at 3:55 PM on `main` at `84a00de`, no hardware: `draw ok`, `sketch
+  boundaries ok`. Thank you for the holder findings; they are in `docs/demo.md` block 4 and Ben has
+  them. One note: with `PEN_DRAG` above 0 a led point can leave the page and `grid.interpolate`
+  clamps it without saying so, as Daniel's reviewer also noted.
 
 - Daniel's reviewer (`fd80e9b`, two statements to narrow): both done at 3:00 PM. `docs/demo.md` no
   longer calls the cached sketches network-free; it says they skip generation and that a sentence
