@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:40 AM ET.
+Updated Sat Nov 14, 1:40 PM ET.
 
 ## Working on now
 
@@ -54,6 +54,18 @@ Next, in order:
 
 ## Needs from others
 
+- Daniel or Jonathan (1:40 PM): commit `f1e8a18` says the arm completes Stereo Madness. If someone
+  watched it reach Level Complete, please write three lines in your note: how many attempts out of
+  how many, which macro, and whether it was filmed. That is the strongest thing in the demo and
+  the Devpost draft, and right now both can only call it an owner's report. If it was not filmed,
+  film the next clean run: it is also the backup video.
+
+- Everyone, from the demo side (1:10 PM): the freeze is 8:50 PM. By the notes, Geometry Dash is
+  the only skill that has run on the real arm. Duplo needs a mounted overhead camera, a taught
+  grid and 15 measured settings (Eddy's 1:08 PM list); drawing needs a pen holder and a taught
+  paper grid; feeding is not started. Which of these are getting arm time this afternoon, and in
+  what order? The demo script cuts whatever has not passed 4 of 5 on the arm by the freeze.
+
 - Everyone: please read `docs/devpost.md` and correct the paragraph about your own part. The
   "How we built it" section describes each person's work from the notes, not from watching it run.
 - Whoever bought the arm: what did the assembled kit cost? The repo's "$300 arm" matches only the
@@ -91,6 +103,38 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `a620d95` (keyword matching removed): `docs/demo.md` now says block 3 has no offline path
+  for sentences and names the fallbacks, the keypad keys and a typed `run fetch` with a grid
+  position. Eddy: is that right, and is there anything else that still works with no network?
+  Re-run on `main` at `c6e56af`, no hardware: `draw ok`, `personality ok`, `core ok`.
+
+- Daniel's reviewer (`2a8f849`, narrow the "bad value means no motion" sentence): done at 10:40 AM.
+  The Devpost draft now limits that claim to dispatcher skills and says standalone `pick.py` homes
+  before it refuses. Open-finding language in both drafts is updated to "all tracked ones closed".
+- Eddy's Gemini removal (`bdea8c0`): both drafts updated. Models are now OpenAI for boxes and
+  speech and Claude for choosing and routing; keys are OpenAI and Anthropic; the Devpost draft says
+  NOT to tick MLH's Best Use of Gemini API, since Gemini is in no live path any more.
+- Eddy and Daniel's reviewer, a failing check on `main` at `bdea8c0`: on Ben's laptop
+  `python -B -m tests.test_perception_boundaries` ends in `NameError: name 'parse_reply' is not
+  defined`, raised from `see.choose` (line 202) as called by `find_all`. That test landed at
+  10:30 AM and the finder was rewritten at 10:34 AM. This laptop has no OpenCV installed, so I
+  cannot rule out my environment; one of you please run it. `draw ok`, `personality ok`, `core ok`
+  and `fetch ok` still print here.
+
+- Eddy's `b49533d` (10:24 AM), which also touches root `draw.py`: `skills/draw.py` imports that
+  file, so I re-ran on `main` at `89bac12`, no hardware: `draw ok`, `personality ok`, `core ok`,
+  `fetch ok`. Thanks for closing the clamp in root `draw.py`.
+
+- Daniel's arm integration `a1a7599`: re-run at 5:30 AM on Ben's laptop on `main` at `fcf34f1`, no
+  hardware, all with `python -B -m`: `draw ok`, `personality ok`, `core ok`, `fetch ok`,
+  `keypad safety ok`, `arm boundaries ok`, and `tests.test_pending_boundaries` now passes.
+  `docs/demo.md` shows the Geometry Dash work as on `main`.
+
+- Daniel's reviewer (the destination being on the mat is not a software guard): agreed, and
+  `docs/demo.md` no longer suggests it is. It now says Eddy's fix `f271764` is on `main`, that your
+  verification was pending at 4:50 AM, and that the table should rehearse a refusal. Re-run on
+  `main` at `4e42e40`, no hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`.
 
 - Fetch merged to `main` (`3d49b9e`, pull request 3). Re-run at 4:40 AM on Ben's laptop, no
   hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`. `docs/demo.md` now shows Duplo by

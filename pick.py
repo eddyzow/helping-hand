@@ -38,8 +38,21 @@ GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squ
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
 GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
+BRICK_MM = 19.0   # a Duplo brick's height, for the camera correction
+CENTRED = 0.03    # a place this close to an object's middle (share of the grid's width) means its middle
 SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
-DROP_GAP = float(os.environ.get("DROP_GAP", "0.3"))  # how far beside an object to put something, as a share of the grid
+# Where the robot's base is, in grid coordinates (u, v), so "closest" can be worked out. v above 1 is nearer
+# than the grid's near edge. Measure it: how many grid depths the base sits in front of the far edge.
+ROBOT_UV = tuple(float(n) for n in os.environ.get("ROBOT_UV", "0.5,1.6").split(","))
+# The camera sees a tall object's top further from the middle of the picture than its base. Give the camera's
+# height above the table in mm to correct for it (the camera must look straight down). 0 = no correction.
+CAMERA_HEIGHT_MM = float(os.environ.get("CAMERA_HEIGHT_MM", "0"))
+# A gripped brick hangs lower in the jaws than where they closed on it. Letting go this many mm higher sets
+# it down instead of pressing it into what is underneath. Measure: grip a brick, see how far its bottom sits
+# below where it sat when the jaws closed.
+HELD_DROP_MM = float(os.environ.get("HELD_DROP_MM", "0"))
+LAYER_GAP_MM = float(os.environ.get("LAYER_GAP_MM", "40"))  # how far the taught lifted layer is above the taught
+# table layer, in mm. Measure it on the real grid: stacking heights are worked out from it.
 
 
 def to_uv(x: float, y: float, corners: list[list[float]]) -> tuple[float, float]:
@@ -77,38 +90,59 @@ def load(name: str):
 def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
-    Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
-    asked to have it put next to, in the same form, and is None if they did not ask to put it
-    anywhere. Use place_problem() on it: a placement that was asked for must never turn into a
-    plain handover."""
-    hits, said, boxes, beside = see.find_all(frame, command, audio)
+    Marks outputs/last.jpg. Returns (targets, said, place, problem, lift): place is (u, v, lift, turn)
+    if the person asked to put it somewhere, else None (turn lines the jaws up with what it goes on); problem is a sentence to say when the request
+    cannot be done (check it first: a placement asked for must never become a handover); lift is how
+    high the picked object sits now. A lift is a share of the way from the table layer to the lifted
+    layer, 0 to 1: 0 on the table, more when it is on top of other pieces."""
     corners = json.loads(CORNERS.read_text())
+
+    def describe(box):  # where this box is on the table, for the model to reason with
+        us, vs = zip(*(to_uv(x, y, corners) for x in (box["x0"], box["x1"]) for y in (box["y0"], box["y1"])))
+        u, v = sum(us) / 4, sum(vs) / 4
+        away = math.hypot((u - ROBOT_UV[0]) * GRID_ASPECT, v - ROBOT_UV[1])
+        return (f"centre u={u:.2f} v={v:.2f}; spans u {min(us):.2f} to {max(us):.2f}, "
+                f"v {min(vs):.2f} to {max(vs):.2f}; distance from the robot {away:.2f}")
+
+    def spot_of(box, middle_mm):
+        """Where this object stands on the grid: the middle of its outline, moved towards the middle of
+        the picture by how high its middle is, because the camera sees it leaning outwards."""
+        x, y = see.centre_of(frame, box)
+        lean = middle_mm / CAMERA_HEIGHT_MM if CAMERA_HEIGHT_MM > 0 else 0.0
+        height, width = frame.shape[:2]
+        return to_uv(x - lean * (x - width / 2), y - lean * (y - height / 2), corners)
+
+    hits, said, boxes, placing, place, pick_height = see.find_all(frame, command, audio, describe, GRID_ASPECT)
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
     targets = []
     for x, y, label, box in hits:
-        u, v = to_uv(x, y, corners)
+        u, v = spot_of(box, pick_height + BRICK_MM / 2)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label, jaw_turn(frame, box, corners)))
-    placing = beside is not None
-    what, where = split_request(said) if placing else (said, "")  # no placement: every word is about the object
-    targets = narrow(targets, what)
-    near = []
-    for x, y, label, box in beside or []:
-        cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
-        near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
-    near = narrow(near, where) if placing else None
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
-    return targets, said, near
-
-
-def place_problem(near) -> str | None:
-    """Why a requested placement cannot go ahead, or None if there is nothing wrong
-    (no placement asked for, or exactly one place found)."""
-    if near is None or len(near) == 1:
-        return None
-    return "I can't see where to put it." if not near else f"I see {len(near)} places that could mean. Which one?"
+    problem = None
+    if placing and place is None:
+        problem = "I can't work out where to put it."
+    elif placing and not (-EDGE <= place["u"] <= 1 + EDGE and -EDGE <= place["v"] <= 1 + EDGE):
+        problem = "That spot is out of my reach."
+    elif max(pick_height, place["height_mm"] if placing else 0) > LAYER_GAP_MM:
+        problem = "That is stacked too high for me."
+    spot = None
+    if placing and not problem:  # on another piece: jaws lined up with it. On the table: as it was picked up.
+        turn = jaw_turn(frame, place["box"], corners) if "box" in place else (targets[0][3] if targets else 0.0)
+        u, v = place["u"], place["v"]
+        if "box" in place:  # the model worked from the detector's box; move its answer onto the measured centre
+            box = place["box"]
+            seen = to_uv((box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2, corners)
+            du, dv = u - seen[0], v - seen[1]
+            if abs(du) < CENTRED and abs(dv) < CENTRED * GRID_ASPECT:
+                du = dv = 0.0  # it meant the middle; its rounding should not move the brick
+            real = spot_of(box, place["height_mm"] / 2)
+            u, v = real[0] + du, real[1] + dv
+        spot = (u, v, min((place["height_mm"] + HELD_DROP_MM) / LAYER_GAP_MM, 1.0), turn)
+    return targets, said, spot, problem, pick_height / LAYER_GAP_MM
 
 
 def jaw_turn(frame, box, corners) -> float:
@@ -127,52 +161,6 @@ def jaw_turn(frame, box, corners) -> float:
     if stretch < SQUARE_BELOW:
         return (lies + 45.0) % 90.0 - 45.0   # square: either pair of faces will do, take the smaller turn
     return (lies + 90.0 + 90.0) % 180.0 - 90.0  # long: close across it, at right angles to the long side
-
-
-# Words that settle "which one?" by position. The model does not know where the arm is, so code does it.
-# Each maps a target (u, v, label) to a score; the lowest wins. Left and right are the arm's own.
-TIEBREAKS = {
-    ("closest", "nearest", "closer", "nearer"): lambda t: (-t[1], abs(t[0] - 0.5)),
-    ("farthest", "furthest", "farther", "further"): lambda t: (t[1], abs(t[0] - 0.5)),
-    ("leftmost", "left"): lambda t: (t[0],),
-    ("rightmost", "right"): lambda t: (-t[0],),
-    ("any", "either", "one of"): lambda t: (-t[1], abs(t[0] - 0.5)),
-}
-
-
-# Not " on " or " by ": "the brick on the left" and "the one by the edge" describe the object itself.
-PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
-               " close to ", " against ", " into ")
-
-
-def split_request(command: str | None) -> tuple[str, str]:
-    """"put the red brick next to the right blue brick" -> ("put the red brick", "the right blue brick").
-    A position word only narrows the object it describes: "right" here is about the blue brick."""
-    words = f" {(command or '').lower()} "
-    cuts = [(words.find(w), w) for w in PLACE_WORDS if w in words]
-    if not cuts:
-        return words.strip(), ""
-    at, word = min(cuts)
-    return words[:at].strip(), words[at + len(word):].strip()
-
-
-def narrow(targets: list, command: str | None) -> list:
-    """Several matches and a position word in the request ("the closest red brick"): keep one.
-    A dead heat goes to the first in the list. No such word: all are returned, and the caller asks."""
-    words = f" {(command or '').lower()} "
-    for names, score in TIEBREAKS.items():
-        if len(targets) > 1 and any(f" {name} " in words for name in names):
-            return [min(targets, key=score)]
-    return targets
-
-
-def drop_spot(picked: tuple, near: tuple) -> tuple[float, float]:
-    """A place on the taught grid beside `near`, on the side the picked object came from.
-    If `near` is outside the grid, this is the closest point the arm can reach."""
-    du, dv = picked[0] - near[0], picked[1] - near[1]
-    length = (du * du + dv * dv) ** 0.5 or 1.0
-    u, v = near[0] + DROP_GAP * du / length, near[1] + DROP_GAP * dv / length
-    return min(max(u, 0.05), 0.95), min(max(v, 0.05), 0.95)
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -210,9 +198,11 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        targets, said, _ = locate(frame, command, audio)  # pick.py only hands over; putting down is in skills/fetch.py
+        targets, said, spot, problem, lift = locate(frame, command, audio)
         target = targets[0] if len(targets) == 1 else None
-        if not targets:
+        if spot or problem or lift:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
+            print("This script only hands things over from the table. Use voice/route.py for stacks and putting down.")
+        elif not targets:
             print(f"I can't see that. (heard: {said})")
         elif len(targets) > 1:  # never pick one silently: ask
             print(f"I see {len(targets)} of those: " + "; ".join(
@@ -237,19 +227,4 @@ if __name__ == "__main__":
         assert all(abs(a - b) < 1e-4 for a, b in zip(to_uv(*pixel, quad), uv)), pixel
     # a square-on view: the middle pixel is the middle of the grid
     assert all(abs(a - 0.5) < 1e-4 for a in to_uv(300, 250, [[100, 50], [500, 50], [500, 450], [100, 450]]))
-    two = [(0.12, 0.79, "left red"), (0.88, 0.60, "right red")]
-    assert narrow(two, "pick up the closest red brick") == [two[0]] and narrow(two, "the right one") == [two[1]]
-    assert narrow(two, "the farthest red brick") == [two[1]] and narrow(two, "pick up the red brick") == two
-    assert narrow(two[:1], "the closest") == two[:1] and narrow([], "the closest") == []
-    # a position word about the destination must not pick the source
-    assert split_request("put the red brick next to the right blue brick") == ("put the red brick", "the right blue brick")
-    what, where = split_request("put the red brick next to the right blue brick")
-    assert narrow(two, what) == two and narrow(two, where) == [two[1]]
-    assert split_request("pick up the closest red brick") == ("pick up the closest red brick", "")
-    assert split_request("pick up the brick on the left") == ("pick up the brick on the left", "")
-    assert place_problem(None) is None and place_problem([two[0]]) is None
-    assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
-    # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
-    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
-    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
     main()

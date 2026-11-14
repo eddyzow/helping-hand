@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:45 AM.
+Updated Sat Nov 14, 1:08 PM.
 
 ## Working on now
 
@@ -134,3 +134,107 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 - Daniel's note: agreed, the root files stay where they are and I own them. No YOLO or inverse kinematics from me.
 - Ben, track: agreed it has to be settled. My recommendation is in `PLAN.md`; the desk-buddy framing fits Best Hardware Hack better than Accessibility. This is the humans' call before the Saturday midnight submission.
 - Ben, camera and arm in one process: see the proposal to Daniel above.
+
+## Reviewer findings closed Sat Nov 14, 10:24 AM (commit `b49533d`)
+
+- Daniel's reviewer: a chooser reply with `put_down` missing or not true/false now picks nothing (`see.to_choice`), so it can never become a handover. Checks are in the `see.py` self-check.
+- Standalone `pick.py` refuses a request that asks to put something down, before any grasp. Checked with a fake finder: refusal for a placement, unchanged for a plain pick-up.
+- Root `draw.py` rejects a taught paper pose that is not a finite number before the clamp. Import checked only; not run.
+- `fetch ok` and `core ok` still print. Nothing here ran on the arm.
+
+## Gemini removed Sat Nov 14, 10:34 AM
+
+Eddy asked for Gemini to go: its free tier timed out or refused most requests. Everything older in this note that says Gemini does a step is out of date.
+
+- `see.py`: OpenAI `gpt-6.1-terra` boxes the frame, OpenAI `gpt-4o-mini-transcribe` writes down speech, Claude Sonnet 5.5 chooses. `voice/route.py`: Claude Haiku 5.5 picks the skill from the written-down sentence. `draw.py --gen`: Claude. `google-genai` is out of `requirements.txt`.
+- Everyone: `.env` now needs `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; `GEMINI_API_KEY` is unused. `.env` also wins over keys exported in the shell, in `voice/route.py` too.
+- Tested: `python see.py --image photos/duplo_a.jpg "pick up the purple brick"` found 9 objects and the purple brick; `draw.from_model("a rocket")` returned 9 strokes; `fetch ok`, `core ok`. A simulated request takes about 13 seconds end to end. Not tested: the new speech-to-text call with a real recording, and `voice/route.py` against a dispatcher.
+- `sim.py`: the pieces are now 9 to 10 cm apart (Eddy saw the open jaws knock neighbours at 6 cm) on a wider grid. Six simulated pick-ups: purple (turned 45), left red square and red triangle carried to the handover; blue square, right red square and green brick were not, with no other piece disturbed. So spacing was one cause, not the only one.
+
+## Wrist limit fix and more placements, Sat Nov 14, 10:54 AM
+
+- Eddy saw turned bricks being grabbed with one jaw on a face and one on a corner. Cause, measured in the simulator: the wrist turn pushed `wrist_roll` past its joint limit, the joint stopped 12 degrees short, and the brick dropped. `skills/fetch.py` now turns the other way round (the same grasp) when the turn would pass `ROLL_MIN`/`ROLL_MAX` (default -150 and 150), and refuses if neither way fits. Daniel: set those two from the real arm's wrist range. Six of seven simulated pieces now reach the handover through the whole camera path; the thin white plate still does not, and the blue square is still not lifted (two arm joints stop short of their targets there, so something is in the way; not found yet).
+- New in fetch: `to_lift` (0 to 1, lets go partway between the table layer and the lifted layer, for "on top of") and `hold` (seconds to hold it up, 0 to 30).
+- New in `pick.drop_spot(picked, near, said)`: returns `(u, v, lift)`. "left of", "right of", "behind", "in front of" pick the side (the arm's own left and right; in front is towards the arm); "on top of" and "onto" stack. `STACK_LIFT` (default 0.5) has to be set on the real arm so the held brick just touches the one below.
+- Simulated: purple stacked on a red square (resting 19 mm up, twice); red triangle put left of the green brick; a red square put behind the purple brick landed on the edge of the red triangle and slid off, because the drop spot still does not check for other pieces.
+- The chooser prompt now tells Claude to ignore position words and list every object of the kind; the code picks by position. Before that, "the left red square brick" came back with no match in two of three runs.
+- Not done: car body onto the chassis. It needs both in reach, a taught grip on the body, the body's direction matched to the chassis, and pressing it on.
+
+## No keyword matching any more, Sat Nov 14, 11:08 AM
+
+Eddy: "your system looks like it uses hardcoded keywords. that wont work if we are having an llm parse". This replaces the section above about `pick.drop_spot`.
+
+- The chooser (Claude Sonnet 5.5) now gets every box's position on the taught grid as text (centre and span in u, v) and returns `{"matches", "put_down", "place": {"u", "v", "on_top"}}`. It settles left, right, closest, "a/any", and works out the exact drop point: on top of a piece, a named end of a piece, a side of a piece, between two pieces, a corner of the table.
+- Removed from `pick.py`: `PLACE_WORDS`, `split_request`, `TIEBREAKS`, `narrow`, `drop_spot`, `place_problem`. `pick.locate` returns `(targets, said, place, problem)`; `place` is `(u, v, lift)` or None; a `problem` must be refused, never handed over. Removed from `voice/route.py`: `by_keyword`, so routing needs `ANTHROPIC_API_KEY`.
+- I edited two shared tests to match: `tests/test_core.py` no longer imports or checks `by_keyword`; `tests/test_model_adapters.py` loads `by_model` and `main` only. `core ok`, `model adapters ok`, `fetch ok`.
+- Simulated, one run each: purple onto the white plate (resting on it); a square brick onto the far right end of the green 2x4 (landed there); the left red square behind the purple brick; the triangle to the front right corner (it chose the corner, which was occupied, and landed on that brick; the prompt now says to use the nearest free spot); green between the two red squares; "the closest red brick". "stack the blue one on the red square on my right" was parsed correctly but the blue square is still not lifted in this layout.
+- Known: a box at the robot's own base was once picked as "the triangle brick"; the prompt now says boxes at v above 1 are the robot.
+
+- For Daniel's reviewer: I changed four of your tests to follow this rewrite. `tests/test_placement_options.py`: the two `drop_spot` checks are gone with the function; the fetch `to_lift` and `hold` checks are kept. `tests/test_perception_boundaries.py`: the chooser check now covers `put_down` plus `place`, and the standalone check covers a place, a problem, and a plain handover. All ten modules in `tests/` print ok.
+
+## Simulator findings that matter on the real arm, Sat Nov 14, 11:43 AM
+
+- Daniel, when teaching the table grid: put the jaw tips almost on the table (3 to 6 mm up). With the tips 10 mm up, only the top of a 19 mm brick was between the jaws and two of seven simulated pieces tipped out during the swing to the handover; at 3 to 6 mm, six of seven were carried (the thin white plate still is not).
+- Daniel: check which way round the wrist is when you teach. In the model, with the jaws one way round the wrist camera mount hits the arm's own shoulder for targets near the middle of the table, 12 to 16 cm out; the other way round, nothing collides anywhere on the grid. That was why the blue brick was never lifted.
+- I tested my earlier worry that `core/arm.py` relaxes the squeeze at the start of each move: in the simulator, keeping the squeeze made no difference to the drops, so it is lower priority than I said. `KEEP_SQUEEZE=0` in `sim.py` shows today's behaviour.
+- Stacks: the chooser now returns heights in mm (`pick_height_mm`, `place.height_mm`), and fetch takes `lift` (grasp height) and `to_lift` (release height), both as a share of the way from the table layer to the lifted layer. `pick.LAYER_GAP_MM` (default 40) must be measured on the real grid. `STACK_LIFT` and `on_top` are gone.
+- Simulated: a brick onto a plate works. A second brick onto that stack is carried to the right height (29 mm) but knocks the stack on release; not solved. Picking a brick off a stack went to the wrong piece once.
+- `sim.py` now starts with a random layout, all nine pieces with their centres on the grid; `--seed N` repeats one, `--fixed` gives the two tidy rows. With nine pieces in a 29 by 11.5 cm grid they sit 0.5 to 3 cm apart, so the open jaws do knock neighbours.
+
+## Lining up when stacking, Sat Nov 14, 12:24 PM
+
+- Eddy saw a brick put onto another land turned and slide off. Fix: the chooser names the piece it goes onto (`place.onto`), `pick.locate` reads that piece's direction from the image, and fetch takes `to_turn` so the wrist is turned to match it at release. On the table it keeps the turn it was picked up with. `pick.locate`'s place is now `(u, v, lift, turn)`.
+- This also fixed the second layer: without the turn at release, the second brick knocked the stack every time; with it, blue on purple on the white plate stands (blue resting 28 mm up), both with exact positions and through the camera.
+- "Closest" went to the farthest piece once. Each object's distance from the robot is now in the text the chooser gets (`pick.ROBOT_UV`, default u 0.5, v 1.6: measure where the arm's base is relative to the taught grid). Two runs since: both picked the nearer red piece.
+- `see.parse_reply` used to return nothing when Claude explained itself with brackets before the JSON, which showed up as "0 match" on some runs. It now tries a fenced block first, then the widest list or object.
+- Random layouts, purple onto green: placed and lined up on seeds 3 and 11. On seed 11 the car body was knocked while reaching past it; pieces are close together in random layouts.
+- All ten modules in `tests/` print ok. `tests/test_perception_boundaries.py` was edited again for the `onto` field.
+
+## Why stacks fell, and three fixes in fetch, Sat Nov 14, 12:49 PM
+
+Measured in the simulator by logging the gripper and the bricks step by step. Daniel, all three will apply on the real arm, with its own numbers:
+
+- A gripped brick is not where the jaws were centred. Closing the one moving jaw pushes it towards the fixed jaw: 8.4 mm across and 4.1 mm along in the model. Put down without allowing for that, it lands that far off. New knob `HELD_SHIFT_MM` ("across,along", default "0,0" = off): grip a brick, set it down with no turn, measure how far it landed from the aim.
+- After letting go, the fixed jaw is still against the brick and drags it as the arm lifts. Fetch now first moves the open jaws to centre on the piece, then lifts.
+- A two-brick stack is nearly as tall as the taught lifted layer, and the open jaw swept through its top on the way home. Fetch now rises to `EXIT_LIFT` (default 1.5 times the layer gap, by extending the taught poses upwards) and goes home with the jaws still open.
+- Result: blue on purple on the white plate stood at five wrist angles with exact positions (landing within 3 mm), and in 4 of 5 runs through the camera.
+- The chooser prompt now lists the measured height of each piece in our set (white 2x4 is a 10 mm plate, bricks 19 mm). Eddy asked for this after it took the plate for a brick. It still said 19 instead of 29 for a brick on the plate once in five runs.
+- All ten modules in `tests/` print ok.
+
+## Placement accuracy, Sat Nov 14, 1:01 PM
+
+Eddy: bricks landed a little off and then slid or jumped into place. Measured in the simulator:
+
+- The detector's box centre was 2.8 mm from the piece's true centre on average (3.9 worst). The middle of the piece's outline, moved towards the middle of the picture to allow for the piece's height, is 0.6 mm off (1.1 worst). `pick.py` now uses that for the piece picked up and the piece it goes onto. It needs `CAMERA_HEIGHT_MM` (camera straight above the table; 0 = off). In a crowded layout the outline can swallow a neighbour, so if it strays from the box the box centre is used.
+- Claude's place is rounded to 0.01 of the grid (3 mm) and comes from the loose box. When it means the middle of a piece, the code now uses the measured middle; when it means a part of a piece (an end), its offset from the box centre is kept.
+- The jumping: a gripped brick hangs about 8 mm lower in the jaws than where it was gripped, so the arm was pressing it into the brick below and it sprang out on release. New knob `pick.HELD_DROP_MM` (0 = off) lets go that much higher.
+- Result, two runs of four stacking requests through the camera: bricks landed 1.7 to 5.2 mm from the centre of the piece below, and every stack stood when built. Not better than that yet: the leftover depends on the wrist turn, so `HELD_SHIFT_MM` and `JAW_ARM_MM` are not quite right as fixed numbers.
+- New limit found: a stack three bricks high is as tall as the lifted layer, and carrying a brick past an existing two-brick stack knocked it over in both runs. The arm only lifts about 5 cm.
+
+## From the simulator to the real arm, Sat Nov 14, 1:08 PM
+
+The simulator swaps in three things and nothing else: the camera picture (rendered from above), the taught poses (worked out by inverse kinematics), and the arm (`SimArm`). `see.py`, `pick.py`, `skills/fetch.py` and `voice/route.py` are the same code on the real arm. So the real setup needs the same three things, real:
+
+1. A camera fixed above the table, looking straight down, seeing the whole taught grid, with the arm out of its view at `home`. About 50 cm up. It must not move after step 3. It plugs into the machine that runs `voice/route.py` (Windows on the arm laptop; WSL has no camera).
+2. A taught grid: `python arm.py teach table 4` (or 5), jaw tips 3 to 6 mm off the table, jaws closing left-right the same way round at every point, plus `python arm.py pose handover`.
+3. `python pick.py --corners`: click the grid's four corners in the camera picture.
+
+Then these numbers, each measured once on the real arm (all are environment variables; unset means the feature is off or at its default):
+
+| Setting | What to measure |
+|---|---|
+| `GRIP_OPEN`, `GRIP_CLOSED` | gripper reading fully open, and squeezing a 2x2 brick |
+| `ROLL_SIGN` | turn the wrist for a turned brick; if it turns the wrong way, flip to 1 |
+| `ROLL_MIN`, `ROLL_MAX` | the wrist roll joint's range in degrees |
+| `GRID_WIDTH_MM`, `GRID_DEPTH_MM` | the taught grid's size with a ruler |
+| `GRID_ASPECT` | width divided by depth |
+| `JAW_ARM_MM` | turn the wrist a quarter turn; how far the point between the jaws moves, divided by 1.4 |
+| `HELD_SHIFT_MM` | grip a brick, set it down with no turn, how far it lands from the aim (across,along) |
+| `HELD_DROP_MM` | how much lower a gripped brick hangs than where it was gripped |
+| `LAYER_GAP_MM` | height difference between the taught lifted layer and table layer |
+| `CAMERA_HEIGHT_MM` | camera lens to table |
+| `ROBOT_UV` | where the arm's base is in grid units, e.g. `0.5,1.6` |
+
+What will not carry over: real Duplo studs have to be pressed together and lined up to a millimetre or two, and the simulator has no studs; the real arm repeats to a few millimetres at best; shadows and glare on the grey table can break the outline step (it falls back to the detector's box). Expect pick-up and handover first, putting beside second, resting one brick on another third, pressed-on stacks and the car body last or not at all.
+
+Can be done before the arm is free: mount the camera, photograph the real table from it, run `python see.py --image that.jpg "..."` and `python pick.py --image` on it, and try a spoken request on the Windows side.

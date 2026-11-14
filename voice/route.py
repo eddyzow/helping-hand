@@ -3,9 +3,8 @@
     python voice/route.py "wave at me"     # typed
     python voice/route.py                  # speak: Enter, talk, Enter
 
-With GEMINI_API_KEY (in .env) Gemini picks the skill from each skill's description, and hears the
-audio directly. Without a key, typed text is matched on the skill's name. Gemini only chooses the
-skill; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
+With ANTHROPIC_API_KEY (in .env) Claude picks the skill from each skill's description; speech is
+written down first by OpenAI (OPENAI_API_KEY). The model only chooses the skill and its settings; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
 
 Fetch ("bring me the red brick") also needs the camera, which this script owns because the
 dispatcher runs in WSL and has none. Run this script where the camera and microphone are
@@ -28,7 +27,8 @@ PROMPT = """You route a request to one skill of a desk robot arm.
 Skills: {skills}
 Return only JSON: {{"skill": "<name>", "params": {{}}}}. Use "stop" as the skill if the person wants
 the arm to stop. Use null if no skill fits. For fetch, put what the person asked for in
-params.object in their own words (for example "the red brick") and leave u and v out."""
+params.object in their own words (for example "the red brick") and leave u and v out; if they say how
+long to hold it up, put the seconds in params.hold."""
 
 
 def send(command: str):
@@ -37,30 +37,13 @@ def send(command: str):
         return json.loads(s.makefile().readline())
 
 
-def by_keyword(text: str, skills: list[dict]) -> dict:
-    text = text.lower()
-    if "stop" in text:
-        return {"skill": "stop"}
-    for skill in skills:
-        if skill["name"].replace("_", " ") in text or skill["name"].split("_")[0] in text.split():
-            return {"skill": skill["name"]}
-    return {"skill": None}
+def by_model(text: str, skills: list[dict]) -> dict:
+    import see
 
-
-def by_gemini(text: str | None, audio_path: str | None, skills: list[dict]) -> dict:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(http_options=types.HttpOptions(timeout=20000))
-    parts = []
-    if audio_path:
-        parts.append(types.Part.from_bytes(data=Path(audio_path).read_bytes(), mime_type="audio/wav"))
-    request = f'The person said: "{text}"' if text else "The person's spoken request is in the audio."
-    parts.append(PROMPT.format(request=request, skills=json.dumps(skills)))
-    reply = client.models.generate_content(
-        model=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite"), contents=parts,
-        config=types.GenerateContentConfig(response_mime_type="application/json"))
-    return json.loads(reply.text or "null") or {"skill": None}
+    reply = see.ask_claude(PROMPT.format(request=f'The person said: "{text}"', skills=json.dumps(skills)),
+                           model=os.environ.get("ROUTER_MODEL", "claude-haiku-5-5"), max_tokens=500)
+    answer = see.parse_reply(reply)
+    return answer if isinstance(answer, dict) else {"skill": None}
 
 
 def speak(text: str) -> None:
@@ -89,13 +72,14 @@ def locate(thing: str) -> tuple[list[dict], str | None]:
 
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
-    targets, _, near = pick.locate(frame, command=thing)
+    targets, _, spot, problem, lift = pick.locate(frame, command=thing)
     found = [{"object": label, "u": round(u, 3), "v": round(v, 3), "turn": round(turn, 1)}
              for u, v, label, turn in targets]
-    if len(found) == 1 and near and len(near) == 1:  # "put it next to the car": add where to put it down
-        to_u, to_v = pick.drop_spot(targets[0], near[0])
-        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3))
-    return found, pick.place_problem(near)
+    if len(found) == 1 and lift:  # it sits on top of other pieces: grasp it up there
+        found[0].update(lift=round(lift, 3))
+    if len(found) == 1 and spot:  # "put it on the green brick": add where to put it down
+        found[0].update(to_u=round(spot[0], 3), to_v=round(spot[1], 3), to_lift=round(spot[2], 3), to_turn=round(spot[3], 1))
+    return found, problem
 
 
 def main() -> None:
@@ -106,18 +90,16 @@ def main() -> None:
         for line in env.read_text().splitlines():
             key, sep, value = line.partition("=")
             if sep and not key.strip().startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip())
-    if "GEMINI_API_KEY" in os.environ:
-        if text:
-            choice = by_gemini(text, None, skills)
-        else:
-            import see  # the recorder lives there; needs the repo requirements installed
+                os.environ[key.strip()] = value.strip()  # .env wins over a stale key in the shell
+    if not text:
+        import see  # the recorder lives there; needs the repo requirements installed
 
-            choice = by_gemini(None, see.record_wav(), skills)
-    elif text:
-        choice = by_keyword(text, skills)
-    else:
-        sys.exit("Speaking needs GEMINI_API_KEY in .env. Type the request instead.")
+        text = see.transcribe(see.record_wav())
+        if not text:
+            speak("I didn't hear anything.")
+            return
+        print(f"Heard: {text}")
+    choice = by_model(text, skills)  # no keyword matching: the model reads the sentence
     name, params = choice.get("skill"), choice.get("params") or {}
     if name == "stop":
         print(send("stop"))
@@ -137,7 +119,7 @@ def main() -> None:
         if problem:  # asked to put it somewhere, and that place is missing or unclear: do not hand it over instead
             speak(problem)
             return
-        params = found[0]
+        params = {**found[0], **({"hold": params["hold"]} if "hold" in params else {})}
     result = send(f"run {name} {json.dumps(params)}")
     print(name, params, result)
     if not result.get("ok"):

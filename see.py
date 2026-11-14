@@ -5,12 +5,12 @@
     python see.py --image photo.jpg "the mouse"  # test on a still photo
 
 Two steps, because no single model did both well on our Duplo photos (notes/eddy.md):
-  1. Gemini draws a box around every object on the table. It is accurate at where.
+  1. OpenAI draws a box around every object on the table. It is accurate at where.
   2. Claude sees the boxes numbered and says which numbers match the request. It is
      accurate at which, including "there are two of those".
-Saves the annotated frame to outputs/last.jpg.
-Needs GEMINI_API_KEY and ANTHROPIC_API_KEY in .env. Without the Anthropic key, Gemini
-does step 2 as well, and gets look-alike pieces wrong more often.
+Speech is written down by OpenAI. Saves the annotated frame to outputs/last.jpg.
+Needs OPENAI_API_KEY and ANTHROPIC_API_KEY in .env. Gemini was dropped on Nov 14: its free
+tier timed out or refused most requests.
 """
 import base64
 import json
@@ -19,45 +19,76 @@ import os
 import re
 import sys
 import tempfile
-import time
 import wave
 from pathlib import Path
 
 import cv2
 
-# gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+DETECTOR = os.environ.get("DETECTOR", "gpt-6.1-terra")  # boxes the frame: 8 of 9 Duplo pieces, about 5 seconds
 CHOOSER = os.environ.get("CHOOSER_MODEL", "claude-sonnet-5-5")
-BACKUP_DETECTOR = os.environ.get("BACKUP_DETECTOR", "gpt-6.1-terra")  # boxes the frame when Gemini fails
+LISTENER = os.environ.get("LISTENER", "gpt-4o-mini-transcribe")  # writes down what was said
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
-TIMEOUT_MS = 10000  # Gemini rejects anything under 10 seconds; a normal answer takes 1 to 2
-RETRY_SECONDS = 3
+TIMEOUT_S = 30.0
 SAMPLE_RATE = 16000
 AXIS_CONTRAST = float(os.environ.get("AXIS_CONTRAST", "22"))  # how different from the table counts as the object
 CHOOSER_LONG_EDGE = 1024  # the numbered image is shrunk to this before it goes to the chooser
 
-# Keep this prompt as a bare list. Wrapping it in an object, or asking for the transcript in the
-# same call, made gemini-3.5-flash-lite return malformed JSON on Nov 14.
 DETECT = """Detect every separate physical object lying on the table. Two objects that touch are
 still two objects. Do not skip any object, whatever its colour, and do not report shadows or
 marks on the table.
 Return only JSON: [{"box_2d": [ymin, xmin, ymax, xmax], "label": "<colour and shape>"}]
 Coordinates are normalized to 0-1000."""
 
-TRANSCRIBE = 'Write down exactly what the person says in the audio. Return only JSON: {"said": "..."}'
-
 # ponytail: the hint names our Duplo set. Edit it when the objects on the table change.
 CHOOSE = """A robot arm picks objects off a table. Each object in the image has a green box and a
-numbered badge. The detector's own guesses (may be wrong; trust the image): {labels}
+numbered badge. The objects (the detector's guess at what each is may be wrong; trust the image):
+{labels}
+Positions are on the robot's table grid. u runs from the robot's left (0) to its right (1). v runs from
+the far edge (0) to the edge nearest the robot (1); the robot sits beyond v = 1. So "behind" an object
+means smaller v, "in front of" it means larger v, "left" smaller u, "right" larger u. One unit of u is
+{aspect} times as long on the table as one unit of v. Each object also has its distance from the
+robot: "closest", "nearest" and "farthest" mean by that number, unless they name something else to be
+close to. For those words pick the single object with the smallest (or largest) number, however small
+the difference. Anything outside 0 to 1 is beyond the robot's reach,
+and boxes at v above 1 are usually parts of the robot itself: never pick those or put things there.
 The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showing its hollow
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
-three round holes in a row. One box may hold two touching pieces.
+three round holes in a row. One box may hold two touching pieces, or one piece stacked on another.
+Heights, measured, in mm. Use these, whatever the person calls the piece:
+- white 2x4: 10. It is a flat plate, half the height of a brick, even if they say "white brick".
+- every 2x2 square brick (red, blue, purple): 19.
+- green 2x4 with the curved underside: 19.
+- red "triangle" 2x4: 19 at its flat ends; its sloped top cannot hold another piece.
+- black car chassis: 18. Blue car body: 30.
+Pieces stacked on each other add up: a brick on the white plate is 29 at its top.
+Look at the image for stacks: if the piece it goes onto is itself sitting on another piece, count both.
 The person said: "{command}"
-Which numbered objects are what the person asked to pick up? Include every one that fits; a
-different kind of object does not fit. If the person also said where to put it, such as next to or
-near another object, set "put_down" to true and list that other object under "near".
-Return only JSON: {{"matches": [numbers], "put_down": true or false, "near": [numbers]}}.
-Use [] where nothing fits; "near" stays [] if the place they named is not on the table."""
+
+"matches": the numbered objects they asked to pick up. Use the positions to settle words such as left,
+right, closest, farthest, middle. A different kind of object does not fit. If several fit equally and
+the words do not settle it, list them all; but if they ask for "a" or "any" such object, choose one.
+
+"pick_height_mm": how far above the table the bottom of the picked object is now: 0 if it rests on the
+table, otherwise the total height of the pieces under it.
+
+If they also said where to put it, "put_down" is true and "place" is where the CENTRE of the picked
+object should end up, with "height_mm" the height of the surface it will rest on: 0 for the table,
+otherwise the total height of everything that will be under it (a brick on a plate is 29). "onto" is
+the number of the object it will rest on, or null when it goes on the table.
+- On another object ("on", "onto", "on top of"): u, v lie inside that object's span. A named part of it, such as "the far right end of the green brick", means against that end,
+  moved in by half the picked object's own size so it does not hang over the edge.
+- Beside another object ("next to", "left of", "behind", ...): on the table; go to the side they
+  named, or with no side named the side the picked object is on now. Leave a gap of about half the
+  picked object's size between the two, and do not overlap any other object's span.
+- A spot on the table ("the front left corner", "the middle"): those coordinates.
+When it goes on the table, the picked object's span at the new place must not overlap any other
+object's span: if the spot they named is taken, use the nearest free spot to it.
+Keep u and v between 0.05 and 0.95. If the place they named is not there, or you cannot tell which
+object they mean, "place" is null.
+
+Return only JSON: {{"matches": [numbers], "pick_height_mm": number, "put_down": true or false,
+"place": {{"u": number, "v": number, "height_mm": number, "onto": number or null}} or null}}.
+Use [] when nothing fits."""
 
 
 def load_env():
@@ -105,28 +136,42 @@ def record_wav():
 
 
 def parse_reply(text):
-    """Pull the JSON object or list out of the reply, which may be wrapped in a code fence."""
-    match = re.search(r"\[.*\]|\{.*\}", text, re.S)
-    try:
-        return json.loads(match.group(0)) if match else {}
-    except ValueError:
-        return {}  # a malformed reply counts as "nothing found", never as a guess
-
-
-def _gemini(parts, attempts=3):
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(http_options=types.HttpOptions(timeout=TIMEOUT_MS))
-    parts = [types.Part.from_bytes(data=p[0], mime_type=p[1]) if isinstance(p, tuple) else p for p in parts]
-    for attempt in range(1, attempts + 1):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
+    """Pull the JSON object or list out of the reply. The model may explain itself first, with brackets
+    in the explanation, so in order: a fenced block, then the widest [...] or {...}, whichever opens
+    first in the text, then the other."""
+    spans = sorted((text.find(opener), opener, closer) for opener, closer in ("[]", "{}") if opener in text)
+    tries = re.findall(r"```(?:json)?\s*(.*?)```", text, re.S)[::-1]
+    tries += [text[at:text.rfind(closer) + 1] for at, _, closer in spans]
+    for found in tries:
         try:
-            return parse_reply(client.models.generate_content(model=MODEL, contents=parts).text or "")
-        except Exception as err:
-            print(f"Gemini error (attempt {attempt}): {str(err)[:200]}", file=sys.stderr)
-            if attempt == attempts:
-                raise
-            time.sleep(RETRY_SECONDS)
+            return json.loads(found)
+        except ValueError:
+            pass
+    return {}  # a malformed reply counts as "nothing found", never as a guess
+
+
+def ask_claude(prompt, jpg=None, model=None, max_tokens=2000):
+    """One question to Claude, with an optional JPEG. Returns the reply's text."""
+    import anthropic
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        sys.exit("ANTHROPIC_API_KEY is missing from .env.")
+    content = [{"type": "text", "text": prompt}]
+    if jpg:
+        content.insert(0, {"type": "image", "source": {
+            "type": "base64", "media_type": "image/jpeg", "data": base64.standard_b64encode(jpg).decode()}})
+    reply = anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=1).messages.create(
+        model=model or CHOOSER, max_tokens=max_tokens, output_config={"effort": "low"},
+        messages=[{"role": "user", "content": content}])
+    return "".join(block.text for block in reply.content if block.type == "text")
+
+
+def _openai():
+    import openai
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        sys.exit("OPENAI_API_KEY is missing from .env.")
+    return openai.OpenAI(timeout=TIMEOUT_S, max_retries=1)
 
 
 def _number(value):
@@ -157,32 +202,20 @@ def to_matches(answer, count, key="matches"):
 
 
 def detect(frame):
-    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label.
-    Gemini first. If it fails and OPENAI_API_KEY is set, OpenAI boxes the frame instead: on our
-    Duplo photo its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds."""
+    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label."""
     jpg = cv2.imencode(".jpg", frame)[1].tobytes()
-    backup = os.environ.get("OPENAI_API_KEY")
-    try:
-        reply = _gemini([(jpg, "image/jpeg"), DETECT], attempts=1 if backup else 3)
-    except Exception:
-        if not backup:
-            raise
-        import openai
-
-        print(f"Gemini failed; {BACKUP_DETECTOR} is boxing the frame.", file=sys.stderr)
-        answer = openai.OpenAI(timeout=30.0, max_retries=1).chat.completions.create(
-            model=BACKUP_DETECTOR, reasoning_effort="low",
-            messages=[{"role": "user", "content": [
-                {"type": "image_url", "image_url": {
-                    "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
-                {"type": "text", "text": DETECT}]}])
-        reply = parse_reply(answer.choices[0].message.content or "")
-    return to_boxes(reply, frame.shape[1], frame.shape[0])
+    answer = _openai().chat.completions.create(
+        model=DETECTOR, reasoning_effort="low",
+        messages=[{"role": "user", "content": [
+            {"type": "image_url", "image_url": {
+                "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
+            {"type": "text", "text": DETECT}]}])
+    return to_boxes(parse_reply(answer.choices[0].message.content or ""), frame.shape[1], frame.shape[0])
 
 
 def transcribe(audio_path):
-    reply = _gemini([(Path(audio_path).read_bytes(), "audio/wav"), TRANSCRIBE])
-    return reply.get("said") if isinstance(reply, dict) else None
+    with open(audio_path, "rb") as audio:
+        return _openai().audio.transcriptions.create(model=LISTENER, file=audio).text.strip() or None
 
 
 def numbered(frame, boxes):
@@ -199,39 +232,42 @@ def numbered(frame, boxes):
     return out
 
 
-def choose(frame, boxes, command):
-    """Which boxes match the request, and which box it should be put near?
-    Returns (indexes to pick up, indexes to put it near). The second is None when the person did
-    not ask to put it anywhere, and an empty list when they did but the place is not in view."""
+def choose(frame, boxes, command, describe=None, aspect=1.0):
+    """Which boxes match the request, and where should the object be put?
+    describe(box) gives the box's position on the table as text, so the model can work with it.
+    Returns (indexes to pick up, placing, place, pick_height): placing says whether the person asked
+    to put it somewhere; place is {"u", "v", "height_mm"} or None when that could not be worked out;
+    pick_height is how many mm above the table the picked object sits now."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
         image = cv2.resize(image, None, fx=shrink, fy=shrink)
     jpg = cv2.imencode(".jpg", image)[1].tobytes()
-    prompt = CHOOSE.format(labels=", ".join(f"{i}: {b['label']}" for i, b in enumerate(boxes, 1)),
-                           command=command)
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        import anthropic
-
-        reply = anthropic.Anthropic(timeout=TIMEOUT_MS / 1000 * 2, max_retries=1).messages.create(
-            model=CHOOSER, max_tokens=2000, output_config={"effort": "low"},
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                             "data": base64.standard_b64encode(jpg).decode()}},
-                {"type": "text", "text": prompt}]}])
-        answer = parse_reply("".join(b.text for b in reply.content if b.type == "text"))
-    else:
-        print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
-        answer = _gemini([(jpg, "image/jpeg"), prompt])
-    asked_to_place = isinstance(answer, dict) and (answer.get("put_down") is True or bool(answer.get("near")))
-    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near") if asked_to_place else None
+    labels = "\n".join(f"{i}: {b['label']}" + (f" - {describe(b)}" if describe else "") for i, b in enumerate(boxes, 1))
+    prompt = CHOOSE.format(labels=labels, command=command, aspect=round(aspect, 2))
+    return to_choice(parse_reply(ask_claude(prompt, jpg)), len(boxes))
 
 
-def long_axis(frame, box):
-    """Which way the object in this box lies: (angle of its long side in the image in degrees,
-    0 = along the image's x axis, turning towards y; how many times longer than wide it is).
-    None if the object cannot be told apart from the table. Plain image processing: the table
-    colour is taken from the rim of the box, and what differs from it is the object."""
+def to_choice(answer, count):
+    """The chooser's reply -> (picked indexes, placing, place, pick_height). A reply without a
+    true/false "put_down" and a pick height of 0 or more is malformed: nothing is picked, so nothing
+    moves. A place that is not three finite numbers comes back as None, which the caller must refuse,
+    never hand over."""
+    height = answer.get("pick_height_mm") if isinstance(answer, dict) else None
+    if not (isinstance(answer, dict) and isinstance(answer.get("put_down"), bool) and _number(height) and height >= 0):
+        return [], False, None, 0.0
+    place = answer.get("place")
+    if not (isinstance(place, dict) and all(_number(place.get(k)) for k in ("u", "v", "height_mm"))
+            and place["height_mm"] >= 0 and "onto" in place
+            and (place["onto"] is None or type(place["onto"]) is int and 1 <= place["onto"] <= count)):
+        place = None
+    return to_matches(answer, count), answer["put_down"] or place is not None, place, float(height)
+
+
+def _outline(frame, box):
+    """The object's outline inside this box as (min-area rectangle, in whole-image pixels), or None if
+    it cannot be told apart from the table. Plain image processing: the table colour is taken from
+    the rim of the box, and what differs from it is the object."""
     import numpy as np
 
     h, w = frame.shape[:2]
@@ -250,17 +286,37 @@ def long_axis(frame, box):
     outline = max(contours, key=cv2.contourArea)
     if cv2.contourArea(outline) < 0.15 * mask.size:
         return None
-    (_, _), (rw, rh), angle = cv2.minAreaRect(outline)
-    if min(rw, rh) < 1:
+    (cx, cy), size, angle = cv2.minAreaRect(outline)
+    return (x0 + cx, y0 + cy), size, angle
+
+
+def long_axis(frame, box):
+    """Which way the object in this box lies: (angle of its long side in the image in degrees,
+    0 = along the image's x axis, turning towards y; how many times longer than wide it is).
+    None if the object cannot be told apart from the table."""
+    found = _outline(frame, box)
+    if not found or min(found[1]) < 1:
         return None
+    (rw, rh), angle = found[1], found[2]
     return (angle if rw >= rh else angle + 90.0) % 180.0, max(rw, rh) / min(rw, rh)
 
 
-def find_all(frame, command=None, audio_path=None):
-    """Every object that matches the request. Returns (hits, said, boxes, near): hits are
-    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; near is the
-    same for any object the person asked to have it put next to: None if they did not ask to put
-    it anywhere, an empty list if they did and that object is not in view."""
+def centre_of(frame, box):
+    """The object's centre in pixels: the middle of its outline, which is tighter than the detector's
+    box (2.8 mm off on average in the simulator; with the outline and the height correction in
+    pick.py, 0.6). If the outline strays far from the box, a neighbour got into it: the box wins."""
+    middle = ((box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2)
+    found = _outline(frame, box)
+    if not found:
+        return middle
+    near = 0.2 * max(box["x1"] - box["x0"], box["y1"] - box["y0"])
+    return found[0] if abs(found[0][0] - middle[0]) < near and abs(found[0][1] - middle[1]) < near else middle
+
+
+def find_all(frame, command=None, audio_path=None, describe=None, aspect=1.0):
+    """Every object that matches the request. Returns (hits, said, boxes, placing, place, pick_height):
+    hits are (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; the
+    rest are as in choose()."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -268,11 +324,13 @@ def find_all(frame, command=None, audio_path=None):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes, None
+        return [], command, boxes, False, None, 0.0
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
                         boxes[i]["label"], boxes[i])
-    picked, near = choose(frame, boxes, command)
-    return [centre(i) for i in picked], command, boxes, None if near is None else [centre(i) for i in near]
+    picked, placing, place, pick_height = choose(frame, boxes, command, describe, aspect)
+    if place and place["onto"]:
+        place = {**place, "box": boxes[place["onto"] - 1]}  # the object it goes on, so the caller can line up with it
+    return [centre(i) for i in picked], command, boxes, placing, place, pick_height
 
 
 def find(frame, command=None, audio_path=None):
@@ -293,7 +351,7 @@ def main():
     frame = cv2.imread(image) if image else grab_frame()
     if frame is None:
         sys.exit(f"Could not read {image}")
-    hits, said, boxes, _ = find_all(frame, command, audio)
+    hits, said, boxes, *_ = find_all(frame, command, audio)
     out = numbered(frame, boxes)
     for x, y, *_ in hits:
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
@@ -307,6 +365,10 @@ def main():
 if __name__ == "__main__":
     assert parse_reply('```json\n{"matches": [2, 5]}\n```')["matches"] == [2, 5]
     assert parse_reply("nothing here") == {}
+    assert parse_reply('Object 8 (spans [0.1 to 0.2]) fits.\n```json\n{"matches": [8]}\n```') == {"matches": [8]}
+    assert parse_reply('It spans [0.1 to 0.2]. {"matches": [8]}') == {"matches": [8]}
+    assert parse_reply('[{"box_2d": [1, 2, 3, 4]}]') == [{"box_2d": [1, 2, 3, 4]}]  # a one-object list stays a list
+    assert parse_reply('[{"box_2d": [1, 2, 3, 4]}, {"box_2d": [5, 6, 7, 8]}]')[1]["box_2d"] == [5, 6, 7, 8]
     # malformed model replies produce no target
     good = {"box_2d": [100, 200, 300, 400], "label": "brick"}
     assert to_boxes([good], 1000, 1000) == [{"x0": 200, "y0": 100, "x1": 400, "y1": 300, "label": "brick"}]
@@ -317,5 +379,16 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
-    assert to_matches({"matches": [1], "near": [3]}, 3, "near") == [2]
+    spot = {"u": 0.4, "v": 0.6, "height_mm": 19, "onto": 2}
+    ok = {"matches": [1], "pick_height_mm": 0}
+    assert to_choice({**ok, "put_down": False, "place": None}, 3) == ([0], False, None, 0.0)
+    assert to_choice({**ok, "put_down": True, "place": spot, "pick_height_mm": 10}, 3) == ([0], True, spot, 10.0)
+    assert to_choice({**ok, "put_down": True, "place": None}, 3) == ([0], True, None, 0.0)
+    assert to_choice({**ok, "put_down": True, "place": {**spot, "onto": None}}, 3)[2]["onto"] is None
+    for bad in [{**spot, "u": "0.4"}, {**spot, "v": float("nan")}, {**spot, "height_mm": -1}, {"u": 0.4, "v": 0.6},
+                {"u": 0.4, "v": 0.6, "height_mm": 0}, {**spot, "onto": 9}, {**spot, "onto": "2"}, [0.4, 0.6]]:
+        assert to_choice({**ok, "put_down": True, "place": bad}, 3) == ([0], True, None, 0.0), bad
+    for bad in [{"matches": [1], "pick_height_mm": 0}, {**ok, "put_down": "true"}, {"matches": [1], "put_down": False},
+                {"matches": [1], "put_down": False, "pick_height_mm": -5}, [1], None]:
+        assert to_choice(bad, 3) == ([], False, None, 0.0), bad  # a malformed reply never becomes a handover
     main()

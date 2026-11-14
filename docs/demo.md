@@ -11,8 +11,8 @@ water also tomorrow."
 
 | Skill | Owner | State as recorded in the repo at 4:15 AM |
 |---|---|---|
-| Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. Dispatcher skill on `main`; newer tapping work held in review |
-| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. One review finding was still open at the merge: asking to put a piece next to something that is not on the table hands the piece over instead of refusing. Finder tested on two real phone photos, not from the real camera position |
+| Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. All of it is on `main` since 5:24 AM (`a1a7599`): the replay skill, tap calibration and delay measurement, macro recording, a software-only replay and a browser timing study. That study reports "no crash heard", not a cleared level. At 1:27 PM a commit on Daniel's branch (`f1e8a18`, not on `main`) is titled "the arm completes Stereo Madness", with replay timed on Windows. That is the owner's report: the reviewer notes the script's own "completed" cannot tell a late death from a win, so it needs someone who watched the level finish, and ideally a video |
+| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. The finding open at the merge (a missing placement destination became a handover) has a fix on `main` from Eddy at 4:45 AM (`f271764`), checked by Daniel's reviewer at 4:54 AM: a valid placement works. The two related cases left open then were fixed by Eddy at 10:24 AM (`b49533d`) and checked by Daniel's reviewer at 10:30 AM. At 10:34 AM the finder was rebuilt without Gemini (`bdea8c0`); that version has not been reviewed. Finder tested on two real phone photos, not from the real camera position |
 | Drawing | Ben, Eddy | `skills/draw.py` on `main`, mock only. Needs a pen holder and a taught paper grid. Planned for Saturday |
 | Feeding food and water | Daniel | Nothing in the repo yet. Planned for Saturday |
 
@@ -53,7 +53,7 @@ A skill is in the table demo only if it passes 4 runs out of 5 on the real arm a
 | Skill | Rough time at the table | Where the number comes from |
 |---|---|---|
 | Geometry Dash, first section | about 20 s | A guess; set by how many taps are replayed. Jonathan or Daniel to correct |
-| Duplo by voice | 35 to 45 s | The finder took about 20 s on most runs tonight (Gemini timing out), plus the arm. 4.5 s when Gemini is healthy |
+| Duplo by voice | about 25 to 30 s | A simulated request took about 13 s end to end after Gemini was removed (Eddy, 10:34 AM), plus the real arm's travel. Not timed on the arm |
 | Drawing a name | 31 to 54 s | Planned from the stroke plan at the default pen speed, not timed on the arm. "HI" 31 s, "HELLO" 35 s, "BEN" 42 s, "JONATHAN" 54 s |
 | Feeding | unknown | Not built |
 
@@ -75,10 +75,18 @@ at the freeze by which passed the gate most cleanly.
 Notes on the blocks:
 
 - Block 2 shows the stop key on purpose. A judge who sees the arm stop on command trusts the rest.
-- Block 3: until the missing-destination case is fixed, only ask it to put a piece next to something
-  that is on the mat.
-- Block 3 needs three keys on the demo machine: Gemini, Anthropic, and OpenAI for the fallback when
-  Gemini stalls. Keep pieces apart on the mat (two touching pieces come back as one box), avoid
+- Block 3: a placement whose destination the camera does not find should now be refused and said
+  out loud. Having the destination on the mat is not a guarantee it is found, so rehearse a
+  refusal as well as a success.
+- Block 3 has no offline path for speech or typed sentences since 11:10 AM (`a620d95`): keyword
+  matching was removed, so both picking the skill and picking the object need the Anthropic API.
+  If the network or the API is down at the table, the only fallbacks are the keypad keys and a
+  typed dispatcher command with a grid position, `run fetch {"u": 0.5, "v": 0.5}`. Rehearse that
+  one. A reviewer finding on this version was open at 11:20 AM: a malformed placement reply from
+  the model can still turn into a plain handover.
+- Block 3 needs two keys on the demo machine: OpenAI (boxes and speech) and Anthropic (choosing and
+  routing). Gemini was removed at 10:34 AM. Keep pieces 9 to 10 cm apart: in simulation the open
+  jaws knocked neighbours at 6 cm. Keep pieces apart on the mat (two touching pieces come back as one box), avoid
   thin plates and hollow pieces, and have the typed request ready: the hall will be loud, and the
   microphone has been tried once, in a quiet room.
 - Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
@@ -103,10 +111,17 @@ If a block fails twice, move on. The backup video stays open in a browser tab.
 ## Table setup checklist
 
 - Arm clamped to the table, mat taped down, camera fixed. Nothing that was calibrated may move.
+- For the Duplo block, Eddy's setup list (`notes/eddy.md`, "From the simulator to the real arm",
+  1:08 PM): a camera fixed about 50 cm straight above the table, seeing the whole grid, with the arm
+  out of view at home; a taught 4 by 4 or 5 by 5 table grid and a handover pose; the grid's four
+  corners clicked in the camera picture; and 15 settings measured once on the real arm (gripper
+  open and closed, wrist range and direction, grid size, jaw and held-brick offsets, layer gap,
+  camera height, arm base position). If the camera or the arm moves afterwards, redo the corners.
+  As of 1:10 PM none of this had been reported done, and no overhead camera had been mounted.
 - Stop key within reach of a teammate at all times, and one person on the power switch.
 - Cards and a capped marker. Dry food, a bowl with a non-slip base, a lidded cup with a straw.
 - A lamp, a power strip, and a phone hotspot for the model calls.
-- `.env` on the demo machine with all three keys. Dispatcher started and `home` run before the
+- `.env` on the demo machine with the OpenAI and Anthropic keys. Dispatcher started and `home` run before the
   first judge arrives.
 - Backup video loaded.
 
