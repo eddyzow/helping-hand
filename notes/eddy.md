@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:15 AM.
+Updated Sat Nov 14, 2:25 AM.
 
 ## Working on now
 
@@ -26,6 +26,8 @@ Eddy checked the marks on both photos himself at 1:30 AM and corrected my score:
 Fix, built and on `main` at 2:00 AM: `see.py` now works in two steps. Gemini boxes every object on the table (it is accurate at where). The boxes are numbered on the image and Claude Sonnet 5.5 says which numbers match the request (it is accurate at which). On the two real photos the chooser got 16 of 17 requests right, and the full pipeline got 8 of 8 in a later run, including both red squares and the slope brick on its side. About 4.5 seconds per request. Plain OpenCV colour detection was tried first and was too fragile on the grey table: it missed pieces and took glare for pieces.
 
 What changed for callers: `see.find_all(frame, command, audio_path)` returns `(hits, said, boxes)`. `see.find` still exists and returns the first hit. `pick.locate` now returns `(targets, said)`, a list, and `pick.py` asks "which one?" when more than one object matches instead of picking silently. `eddy/fetch` has the matching `voice/route.py` and is open as pull request 3 (https://github.com/eddyzow/helping-hand/pull/3), ready for review and merge.
+
+Live microphone, tested by Eddy on his Mac at 2:25 AM: he said "pick up the purple brick" into the laptop microphone with `photos/duplo_a.jpg` as the frame. It heard "Pick up the purple brick.", saw 9 objects and matched the purple brick. One run, in a quiet spot; not tried in a noisy room.
 
 Known limits: two touching pieces come back as one box. The grasp point is the box centre, which is a hole on hollow pieces like the upside-down car body. Gemini's free tier still has bad spells (429, 503, timeouts); `see.py` retries up to three times, and one request in this run took 17 seconds because of it. `ANTHROPIC_API_KEY` is needed for the chooser; without it Gemini chooses and gets look-alikes wrong more often.
 
