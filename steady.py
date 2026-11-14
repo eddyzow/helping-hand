@@ -50,6 +50,7 @@ MAX_STEP = 15.0          # LeRobot's own per-command limit, in degrees
 EASE_S = 3.0             # at the start and after a hold the follower glides to the leader over this long
 WINDOW_S = 4.0           # how much history the tremor measurement looks at
 GRIP_FLOOR = 4.0         # the follower's claw is never commanded tighter than this (0 to 100)
+ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
@@ -146,6 +147,8 @@ def main() -> None:
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
     from lerobot.teleoperators.so_leader import SO101Leader, SO101LeaderConfig
 
+    import logging
+    logging.getLogger("lerobot.robots.utils").setLevel(logging.ERROR)  # its per-command "clamped" warning floods the screen
     ask = (lambda text: None) if "--yes" in sys.argv else input
     shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
     seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
@@ -199,8 +202,9 @@ def main() -> None:
         smooth = LowPass(read_leader())
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
+        stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
         began = ease_from = time.perf_counter()
-        ease_start, was_hold, last, tick_n = sent.copy(), False, began, 0
+        ease_start, was_hold, last, tick_n, elbow_told = sent.copy(), False, began, 0, False
         print(f"Steady Hand running. Dashboard: http://127.0.0.1:8780  Keys: middle = steady on/off, jump = hold, stop = hold.")
         while not state["quit"]:
             now = time.perf_counter()
@@ -228,6 +232,13 @@ def main() -> None:
             # never drive the claw hard into its closed stop: at 0 it pressed at 98 % load the whole
             # time the leader's claw was shut (first real run), which only heats the motor
             sent[5] = min(100.0, max(GRIP_FLOOR, sent[5]))
+            # the follower's elbow stops at about +65 (its calibration range is stored in the motor as
+            # a limit). Asking for more does nothing but lag and a warning on every tick.
+            if sent[2] > ELBOW_MAX:
+                sent[2] = ELBOW_MAX
+                if not elbow_told:
+                    elbow_told = True
+                    print(f"  note: the follower's elbow is at its limit ({ELBOW_MAX:.0f} degrees); it cannot bend as far as the leader")
             follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not
@@ -237,9 +248,12 @@ def main() -> None:
             raw_tip, out_tip = tip.mm(raw), tip.mm(seen)
             raw_tips.append(raw_tip.copy())
             out_tips.append(out_tip.copy())
+            stamps.append(now)
             tick_n += 1
             if tick_n % 5 == 0:   # ten times a second: measure, publish, log
-                rate = len(raw_tips) / WINDOW_S if len(raw_tips) == raw_tips.maxlen else HZ
+                # the real sample rate, from the clock: two serial buses may not keep up with HZ, and
+                # a wrong rate would put the tremor at the wrong frequency
+                rate = (len(stamps) - 1) / (stamps[-1] - stamps[0]) if len(stamps) > HZ else HZ
                 tremor_mm, tremor_hz = band_rms_and_peak(raw_tips, rate)
                 out_mm, _ = band_rms_and_peak(out_tips, rate)
                 removed = 0.0 if tremor_mm < 0.15 else max(0.0, min(100.0, 100.0 * (1.0 - out_mm / tremor_mm)))
@@ -272,11 +286,15 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        log.close()
-        save_history()
-        ask("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
-        leader.disconnect()
-        follower.disconnect()
+        try:      # whatever goes wrong with the files, the arms are still let go below
+            log.close()
+            save_history()
+        finally:
+            ask("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
+            try:
+                leader.disconnect()
+            finally:
+                follower.disconnect()
 
 
 if __name__ == "__main__":
