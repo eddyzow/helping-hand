@@ -5,7 +5,9 @@ Draft by Ben (Person 4), Sat Nov 14, 3:35 AM. Initial submission is due Sat midn
 How to use this file: the text under each heading is written to paste into Devpost. Lines in
 [SQUARE BRACKETS] are not text to paste. They mark a claim that is not true yet, or a choice the
 team has not made. Before submitting, every bracket must be either confirmed and rewritten, or
-deleted with its sentence. Nothing here has run on the real arm as of this draft.
+deleted with its sentence. As of this draft no note in the repo records a skill running on the
+real arm; that is not the same as knowing none has. Whoever was at the arm must confirm each
+physical claim, in either direction.
 
 ## Decisions needed before submitting
 
@@ -58,23 +60,26 @@ speaking.
 ## How we built it
 
 - The arm is a Seeed Studio SO-ARM101 Pro (the SO-101 design by TheRobotStudio), driven through
-  Hugging Face's LeRobot. A leader arm is used to teach poses by hand.
+  Hugging Face's LeRobot. Poses are taught by switching the follower's motors off and positioning
+  it by hand; the leader arm is used to record whole motions.
 - A dispatcher process owns the arm and runs one skill at a time. Every skill is one Python file
   with a name, a description and a `run(arm, params, stop)` function. The keypad, the voice router
   and a typed command line all send the dispatcher the same one-line commands.
 - Finding objects takes two models. Gemini draws a numbered box around every object in the camera
   frame, because it was accurate about where things are. Claude then picks which numbers match the
-  request, because it was better at telling look-alike pieces apart. Speech goes to Gemini as audio
-  in the same request, so there is no separate speech-to-text step.
+  request, because it was better at telling look-alike pieces apart. A spoken request is
+  transcribed by Gemini in its own call before the boxes are found.
 - Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
   a taught grid over the paper.
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
-- Safety was treated as a feature. Every command is checked before the first motor moves: joint
-  values, move durations, settings and the replies from the models. A bad value means the arm does
-  not move at all. Each of those checks has a test that runs on a mock arm with no hardware.
+- Safety was treated as a feature. Commands are checked before the first motor moves: joint
+  values, move durations and the replies from the models. A bad value means the arm does not move
+  at all, and each check has a test that runs on a mock arm with no hardware.
+  [DO NOT widen this to "every setting" unless fetch's grip and hold-time settings are checked
+  too. That finding was still open at 3:30 AM.]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
@@ -89,7 +94,7 @@ speaking.
 - The arm has no sense of touch. [CONFIRM ON ARM: what this meant for the pen and the grasp.]
 - Stopping safely is harder than moving. Our first shutdown code homed the arm after a stop, and
   the motor library's own cleanup could switch the motors off and drop the arm. Both were found in
-  review on fake hardware before the real arm was connected.
+  review on fake hardware. [CONFIRM with Daniel whether that was before the arm first moved.]
 - [ADD: whatever actually went wrong on the real arm on Saturday.]
 
 ## Accomplishments that we're proud of

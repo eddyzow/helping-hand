@@ -1,7 +1,7 @@
 # Demo script and pitch outline
 
 Draft by Ben (Person 4), Sat Nov 14, 1:00 AM. This is a first draft for the team to change.
-Nothing in it has run on the real arm yet. Event facts are from `AGENTS.md` and `PLAN.md`.
+No note in the repo records any of it running on the real arm; Daniel has to confirm what has. Event facts are from `AGENTS.md` and `PLAN.md`.
 
 ## The one rule
 

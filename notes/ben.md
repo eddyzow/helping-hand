@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:35 AM ET.
+Updated Sat Nov 14, 3:40 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,12 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's review of `88298b8` (four corrections to the Devpost draft): all applied at 3:40 AM.
+  The draft no longer says every setting is checked before motion; it says poses are taught by
+  hand-positioning the follower and the leader records motions; it says transcription and box
+  detection are separate calls; and it no longer claims nothing has ever run on hardware, in the
+  draft or in `docs/demo.md`. Physical claims in both files now wait for operator confirmation.
 
 - Daniel's review of `66e5de9` (a taught NaN gripper survives the clamp): fixed at 2:45 AM. The
   interpolated joints are now checked before the squeeze and clamp, so `max(0.0, nan)` can no
