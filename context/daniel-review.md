@@ -26,7 +26,17 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
 
-### Integration candidate a908855: default press validation
+### Software integration 183db5e: tap and replay, 01:24 ET
+
+Merged `e8b3da1` and its reviewed unmerged ancestry, including Jonathan's replay assets and the CLI cue/per-device key/negative-time fixes. This makes the dispatcher replay available on main and closes the press-default merge blocker. Defaults now use `set_tap`; `_jump` checks the adjusted six-joint vector before output. `tap_key` replaces `tap_up`: a default press returns to the taught key pose, and release raises the elbow by 3 degrees. No physical force or clearance follows from those commanded offsets.
+
+Combined WSL checks passed under external timeouts with bytecode disabled: `python -B -m tests.test_core` printed `core ok` (including the mock CLI/localhost cue exchange), and `python -B -m skills.personality` printed `personality ok`. A separate fresh-import check exercised actual environment values: PRESS_DEG=nan/inf/50 and LIFT_DEG=nan/0 were rejected by both MockArm and Arm before a stubbed follower connection. A directly corrupted NaN press generated no writes. No real constructor connection, serial, keyboard hook, game, camera, or hardware test ran. Staged whitespace check passed; pre-push rebase changed no source.
+
+Remaining: Eddy's `f652789` fetch branch still needs all planned targets validated before home. The installed connect torque transition still precedes the shared support prompt. Software integration does not approve physical operation.
+
+Interview questions: Why must defaults use the same validation as runtime settings? Why does `python -m` require cue state in a shared module? Why does a taught key pose still need physical force and clearance checks?
+
+### Historical candidate a908855: default press validation (fixed by e8b3da1)
 
 The user authorized Codex to integrate passing branches in the separate worktree, leaving unsafe candidates unmerged. This candidate moves cue state to `core`, tracks held keys per device, and rejects negative compensated schedules. The exact fake callback check now confirms laptop Z does not suppress Sayo Z.
 
