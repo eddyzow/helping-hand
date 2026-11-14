@@ -28,10 +28,12 @@ import cv2
 # gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CHOOSER = os.environ.get("CHOOSER_MODEL", "claude-sonnet-5-5")
+BACKUP_DETECTOR = os.environ.get("BACKUP_DETECTOR", "gpt-6.1-terra")  # boxes the frame when Gemini fails
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
 TIMEOUT_MS = 10000  # Gemini rejects anything under 10 seconds; a normal answer takes 1 to 2
 RETRY_SECONDS = 3
 SAMPLE_RATE = 16000
+AXIS_CONTRAST = float(os.environ.get("AXIS_CONTRAST", "22"))  # how different from the table counts as the object
 CHOOSER_LONG_EDGE = 1024  # the numbered image is shrunk to this before it goes to the chooser
 
 # Keep this prompt as a bare list. Wrapping it in an object, or asking for the transcript in the
@@ -51,8 +53,10 @@ The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showin
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
 three round holes in a row. One box may hold two touching pieces.
 The person said: "{command}"
-Which numbered objects are what the person asked for? Include every one that fits; a different
-kind of object does not fit. Return only JSON: {{"matches": [numbers]}}. Use [] if none fit."""
+Which numbered objects are what the person asked to pick up? Include every one that fits; a
+different kind of object does not fit. If the person also said where to put it, such as next to or
+near another object, list that other object under "near".
+Return only JSON: {{"matches": [numbers], "near": [numbers]}}. Use [] where nothing fits."""
 
 
 def load_env():
@@ -61,7 +65,7 @@ def load_env():
         for line in env.read_text().splitlines():
             key, sep, value = line.partition("=")
             if sep and not key.strip().startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip())
+                os.environ[key.strip()] = value.strip()  # .env wins: a stale key exported in a shell broke a run
 
 
 def grab_frame():
@@ -108,18 +112,18 @@ def parse_reply(text):
         return {}  # a malformed reply counts as "nothing found", never as a guess
 
 
-def _gemini(parts):
+def _gemini(parts, attempts=3):
     from google import genai
     from google.genai import types
 
     client = genai.Client(http_options=types.HttpOptions(timeout=TIMEOUT_MS))
     parts = [types.Part.from_bytes(data=p[0], mime_type=p[1]) if isinstance(p, tuple) else p for p in parts]
-    for attempt in (1, 2, 3):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
+    for attempt in range(1, attempts + 1):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
         try:
             return parse_reply(client.models.generate_content(model=MODEL, contents=parts).text or "")
         except Exception as err:
             print(f"Gemini error (attempt {attempt}): {str(err)[:200]}", file=sys.stderr)
-            if attempt == 3:
+            if attempt == attempts:
                 raise
             time.sleep(RETRY_SECONDS)
 
@@ -145,15 +149,33 @@ def to_boxes(reply, width, height):
     return boxes
 
 
-def to_matches(answer, count):
+def to_matches(answer, count, key="matches"):
     """The chooser's reply -> indexes into the boxes. Only whole numbers from 1 to count."""
-    matches = answer.get("matches") if isinstance(answer, dict) else None
+    matches = answer.get(key) if isinstance(answer, dict) else None
     return [n - 1 for n in matches if type(n) is int and 1 <= n <= count] if isinstance(matches, list) else []
 
 
 def detect(frame):
-    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label."""
-    reply = _gemini([(cv2.imencode(".jpg", frame)[1].tobytes(), "image/jpeg"), DETECT])
+    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label.
+    Gemini first. If it fails and OPENAI_API_KEY is set, OpenAI boxes the frame instead: on our
+    Duplo photo its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds."""
+    jpg = cv2.imencode(".jpg", frame)[1].tobytes()
+    backup = os.environ.get("OPENAI_API_KEY")
+    try:
+        reply = _gemini([(jpg, "image/jpeg"), DETECT], attempts=1 if backup else 3)
+    except Exception:
+        if not backup:
+            raise
+        import openai
+
+        print(f"Gemini failed; {BACKUP_DETECTOR} is boxing the frame.", file=sys.stderr)
+        answer = openai.OpenAI(timeout=30.0, max_retries=1).chat.completions.create(
+            model=BACKUP_DETECTOR, reasoning_effort="low",
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {
+                    "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
+                {"type": "text", "text": DETECT}]}])
+        reply = parse_reply(answer.choices[0].message.content or "")
     return to_boxes(reply, frame.shape[1], frame.shape[0])
 
 
@@ -177,7 +199,8 @@ def numbered(frame, boxes):
 
 
 def choose(frame, boxes, command):
-    """Which boxes match the request? Returns a list of indexes into boxes."""
+    """Which boxes match the request, and which box it should be put near?
+    Returns two lists of indexes into boxes: (to pick up, to put it near)."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
@@ -198,12 +221,42 @@ def choose(frame, boxes, command):
     else:
         print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
         answer = _gemini([(jpg, "image/jpeg"), prompt])
-    return to_matches(answer, len(boxes))
+    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near")
+
+
+def long_axis(frame, box):
+    """Which way the object in this box lies: (angle of its long side in the image in degrees,
+    0 = along the image's x axis, turning towards y; how many times longer than wide it is).
+    None if the object cannot be told apart from the table. Plain image processing: the table
+    colour is taken from the rim of the box, and what differs from it is the object."""
+    import numpy as np
+
+    h, w = frame.shape[:2]
+    pad = int(0.12 * max(box["x1"] - box["x0"], box["y1"] - box["y0"])) + 2
+    x0, y0, x1, y1 = max(box["x0"] - pad, 0), max(box["y0"] - pad, 0), min(box["x1"] + pad, w), min(box["y1"] + pad, h)
+    crop = cv2.cvtColor(cv2.GaussianBlur(frame[y0:y1, x0:x1], (5, 5), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
+    if crop.shape[0] < 12 or crop.shape[1] < 12:
+        return None
+    rim = np.concatenate([crop[:3].reshape(-1, 3), crop[-3:].reshape(-1, 3),
+                          crop[:, :3].reshape(-1, 3), crop[:, -3:].reshape(-1, 3)])
+    mask = (np.linalg.norm(crop - np.median(rim, axis=0), axis=2) > AXIS_CONTRAST).astype(np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    if not contours:
+        return None
+    outline = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(outline) < 0.15 * mask.size:
+        return None
+    (_, _), (rw, rh), angle = cv2.minAreaRect(outline)
+    if min(rw, rh) < 1:
+        return None
+    return (angle if rw >= rh else angle + 90.0) % 180.0, max(rw, rh) / min(rw, rh)
 
 
 def find_all(frame, command=None, audio_path=None):
-    """Every object that matches the request. Returns (hits, said, boxes): hits are
-    (x_px, y_px, label) at the centre of each matching box; said is what was asked."""
+    """Every object that matches the request. Returns (hits, said, boxes, near): hits are
+    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; near is the
+    same for any object the person asked to have it put next to."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -211,15 +264,15 @@ def find_all(frame, command=None, audio_path=None):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes
-    answer = choose(frame, boxes, command)
-    hits = [((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2, boxes[i]["label"])
-            for i in answer]
-    return hits, command, boxes
+        return [], command, boxes, []
+    centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
+                        boxes[i]["label"], boxes[i])
+    picked, near = choose(frame, boxes, command)
+    return [centre(i) for i in picked], command, boxes, [centre(i) for i in near]
 
 
 def find(frame, command=None, audio_path=None):
-    """The first matching object as (x_px, y_px, label), or None. Prefer find_all: when two
+    """The first matching object as (x_px, y_px, label, box), or None. Prefer find_all: when two
     objects match, this picks one without saying so."""
     hits = find_all(frame, command, audio_path)[0]
     return hits[0] if hits else None
@@ -236,14 +289,14 @@ def main():
     frame = cv2.imread(image) if image else grab_frame()
     if frame is None:
         sys.exit(f"Could not read {image}")
-    hits, said, boxes = find_all(frame, command, audio)
+    hits, said, boxes, _ = find_all(frame, command, audio)
     out = numbered(frame, boxes)
-    for x, y, _ in hits:
+    for x, y, *_ in hits:
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     print(f'heard "{said}", saw {len(boxes)} objects, {len(hits)} match -> outputs/last.jpg')
-    for x, y, label in hits:
+    for x, y, label, _ in hits:
         print(f"  {label}: pixel ({x}, {y})")
 
 
