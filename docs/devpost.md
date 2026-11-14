@@ -1,38 +1,43 @@
 # Devpost draft
 
-Draft by Ben (Person 4), Sat Nov 14, 3:35 AM. Initial submission is due Sat midnight; aim for 11 PM.
+Drafted by Ben's agent (Person 4). Reworked Sat Nov 14, 4:20 AM around the team's skill list as
+Eddy gave it at 4:05 AM; Ben was asleep and has not reviewed this version. Initial submission is
+due Sat midnight; aim for 11 PM.
 
 How to use this file: the text under each heading is written to paste into Devpost. Lines in
 [SQUARE BRACKETS] are not text to paste. They mark a claim that is not true yet, or a choice the
 team has not made. Before submitting, every bracket must be either confirmed and rewritten, or
-deleted with its sentence. As of this draft no note in the repo records a skill running on the
-real arm; that is not the same as knowing none has. Whoever was at the arm must confirm each
-physical claim, in either direction.
+deleted with its sentence. As of this draft the only skill reported to have run on the real arm
+is Geometry Dash (Eddy, 4:07 AM), and no note yet says what was run or measured. Whoever was at
+the arm must confirm each physical claim.
 
 ## Decisions needed before submitting
 
 1. Track: exactly one HackUMass category. Accessibility or Hardware (see `docs/demo.md`).
-2. Project name: "Helping Hand" is still marked a working name in the README.
+2. Project name. Eddy says it will not be "Helping Hand"; the four of you settle it. The title
+   below is a placeholder, written as NAME.
 3. Which skills are in. Only skills that passed 4 of 5 on the real arm at the freeze are described
-   as working. The draft below lists five; cut the ones that did not pass.
-4. AI coding tools. Most of this code was written with coding agents (Claude Code, Codex). Check
-   the HackUMass rules and Devpost form for how that must be disclosed, and say it plainly either
-   way. Ask an organizer if the rules do not say.
+   as working. The draft below lists the team's four; cut the ones that did not pass.
+4. AI coding tools. Most of this code was written with coding agents. Eddy's view (4:05 AM) is that
+   this is expected at hackathons this year and no organizer question is needed. Ben has not
+   weighed in. A search did not turn up the HackUMass rule text either way, so this is unverified,
+   not settled; the Devpost rules tab would answer it in a minute.
 5. Repo public, all four teammates added on Devpost, MLH opt-ins ticked (Best Use of Gemini API
    fits: Gemini is in the live path).
 
 ## Title and tagline
 
-Helping Hand
+NAME [placeholder until the team picks one]
 
 Tagline, two options:
 
-- Accessibility: A desk robot arm that fetches, writes and plays for you, from one key or one sentence.
+- Accessibility: A desk robot arm that feeds you, fetches, writes and plays, from one key or one sentence.
 - Hardware: One low-cost robot arm, many skills, one stop key.
 
 ## Inspiration
 
-[ACCESSIBILITY VERSION] Robots built to help people who cannot easily reach, grip or write exist,
+[ACCESSIBILITY VERSION] Robots built to help people who cannot easily reach, grip, write or feed
+themselves exist,
 but they are expensive and each does one job. A robotic feeding device is listed by US distributors
 at roughly $8,000 to $9,600, and a wheelchair-mounted assistive arm has been reported at about
 $35,000. The motor kit for the hobby arm on our table launched at $240. We wanted to see how much
@@ -45,17 +50,18 @@ adding a skill is one small file and a stop key always works.
 
 ## What it does
 
-Helping Hand is an SO-101 robot arm with a set of skills you start from a three-key keypad or by
-speaking.
+NAME is an SO-101 robot arm with a set of skills you start from a three-key keypad or by speaking.
 
-- Wave and react. [CONFIRM ON ARM] Press a key and the arm waves; it can also nod, shake its head,
-  celebrate and droop.
-- Fetch by voice. [CONFIRM ON ARM] Say "bring me the red brick". A camera looks at the table, the
-  arm picks the brick up and holds it out. If two things match, it asks which one.
-- Write. [CONFIRM ON ARM] Give it a short word and it writes it on a card with a pen.
-- Play Geometry Dash. [CONFIRM ON ARM] The arm taps the jump key through the start of Stereo
-  Madness from recorded timings, including the held presses.
-- Stop. One keypad key always stops the arm where it is. [CONFIRM ON ARM]
+- Plays Geometry Dash. [CONFIRM: reported running on the real arm; write what it reaches.] The arm
+  taps the jump key through the start of Stereo Madness from recorded timings, held presses included.
+- Handles Duplo by voice. [CONFIRM ON ARM] Say "pick up the red brick" or "put the roof next to
+  the purple brick". A camera looks at the table, and the arm picks the piece up and hands it over
+  or sets it down. If two pieces match, it asks which one.
+- Writes. [CONFIRM ON ARM] Give it a short word and it writes it on a card with a pen.
+- Feeds. [CONFIRM ON ARM; not built as of this draft] It scoops dry food from a bowl and holds the
+  spoon out, stopping short of the face so the person leans in, and offers water from a lidded cup
+  with a straw.
+- Stops. One keypad key always stops the arm where it is. [CONFIRM ON ARM]
 
 ## How we built it
 
@@ -68,7 +74,8 @@ speaking.
 - Finding objects takes two models. Gemini draws a numbered box around every object in the camera
   frame, because it was accurate about where things are. Claude then picks which numbers match the
   request, because it was better at telling look-alike pieces apart. A spoken request is
-  transcribed by Gemini in its own call before the boxes are found.
+  transcribed by Gemini in its own call before the boxes are found. When Gemini stalls, OpenAI
+  draws the boxes instead.
 - Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
@@ -78,8 +85,8 @@ speaking.
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint
   values, move durations and the replies from the models. A bad value means the arm does not move
   at all, and each check has a test that runs on a mock arm with no hardware.
-  [DO NOT widen this to "every setting" unless fetch's grip and hold-time settings are checked
-  too. That finding was still open at 3:30 AM.]
+  [Fetch's grip and hold-time settings are now checked too, on `eddy/fetch` (`b274c92`). Say
+  "settings" here only once that branch is on `main`.]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
@@ -112,16 +119,16 @@ speaking.
 - Say exactly how each thing was tested. "Works" meant three different things on this team until
   we wrote it down.
 
-## What's next for Helping Hand
+## What's next for NAME
 
-- Feeding: a recorded scoop that stops short of the face and waits for the person to lean in.
+- [If feeding did not make the demo: feeding, as a recorded scoop that stops short of the face.]
 - A wrist camera, so the arm does not have to move out of the way to look.
 - Trying it with people who would actually use it. Nothing here has been tested with a person
   with limited hand use, and it is a weekend prototype, not a medical device.
 
 ## Built with
 
-python, lerobot, so-101, feetech-sts3215, gemini-api, claude-api, opencv, mujoco, playwright,
+python, lerobot, so-101, feetech-sts3215, gemini-api, claude-api, openai-api, opencv, mujoco, playwright,
 pynput, sounddevice, hershey-fonts, quick-draw-dataset
 [REMOVE any that are not in the final demo path.]
 
@@ -133,7 +140,7 @@ pynput, sounddevice, hershey-fonts, quick-draw-dataset
 - Hershey-Fonts (single-stroke text) and Google's Quick, Draw! dataset (doodles).
 - MuJoCo (simulation) and Playwright (browser Geometry Dash replay).
 - SayoDevice O3C keypad model files in `keypad/geometry_dash/sayodevice_o3c/` (see its LICENSE).
-- Google Gemini API and Anthropic Claude API.
+- Google Gemini API, Anthropic Claude API, and the OpenAI API as a fallback.
 - Geometry Dash is RobTop's game; we only press its keys.
 [CHECK this list against `requirements.txt` and the README on Saturday night.]
 

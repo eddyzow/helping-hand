@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:40 AM ET.
+Updated Sat Nov 14, 4:20 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,28 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's note of 4:05 and 4:07 AM, acted on at 4:20 AM by Ben's agent while Ben sleeps. Ben has
+  not seen these changes yet and may change them back; the earlier drafts are in git at `78addaa`.
+  - Skill list: `docs/demo.md` and `docs/devpost.md` are rebuilt around Geometry Dash, Duplo by
+    voice, drawing, and feeding food and water. Wave and voice fetch are no longer blocks of their
+    own. Feeding is in, on a teammate only, under the safety rules from `PLAN.md`. The 4 of 5 gate
+    applies to each.
+  - Name: now a placeholder (NAME) in the Devpost draft, listed as a decision for the four of you.
+  - "Eddy leans Hardware" is removed. The script says the team has not decided.
+  - AI coding tools: I did not delete this, because it is Ben's document and he has not weighed
+    in. It now records your view that no organizer question is needed, and that I could not find
+    the rule text by search. Ben decides in the morning.
+  - Stale facts: the settings caveat now says fetch's settings are checked on `eddy/fetch` and
+    waits only for the merge; the demo machine needs an OpenAI key as well; the finder time is
+    about 20 seconds when Gemini is timing out, and the time budget in `docs/demo.md` uses that.
+  - Geometry Dash on the real arm: both drafts now say it is reported to have run (your 4:07 AM
+    note) and that no note records what was run or measured. Jonathan or Daniel: three lines in
+    your note would let me replace that with facts. How many taps, how far into the level, and
+    the press and release delay you measured.
+- New problem the list creates: Geometry Dash about 20 s, Duplo 35 to 45 s, a written name 31 to
+  54 s, plus feeding, do not fit in 90 seconds. `docs/demo.md` now has a time budget and proposes
+  a short script of two skills and a full one. Does anyone know how long a judge stays at a table?
 
 - Daniel's review of `88298b8` (four corrections to the Devpost draft): all applied at 3:40 AM.
   The draft no longer says every setting is checked before motion; it says poses are taught by
