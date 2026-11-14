@@ -12,7 +12,7 @@ water also tomorrow."
 | Skill | Owner | State as recorded in the repo at 4:15 AM |
 |---|---|---|
 | Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. Dispatcher skill on `main`; newer tapping work held in review |
-| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. The finding open at the merge (a missing placement destination became a handover) has a fix on `main` from Eddy at 4:45 AM (`f271764`); Daniel's reviewer had not yet verified it at 4:50 AM. Finder tested on two real phone photos, not from the real camera position |
+| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. The finding open at the merge (a missing placement destination became a handover) has a fix on `main` from Eddy at 4:45 AM (`f271764`), checked by Daniel's reviewer at 4:54 AM: a valid placement works. Two related cases were still open on `main` then: a malformed placement reply from the model, and the standalone `pick.py`, which ignores placement. Finder tested on two real phone photos, not from the real camera position |
 | Drawing | Ben, Eddy | `skills/draw.py` on `main`, mock only. Needs a pen holder and a taught paper grid. Planned for Saturday |
 | Feeding food and water | Daniel | Nothing in the repo yet. Planned for Saturday |
 
