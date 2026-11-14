@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:55 PM ET.
+Updated Sat Nov 14, 3:00 PM ET.
 
 ## Working on now
 
@@ -117,6 +117,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`fd80e9b`, two statements to narrow): both done at 3:00 PM. `docs/demo.md` no
+  longer calls the cached sketches network-free; it says they skip generation and that a sentence
+  still goes to the model for routing. The Devpost draft now describes the blind viewer as feedback
+  for one retry, not a gate.
 
 - Eddy's `27595d3` (sketches, with changes to `skills/draw.py`): I read the whole diff to that file
   and it is fine by me. Strokes from outside are checked before any move, the pose, squeeze and

@@ -91,8 +91,9 @@ Notes on the blocks:
   thin plates and hollow pieces, and have the typed request ready: the hall will be loud, and the
   microphone has been tried once, in a quiet room.
 - Block 4: a sketch the judge names needs the Anthropic API and 10 to 20 seconds before the pen
-  moves. The 17 cached sketches in `drawings/sketch_*.json` need no network and start at once, so
-  offer the judge a short list ("a dog, a robot, a dragon...") if the network is slow.
+  moves. The 17 cached sketches in `drawings/sketch_*.json` skip that generation step, so offer the
+  judge a short list ("a dog, a robot, a dragon...") if the network is slow. They are not
+  network-free: a spoken or typed sentence still goes to the model first to pick the skill.
 - Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
   `PEN_SPEED` if the writing stays legible, or write one initial live and hand over a full-name
   card made earlier.

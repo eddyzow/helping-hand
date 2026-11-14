@@ -85,8 +85,9 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
   a taught grid over the paper. For a sketch, Claude draws the thing as strokes three times, guided
-  by the most typical doodles of it from Google's Quick, Draw! dataset, and a second call that is
-  not told the subject has to name the drawing before it is used.
+  by the most typical doodles of it from Google's Quick, Draw! dataset. A second call that is not
+  told the subject is asked to name the drawing; if it names something else, the sketch is redone
+  once with that feedback.
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint
