@@ -79,8 +79,8 @@ def speak(text: str) -> None:
         pass  # no voice on this machine: the printed line is enough
 
 
-def locate(thing: str) -> dict | None:
-    """Camera frame -> where the thing is on the taught grid. None if it is not in view."""
+def locate(thing: str) -> list[dict]:
+    """Camera frame -> every matching object's position on the taught grid. Empty if none."""
     import cv2
 
     import pick
@@ -88,10 +88,8 @@ def locate(thing: str) -> dict | None:
 
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
-    found = pick.locate(frame, command=f"pick up {thing}")
-    if not found:
-        return None
-    return {"object": found[2], "u": round(found[0], 3), "v": round(found[1], 3)}
+    targets, _ = pick.locate(frame, command=f"pick up {thing}")
+    return [{"object": label, "u": round(u, 3), "v": round(v, 3)} for u, v, label in targets]
 
 
 def main() -> None:
@@ -123,10 +121,14 @@ def main() -> None:
         return
     if name == "fetch":
         thing = params.get("object") or text or "the object"
-        params = locate(thing)
-        if not params:
+        found = locate(thing)
+        if not found:
             speak(f"I can't see {thing}.")
             return
+        if len(found) > 1:  # never pick one silently
+            speak(f"I see {len(found)} of those. Which one?")
+            return
+        params = found[0]
     result = send(f"run {name} {json.dumps(params)}")
     print(name, params, result)
     if not result.get("ok"):
