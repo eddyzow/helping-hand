@@ -20,6 +20,7 @@ Eddy checked the marks on both photos himself at 1:30 AM and corrected my score:
 
 - Gemini `gemini-3.5-flash-lite`: points land accurately on the object it picks, but it under-counts look-alikes (one red square where there are two) and missed the slope brick lying on its side until the prompt described it. The free key hits a per-minute rate limit (HTTP 429) after roughly 15 requests in a burst. Larger Gemini models time out.
 - Claude (Eddy's Anthropic key, in `.env` as `ANTHROPIC_API_KEY`): lists all 9 objects every time and counts matches better (Opus 5.5 6 of 7 cases, Sonnet 5.5 and Haiku 5.5 5 of 7), at about 3 seconds for Sonnet and 7 to 10 for Haiku and Opus. Its points are loose: several land beside the object, not on it.
+- OpenAI (Eddy's key, in `.env` as `OPENAI_API_KEY`), same cases: `gpt-6.1-sol` 5 of 7 at about 9 seconds, `gpt-6.1-terra` 4 of 7 at about 5 seconds, `gpt-6-luna`, `gpt-5.5` and `gpt-5.4-mini` 2 or 3 of 7. Points land on the pieces more often than Claude's but several sit on an edge. Not better than Claude at choosing, and slower.
 - So Gemini is good at where and weak at which; Claude is the reverse. Neither alone is good enough for a reliable grasp among look-alike bricks.
 
 Proposed fix, not built yet: find the pieces with plain OpenCV (coloured blobs on the grey table), which gives an exact centre and the angle to turn the gripper, draw a number on each, and ask the model only "which numbers match the request". No coordinates come from the model at all.
