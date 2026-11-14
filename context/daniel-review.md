@@ -22,6 +22,10 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Macro d601a25 and fetch simulation be3a517 review
+
+The new macro CSV passes independent standard-library parsing: 128 events / 64 alternating down/up pairs, finite strictly increasing timestamps from 2727.573 to 85889.522 ms. This verifies data structure, not gameplay success. No replay or input injection ran. Fetch simulator deltas through be3a517 (live request loop, scene shapes and photo-informed remodels) were read; simulation was not executed. Existing fetch config/teaching-size and arm input/stop blockers remain. Requested owner priority is closing these blockers before more feature additions.
+
 ### Macro recording 4bdb75f: save failure suppresses stop
 Read the complete new recording delta. Stop-key handling writes the CSV before calling send(stop). Exact extracted on_key with a completed fake recording and fake Path.write_text raising OSError("fake disk full") raised that error with zero dispatcher calls. This is an independently reproduced stop-path regression; no real file, socket, or input event was used. Send stop before fallible recording persistence, handle the save failure visibly without losing the recorded events, and leave one fake regression. The commit adds no tests. The previously reported focus-change input pairing is still unchanged and also affects which recording edges are retained.
 ### Tap-delay timing fix ae796f9 verified
