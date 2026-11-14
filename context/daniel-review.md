@@ -22,6 +22,10 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Tap-delay timing fix ae796f9 verified
+
+Exact committed source now starts timing before each command. The same deterministic fake that advances 20 ms during press and 30 ms during release now reports press_ms=20/release_ms=30. A blocking-write regression is committed too. This closes the timing-underestimate finding; input press/release pairing and a combined candidate suite remain before integration.
+
 ### Isolated 4203bf2 suite passes; new input-release finding
 Created a separate detached worktree at C:\Users\Khang\pw\helping-hand-qa pinned to 4203bf2. Reviewed all three changed files before execution. Complete WSL `python -B -m tests.test_core` printed `core ok` under the external 120-second limit; worktree remained clean. This includes enter-mode, calibration, tap-delay's existing asynchronous-key test, job result handling and mock CLI cue. No native input listener ran.
 The prior replay timing failure was from owner HEAD 4474fd5 while send/tests were changing; the changed portion did not alter the failing replay assertion. Both test and replay use time.perf_counter, and the expected CSV schedule/tolerance is unchanged. The later isolated run passes that assertion. Four equal late timestamps are consistent with execution resuming after all deadlines and issuing overdue commands together, but scheduling load versus another cause was not measured; do not claim a proven root cause or loosen the tolerance.
