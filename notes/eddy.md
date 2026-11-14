@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:35 AM.
+Updated Sat Nov 14, 3:05 AM.
 
 ## Working on now
 
@@ -49,6 +49,8 @@ Next:
 - Pointing straight down, the model reaches about 12 to 30 cm from its base and can lift about 5 cm. That is the size to plan the table grid around.
 - Daniel, for `core/arm.py`: `move_joints` starts every move from the measured joints. While holding a brick the jaw is blocked at about 19 with a command of 5, so each new move starts its gripper command near 19 and ramps back to 5: the squeeze relaxes for a moment at the start of the lift and of the swing. The simulated brick survived it. On the real arm it may not. Suggest starting the gripper from the last commanded value. I have not touched `core/`.
 - Gemini's box detection slowed to 14 seconds around 2:30 AM, past its 10 second timeout. `see.py` now falls back to OpenAI (`gpt-6.1-terra`) for the boxes when Gemini fails and `OPENAI_API_KEY` is set: on `photos/duplo_a.jpg` its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds. Claude's boxes were poor (2 of 9), so Claude stays the chooser only.
+
+Update 3:05 AM: the simulated table now holds the Duplo set from `photos/duplo_a.jpg` (two red squares, blue square, purple square, flat white 2x4, red slope, green curved 2x4, car chassis, car body), and `mjpython sim.py --view` opens a live MuJoCo window that takes typed requests one after another. With known grid positions, 6 of the 7 graspable pieces were carried to the handover; the flat white plate is too thin for the fixed grasp height. Through the full finder, 4 of 5 single-match requests were carried (purple, red slope, green curved yes; blue square was found correctly and dropped), two red squares got "which one", and the chassis outside the grid was refused as out of reach.
 
 ## Done and how it was tested
 
