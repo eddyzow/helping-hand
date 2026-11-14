@@ -119,3 +119,66 @@ class Session:
                 "peak_tremor_mm": round(self.peak, 2), "tremor_hz": round(statistics.median(self.hz), 1) if self.hz else 0.0,
                 "mean_arm_mm": round(arm, 2), "removed_pct": round(removed, 1),
                 "steady_share_pct": round(100.0 * self.steady_n / max(1, self.n), 1), "tests": list(self.tests)}
+
+
+SHAKING_MM = 0.5   # a hand shake under this is treated as "no tremor to speak of"
+HOLDING_PCT = 15.0  # grip effort above this means the claw is squeezing something
+
+
+def insights(trend, test=None):
+    """Plain observations from a session so far, for a person (in the story, a physiotherapist) to
+    look at. Descriptions of what was measured, never advice and never a diagnosis.
+
+    trend: rows of [seconds, hand shake mm, arm shake mm, grip effort %, tremor Hz], one a second.
+    Returns a list of {"id", "title", "value", "text"}; empty until there is something to say."""
+    rows = [r for r in trend if len(r) >= 4]
+    shaking = [r for r in rows if r[1] >= SHAKING_MM]
+    out = []
+    if len(rows) < 5:
+        return out
+    if not shaking:
+        return [{"id": "calm", "title": "Shake", "value": "none found",
+                 "text": f"No hand shake above {SHAKING_MM} mm in the last {len(rows)} seconds."}]
+
+    hand = statistics.fmean(r[1] for r in shaking)
+    arm = statistics.fmean(r[2] for r in shaking)
+    removed = max(0.0, 100.0 * (1.0 - arm / hand))
+    out.append({"id": "size", "title": "Shake size", "value": f"{hand:.1f} mm",
+                "text": f"While shaking, the hand moved {hand:.1f} mm (RMS) at the fingertip and the arm {arm:.1f} mm: "
+                        f"{removed:.0f}% less. Shaking was present in {100 * len(shaking) / len(rows):.0f}% of the time measured."})
+
+    rates = [r[4] for r in shaking if len(r) > 4 and r[4] > 0]
+    if rates:
+        rate = statistics.median(rates)
+        spread = (max(rates) - min(rates)) if len(rates) > 1 else 0.0
+        steady_rate = "It stayed close to that rate" if spread <= 1.5 else f"It wandered over {spread:.1f} Hz"
+        out.append({"id": "rate", "title": "Shake rate", "value": f"{rate:.1f} Hz",
+                    "text": f"The shake repeated about {rate:.1f} times a second. {steady_rate}. "
+                            f"This tool counts {TREMOR_BAND[0]:.0f} to {TREMOR_BAND[1]:.0f} Hz as tremor and slower movement as intended."})
+
+    if len(shaking) >= 30:   # needs half a minute of shaking to say anything about change
+        third = len(shaking) // 3
+        early = statistics.fmean(r[1] for r in shaking[:third])
+        late = statistics.fmean(r[1] for r in shaking[-third:])
+        change = 100.0 * (late - early) / early if early > 0 else 0.0
+        if abs(change) < 15:
+            value, text = "about the same", f"The shake was about the same size at the end ({late:.1f} mm) as at the start ({early:.1f} mm)."
+        else:
+            word = "larger" if change > 0 else "smaller"
+            value = f"{abs(change):.0f}% {word}"
+            text = (f"The shake was {abs(change):.0f}% {word} in the last third of the session ({late:.1f} mm) than in the "
+                    f"first ({early:.1f} mm). One session cannot say why.")
+        out.append({"id": "change", "title": "Change during the session", "value": value, "text": text})
+
+    holding = [r[3] for r in rows if r[3] >= HOLDING_PCT]
+    if len(holding) >= 5:
+        mean, spread = statistics.fmean(holding), statistics.pstdev(holding)
+        evenness = "evenly" if spread < 8 else "unevenly"
+        out.append({"id": "grip", "title": "Grip effort", "value": f"{mean:.0f}%",
+                    "text": f"The claw held with about {mean:.0f}% of its motor's maximum for {len(holding)} seconds, {evenness} "
+                            f"(it varied by {spread:.0f} points). This is the motor's own load reading, an estimate, not a measured force."})
+
+    if test and test.get("score") is not None:
+        out.append({"id": "test", "title": "Hold-still test", "value": f"{test['score']} out of 100",
+                    "text": f"Hand shake during the last 10-second test: {test['tremor_mm']:.1f} mm. A display scale, not a clinical measure."})
+    return out

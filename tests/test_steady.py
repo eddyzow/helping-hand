@@ -86,7 +86,32 @@ def test_core_tremor():
         assert steady.read_sessions(Path(folder) / "sessions.json") == [s]
 
 
+def test_insights():
+    from core import tremor
+
+    assert tremor.insights([]) == []
+    assert tremor.insights([[i, 0.1, 0.0, 2.0, 0.0] for i in range(20)])[0]["id"] == "calm"
+    # 90 s: the shake grows from 6 to 9 mm at 5.5 Hz, the arm stays at 0.6 mm, the claw holds at about 40 %
+    trend = [[i, 6.0 + 3.0 * i / 89, 0.6, 40.0 + (i % 3), 5.5] for i in range(90)]
+    out = tremor.insights(trend, {"score": 62, "tremor_mm": 7.6})
+    by = {o["id"]: o for o in out}
+    assert list(by) == ["size", "rate", "change", "grip", "test"], list(by)
+    assert by["size"]["value"] == "7.5 mm" and "92% less" in by["size"]["text"], by["size"]
+    assert by["rate"]["value"] == "5.5 Hz" and by["change"]["value"] == "31% larger", (by["rate"], by["change"])
+    assert by["grip"]["value"] == "41%" and by["test"]["value"] == "62 out of 100"
+    flat = tremor.insights([[i, 5.0, 0.5, 0.0, 6.0] for i in range(60)])
+    assert [o["id"] for o in flat] == ["size", "rate", "change"] and flat[2]["value"] == "about the same"
+    for o in out + flat:  # the wording rules: observations only, and grip effort is never called a force
+        low = o["text"].lower()
+        assert not any(word in low for word in ("torque", "therapy", "treatment", "diagnos", "improv")), o
+        assert "force" not in low or "not a measured force" in low, o
+    # RobTop's voice script reports to the dashboard through the same command port
+    assert steady.command('voice {"heard": "hold this", "said": "I have it"}')["ok"]
+    assert steady.shared["voice"]["heard"] == "hold this" and steady.command("voice nonsense")["ok"] is False
+
+
 if __name__ == "__main__":
     test_steady()
     test_core_tremor()
+    test_insights()
     print("steady ok")
