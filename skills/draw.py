@@ -11,6 +11,7 @@ UNTESTED ON HARDWARE. Not known yet: whether the pen touches evenly across the p
 PEN_SQUEEZE grips, and whether moving home with a pen in the gripper clears the table.
 """
 import json
+import math
 from pathlib import Path
 
 import draw as strokes_lib  # the root draw.py: text -> strokes, resampling, pen settings
@@ -23,6 +24,7 @@ PARAMS = {"text": "str"}
 
 WORD = "HI"      # what it writes when no text is given
 MAX_CHARS = 8    # longer words get too small to read and too slow for a demo
+MAX_STEP_S = 30  # the arm refuses any single move longer than this
 GRID = Path(__file__).parent.parent / "poses" / "paper.json"
 STOPPED = {"ok": False, "reason": "stopped"}
 
@@ -47,6 +49,9 @@ def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], fl
         steps += [(pose("down", u, v), strokes_lib.STEP / strokes_lib.PEN_SPEED) for u, v in pts[1:]]
         steps.append((pose("up", *pts[-1]), 0.4))
     steps.append((rest, 2.0))
+    for _, seconds in steps:  # a bad PEN_SPEED must be caught here, not after the pen is already down
+        if not (math.isfinite(seconds) and 0 < seconds <= MAX_STEP_S):
+            raise ValueError(f"a move would take {seconds} seconds: check PEN_SPEED ({strokes_lib.PEN_SPEED})")
     return steps
 
 
@@ -58,7 +63,7 @@ def run(arm, params, stop):
         return {"ok": False, "reason": "no paper grid: teach it with python arm.py teach paper"}
     try:  # the whole word is planned and checked before the first move
         steps = plan(text.strip(), json.loads(GRID.read_text()), arm.load_pose("home"))
-    except (ValueError, KeyError, IndexError, TypeError) as err:
+    except (ValueError, KeyError, IndexError, TypeError, ZeroDivisionError) as err:
         return {"ok": False, "reason": f"cannot plan '{text}': {err}"}
     print(f"[draw] '{text.strip()}': {len(steps)} moves, about {sum(s for _, s in steps):.0f} seconds", flush=True)
     for joints, seconds in steps:
@@ -116,6 +121,14 @@ if __name__ == "__main__":
 
     arm = FakeArm(stop_after=5)  # stop lands mid-word: nothing more is sent
     assert run(arm, {}, arm.halt) == STOPPED and len(arm.sent) == 5
+
+    good_speed = strokes_lib.PEN_SPEED
+    for bad_speed in (-0.15, float("nan"), 0.0001, 0.0):  # the real MockArm: its position must not change
+        strokes_lib.PEN_SPEED = bad_speed
+        arm = MockArm()
+        before = arm.get_joints()
+        assert not run(arm, {}, arm.halt)["ok"] and arm.get_joints() == before, f"PEN_SPEED {bad_speed}: must not move"
+    strokes_lib.PEN_SPEED = good_speed
 
     write_grid({"n": 3, "down": taught(float("nan")), "up": taught(10)})
     arm = FakeArm()

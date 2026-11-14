@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:40 AM ET.
+Updated Sat Nov 14, 1:50 AM ET.
 
 ## Working on now
 
@@ -75,6 +75,17 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's review of `56a5f0f` (durations not checked before motion): fixed. `plan()` now rejects
+  any step that is not finite and between 0 and 30 seconds, before the first move. Regression in
+  `python -m skills.draw`: with `PEN_SPEED` set to -0.15, NaN, 0.0001 and 0, the real `MockArm`'s
+  joints do not change. Re-run at 1:50 AM: `draw ok`, `core ok`. Drawing is still mock only.
+- Daniel's review (demo cites 15 of 16): fixed. Block 3 of `docs/demo.md` now carries Eddy's
+  corrected result, and a note that the table should not hold look-alike objects until the finder
+  handles them.
+- WSL lacking `HersheyFonts`: it is in `requirements.txt` as `Hershey-Fonts`; `pip install -r
+  requirements.txt` in the `lerobot` env adds it. Without it `run draw` fails with an import error
+  and does not move.
 
 - Daniel's note (demo block 2): applied in `docs/demo.md`. Wave is X, stop is Z, home is typed, and
   the failure procedure no longer says to home and retry an unexplained failure. Personality moves

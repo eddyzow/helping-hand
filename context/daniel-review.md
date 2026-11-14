@@ -26,6 +26,34 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
 
+### Drawing fix c9b01c7 verified
+
+The complete plan now checks finite positive durations up to 30 seconds before returning; zero-speed division is caught during planning. Fresh Windows `python -m skills.draw` printed `draw ok`. An independent synthetic-stroke/temp-grid run through actual MockArm methods rejected six speeds (-0.15, NaN, 0.0001, 0, +inf, -inf) with zero `_write` calls. This closes the finding below. Ben also updated the demo to carry Eddy's corrected photo evidence. WSL dependency availability is still a separate environment gap; physical drawing remains untested.
+
+### Historical draw skill 56a5f0f: duration preflight (fixed by c9b01c7)
+
+Reviewed the complete new skill and the called root text/resample path. The inspected Windows fake self-check printed `draw ok`; WSL could not complete it because `HersheyFonts` is absent. Root camera, API, standalone drawing, and hardware paths were not invoked.
+
+**Must fix:** the plan checks every joint target but does not validate every duration before movement. With an injected two-point stroke, a synthetic table grid in a temporary directory, and actual `MockArm.move_joints` with instant fake waits, PEN_SPEED=-0.15, NaN, and 0.0001 each caused 102 `_write` calls before duration rejection at the first drawing segment. The first home, lifted approach, and pen-lowering moves had already happened in mock. Resulting rejected durations were -0.13333333333333333, NaN, and 200 seconds. Ben should check the entire plan against the arm's finite 0-to-30-second duration contract before any motion, with a no-motion regression for these settings. The whole-plan guarantee must cover times as well as joint values.
+
+Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
+
+### Calibration 52392f2: partial fixes verified, sticky-key false success
+
+The inspected expanded WSL mock suite passed `core ok` under an external 120-second timeout, with bytecode disabled. It exercises rejection of obsolete/unknown options, bounded creep, zero writes after an approach-end stop, and preservation on invalid measured lift. The separate-instance test setup is corrected in this commit.
+
+**New fake-only reproduction, same calibration source `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1`:** the initial contact/release measurement succeeds, then the fake key stays held after the first verification press. Calibration returns `ok=True`, "3 of 3 test taps registered", although only one distinct verification down transition occurred. The loop counts `key_down.is_set()` without confirming release between taps. Observe a bounded release before each next press and after the last press; do not report success for sticky/missing-release feedback. Preserve the previous calibration if verification fails, and leave a regression. This check used only a fake arm and a temporary pose directory.
+
+The final PAST-adjusted target finding below remains unchanged in `52392f2`, so this candidate is not merged.
+
+### Calibration follow-up draft: final target still exceeds travel cap
+
+Snapshot `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1` fixes the independently repeated creep-cap and approach-end stop cases: max_travel=8 commands no creep target above rough+8, and the stopped approach emits zero creep writes. Validation now precedes file saving, and the dispatcher draft rejects unknown parameter names.
+
+**Residual reproduced with a temporary pose directory and fake key transitions:** when the key first registers at rough+8 and releases at +7.9, calibration returns success but saves and commands 8.15 in its test taps. `pressed_at + PAST` bypasses the travel cap applied to creep. Bound/reject the final calibrated target before saving or testing it; include exact-endpoint contact in the regression.
+
+Test setup issue: `cal.run(StopAtKey(), {}, StopAtKey().halt)` uses separate arm and stop instances, so the arm sets an event that the creep does not observe and populates `creep_writes` before the next zero-write assertion. Remove that extra call or use one shared instance/event. No full-suite pass is claimed for this draft.
+
 ### Draft tap_calibrate: travel bound and stop output
 
 Uncommitted source snapshot SHA-256 `5dc1d3520f00a61e0855b9b4889a00ddf3882b60cf385561aa5a42b75aa76e99` was compiled in memory with an injected fake arm and instant fake waits. No real constructor, connection, or physical calibration ran.
