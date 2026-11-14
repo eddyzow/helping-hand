@@ -49,7 +49,9 @@ MAX_SPEED = 120.0        # degrees per second: the follower never moves faster t
 MAX_STEP = 15.0          # LeRobot's own per-command limit, in degrees
 EASE_S = 3.0             # at the start and after a hold the follower glides to the leader over this long
 WINDOW_S = 4.0           # how much history the tremor measurement looks at
-GRIP_FLOOR = 4.0         # the follower's claw is never commanded tighter than this (0 to 100)
+GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than this (0 to 100). Its jaws meet at
+                         # about 5.3 (measured closing on nothing), so anything lower pushes them together at full
+                         # effort for as long as the leader's claw is shut: 98 % load in the first three real runs.
 GRIP_SQUEEZE = 6.0       # nor more than this far past where the jaws really are: that bounds the grip effort
 ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
