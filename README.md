@@ -66,7 +66,7 @@ python keypad\listen.py                  # on Windows: SayoDevice wave / jump (U
 python voice/route.py "wave at me"        # Gemini picks the skill; no arguments = speak
 ```
 
-A skill is one file in `skills/` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` (see `newcontext.md` section 5). The arm API is `core/arm.py`; `get_arm(mock=True)` needs no hardware. Before the real arm: `python arm.py pose home` (a resting pose), `pose wave_up`, `pose tap_up`. Check with `python -m tests.test_core`.
+A skill is one file in `skills/` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` (see `newcontext.md` section 5). The arm API is `core/arm.py`; `get_arm(mock=True)` needs no hardware. Before the real arm: `python arm.py pose home` (a resting pose), `pose wave_up`, `pose tap_key` (fingertip resting on the key). Check with `python -m tests.test_core`.
 
 ## Working in this repo
 
