@@ -9,6 +9,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Pointing and demo pivot: main c035029 / d267796
 
+**dabdbb1 correction:** Ben addressed all three requested documentation corrections: GD remains pending attempt-count evidence, feeding is explicitly unbuilt, and grip/placement failures have no diagnosed cause claimed. This closes those documentation requests only; runtime holds and physical validation remain outstanding. The delta is docs-only, so no execution was repeated.
+
 The new point skill reuses fetch._aim, checks finite/ranged settings and coordinates, validates both planned poses, then homes, approaches, dips, waits, lifts and homes. Voice routing reuses locate and forwards one object's name/u/v; zero or multiple matches do not dispatch. `python -B -m skills.point` prints point ok. New `python -B -m tests.test_point_boundaries` passes invalid configuration/coordinates/taught pose with zero home/move calls, expected nominal commands, failure at each command, interrupted dwell with no recovery, and voice forwarding/refusal. Provider and sketch modules pass after the voice change. No runtime source was edited.
 
 Combined QA (arm 99babfd plus main d267796) also passes WSL `python -B -m tests.test_core`, printing core ok under an external timeout. This baseline success does not close the existing targeted failures.
