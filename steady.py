@@ -48,6 +48,10 @@ MAX_SPEED = 120.0        # degrees per second: the follower never moves faster t
 MAX_STEP = 15.0          # LeRobot's own per-command limit, in degrees
 EASE_S = 3.0             # at the start and after a hold the follower glides to the leader over this long
 WINDOW_S = 4.0           # how much history the tremor measurement looks at
+GRIP_FLOOR = 4.0         # the follower's claw is never commanded tighter than this (0 to 100)
+# --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
+SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
+SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
 state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
@@ -173,6 +177,8 @@ def main() -> None:
     from lerobot.teleoperators.so_leader import SO101Leader, SO101LeaderConfig
 
     ask = (lambda text: None) if "--yes" in sys.argv else input
+    shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
+    seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
     measure = "--measure" in sys.argv or not OFFSETS.exists()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
@@ -216,10 +222,14 @@ def main() -> None:
         print(f"Steady Hand running. Dashboard: http://127.0.0.1:8780  Keys: middle = steady on/off, jump = hold, stop = hold.")
         while not state["quit"]:
             now = time.perf_counter()
+            if seconds is not None and now - began > seconds:
+                break
             dt, last = max(1e-3, now - last), now
             with lock:
                 steady, hold, cutoff = state["steady"], state["hold"], state["cutoff"]
             raw = read_leader()
+            if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
+                raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
             want = filtered if steady else raw
@@ -233,10 +243,16 @@ def main() -> None:
                 want = ease_start + (want - ease_start) * share
             step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
             sent = sent + step
-            sent[5] = min(100.0, max(0.0, sent[5]))
+            # never drive the claw hard into its closed stop: at 0 it pressed at 98 % load the whole
+            # time the leader's claw was shut (first real run), which only heats the motor
+            sent[5] = min(100.0, max(GRIP_FLOOR, sent[5]))
             follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
 
-            raw_tip, out_tip = tip.mm(raw), tip.mm(sent)
+            # the arm's shake is taken from where the follower really IS (its measured joints), not
+            # from what it was told: the honest number, since a motor also smooths what it is sent
+            observation = follower.get_observation()
+            seen = np.array([float(observation[k]) for k in KEYS])
+            raw_tip, out_tip = tip.mm(raw), tip.mm(seen)
             raw_tips.append(raw_tip.copy())
             out_tips.append(out_tip.copy())
             tick_n += 1
