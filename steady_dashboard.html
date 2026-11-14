@@ -100,7 +100,7 @@ const $ = id => document.getElementById(id);
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const send = line => fetch('/cmd?' + encodeURIComponent(line)).catch(() => {});
 let steady = true, hold = false, dragging = false, misses = 0;
-$('steady').onclick = () => send('steady ' + (steady ? 'off' : 'on'));
+$('steady').onclick = () => send('filter ' + (steady ? 'off' : 'on'));  // "filter", not "steady": a spoken "steady off" freezes the arm
 $('hold').onclick = () => send('hold ' + (hold ? 'off' : 'on'));
 $('cut').oninput = e => { dragging = true; $('cutv').textContent = (+e.target.value).toFixed(1) + ' Hz'; };
 $('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; };
