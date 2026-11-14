@@ -38,6 +38,10 @@ def test_generated_and_cached():
         strokes = draw.from_model("curve")
         assert len(strokes) == 1 and len(strokes[0]) > 3
         assert skill.checked_strokes(strokes)
+        reply[0]["points"] = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 1]]
+        loop = draw.from_model("loop")[0]
+        assert loop[0] == loop[-1], "near-closed model loop reopened during smoothing"
+        assert draw.closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
         with tempfile.TemporaryDirectory() as temporary, patch.object(draw, "HERE", Path(temporary)):
             cache = Path(temporary) / "drawings/sketch_a_cat.json"
             cache.parent.mkdir()
