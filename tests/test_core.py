@@ -298,14 +298,14 @@ def test_core():
     assert not (core.arm.POSES / "tap_tune.json").exists() and arm.lift == lift_before
     key_down.clear()
 
-    # the key first registers exactly at the travel limit: the saved press must not go past it
+    # the key first registers just inside the travel limit: the saved press must not go past the limit
     rough_now = arm.load_pose("tap_key")[2]
 
     def edge_key(joints):
         real_write(joints)
-        if joints[2] >= rough_now + 1.0 - 1e-9:
-            key_down.set()
-        elif joints[2] < rough_now + 0.85:
+        if joints[2] >= rough_now + 0.88:     # some 0.1 step lands in the last 0.12 before the limit,
+            key_down.set()                    # so "registration + PAST" would overshoot it
+        elif joints[2] < rough_now + 0.7:
             key_down.clear()
 
     arm._write = edge_key
