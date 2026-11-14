@@ -5,6 +5,8 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
+Monitoring update, 2026-11-14 00:38 ET: local HEAD is `11435b0`; only the README and saved key mapping changed since `e03beaa`. Core blockers 1 and 2 remain reproduced, not resolved. The inspected Windows mock suite printed `core ok` again; separate fake/mock assertions confirmed shutdown homes with halt cleared, one-element joints are accepted, and six NaNs are accepted. Python ran with `-B`; no real Arm constructor, serial access, input listener, or hardware test ran. Remote heads still list only `main` (`62cfa00` before this notes update). Ben's request to publish the feature branch is acknowledged in Daniel's note.
+
 ## Architecture
 
 1. Root `arm.py` owns LeRobot connections, pose teaching, and recorded playback.
@@ -14,7 +16,7 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 5. `core/arm.py` wraps the follower and exposes the same interface through MockArm.
 6. `core/dispatcher.py` owns one arm and one active skill worker.
 7. Skills receive the arm and a stop event; current skills are wave and tap.
-8. Windows `keypad/listen.py` sends F13/F14/F15 commands over localhost TCP.
+8. Windows `keypad/listen.py` learns Sayo keys; wave/stop use localhost TCP, jump injects Up arrow.
 9. `voice/route.py` selects registered skills with keywords or Gemini.
 10. `tests/test_core.py` checks the mock control path; it is not hardware evidence.
 
@@ -39,7 +41,7 @@ Required outcome: six finite joint values; finite sensible durations; validated 
 ### 3. First motion also depends on setup, not just passing mocks
 
 - Only `/dev/ttyACM1` was visible; identify it physically before assigning leader/follower roles. Calibration files existing on disk do not prove the attached adapter's identity.
-- No taught poses were present. Teach a supported resting `home`, then safe `wave_up` and `tap_up` poses with Daniel present.
+- Latest file check: untracked `poses/home.json` exists; `wave_up.json` and `tap_up.json` are absent. The home file's presence does not validate its physical safety. Teach/verify these poses with Daniel present after resolving the core blockers.
 - Inspect installed LeRobot before configuration: this installation is 0.7.0, defaults body joints to degrees, and uses 0–100 for the gripper. Do not assume another laptop has the same defaults.
 - A single localhost port prevents a second dispatcher on the same port, but direct `arm.py`, `pick.py`, and `draw.py` commands can still compete for the device. Use one hardware owner and stop all other clients first.
 - Voice stop currently goes through Gemini when configured. Keep a tested local stop key and physical power cutoff; voice routing is not an emergency stop.

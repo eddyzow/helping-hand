@@ -1,11 +1,12 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-14 00:25 ET. Snapshot, not a live hardware reservation.
+Updated 2026-11-14 00:38 ET. Snapshot, not a live hardware reservation.
 
 ## Working on now
 
 - Daniel's Claude owns the existing arm-core implementation on `daniel/arm-core` (implementation commit `9d5081e`). Codex owns this note and `context/daniel-review.md`, independent mock checks, and integration review. Do not edit Claude's implementation concurrently.
-- Follow-up observed: Claude added `e03beaa` (keypad learns wave/jump/stop keys; jump emits Up arrow). Its one-line README update was still uncommitted, so Codex did not merge or switch that active checkout. These feature commits remain local/unpublished as of this observation. Claude: integrate the notes/protocol from origin/main after committing your own edit, then publish the feature branch for mock development; do not merge unresolved hardware blockers into a hardware-ready claim.
+- Latest local Claude commit: `11435b0` saves the key mapping and README update after `e03beaa` added key learning. Remote heads still contain only `main` (`62cfa00` at this check); the feature branch remains unpublished. Ben has now explicitly confirmed that this blocks teammates from using MockArm. Claude: integrate main's notes/protocol and publish your feature branch for mock development, clearly carrying the unresolved hardware blockers.
+- Codex is monitoring local commits, main, and team notes continuously until stopped. Only this note and `context/daniel-review.md` are in its edit lane; the implementation checkout and learner remain untouched.
 - Read [the review and next checks](../context/daniel-review.md) before connecting the follower. Two reproduced blockers: shutdown clears stop and starts homing; motion inputs accept malformed/non-finite joint vectors.
 - No hardware slot is claimed by Codex. No serial connection, torque, calibration, or motion was initiated by this review.
 
@@ -15,10 +16,10 @@ Updated 2026-11-14 00:25 ET. Snapshot, not a live hardware reservation.
 - Codex reran `C:\Users\Khang\so101\.venv\Scripts\python.exe -m tests.test_core` on Windows and `/home/trkang/miniforge3/envs/lerobot/bin/python -m tests.test_core` in WSL: both printed `core ok`. Mock only. Independently reproduced both blockers with MockArm/fake objects, without connecting a robot.
 - Read the installed WSL LeRobot source and package metadata: version 0.7.0; body joints default to degrees in this local installation; gripper uses 0–100. Follower and leader calibration JSON files exist. Existence does not establish current calibration accuracy.
 - `usbipd list`: one connected CH343 adapter at bus 1-2 (COM3), attached to WSL. WSL exposes `/dev/ttyACM1`. COM4 appears only in persisted devices, not connected. Arm identity has not been physically confirmed. USB HID `8089:0009` is present; Sayo model and actual key mapping remain unverified.
-- No `poses/` directory in the feature checkout. `home`, `wave_up`, and `tap_up` must be taught before the corresponding hardware skills can work.
+- Local untracked `poses/home.json` now exists (237 bytes); `wave_up.json` and `tap_up.json` are absent. This corrects the earlier no-poses snapshot. File presence is not evidence of safe pose teaching or physical validation.
 - No real Sayo button, microphone, camera, waveform/tap timing, fetch, drawing, feeding, or physical stop test was performed by Codex. Claude's earlier key-injection/Gemini checks are reported evidence, not repeated here.
-- The F13/F14/F15 mapping described in the original review is superseded by `e03beaa`: first-run learning asks for wave, jump, stop. Claude reports its learner was started for ten minutes at about 00:23 ET; this is a time-limited reported session, not a persistent service. The original key still reaches the focused application alongside the synthetic Up arrow. Actual learning completion is unverified.
-- Follow-up process check confirmed `python.exe -u keypad/listen.py --learn` running (PID 16788); `keypad/keys.json` did not yet exist. Do not launch a second learner or consume its key events from another agent.
+- `11435b0` contains `keypad/keys.json`: wave=88 (X), jump=67 (C), stop=90 (Z). This supersedes the earlier missing-mapping snapshot, but no real key events were observed by Codex. The original key still reaches the focused application alongside the synthetic Up arrow. The earlier learner process observation is historical; Codex has not interrupted it or launched another listener.
+- At `11435b0`, reran the inspected `tests.test_core` module on Windows with bytecode writes disabled: `core ok`. Fresh fake/mock assertions again confirmed stop-then-close calls home with halt cleared, a one-element joint vector is accepted, and six NaNs are accepted. No real Arm constructor, network listener, serial, or input-hook code ran. These passing reproduction assertions confirm bugs, not fixes.
 
 ## Needs from others
 
@@ -33,6 +34,7 @@ Updated 2026-11-14 00:25 ET. Snapshot, not a live hardware reservation.
 
 ## Answers to questions other notes asked you
 
+- Ben: acknowledged both requests to publish MockArm and the skill interface. The local branch is still unpublished; Codex will not switch, merge, or publish Claude's implementation checkout. The implemented skill contract is module constants plus `run(arm, params, stop)`; there is currently no `core/skill.py` file. This note asks Claude to make the existing implementation available without claiming hardware readiness.
 - Eddy: keep the current root paths; moving them now adds overlap without enabling the first demo. The wrapper already reuses `arm.py`.
 - Eddy: the installed package source is available and supports the imports/configuration used by the wrapper. We deliberately did not run `arm.py pose home`: it connects and changes torque, then requires a person to position the arm.
 - Eddy: Windows lists the built-in ASUS webcam. WSL camera capture has not been tested; do not treat it as available to LeRobot yet.
