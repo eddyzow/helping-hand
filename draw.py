@@ -26,6 +26,12 @@ PEN_SPEED = float(os.environ.get("PEN_SPEED", "0.15"))  # fractions of the page 
 # ahead along the direction of travel cancels it. As a fraction of the page; 0 = off. Measure: draw a line and
 # see how far short of its end the ink stops.
 PEN_DRAG = float(os.environ.get("PEN_DRAG", "0"))
+# "detailed": up to 30 strokes with small features. "simple": bold drawings of 3 to 10 strokes, about half the
+# drawing time. Tested by bending both the way a sloppy arm would (pen lagging its direction of travel, plus
+# wobble) and asking a viewer that was not told the subject, 12 subjects each: detailed was named 12 of 12 with
+# the pen 2 and 4 mm off and 8 of 12 at 6 mm; simple 11, 10 and 9. So detail does not cost recognition up to
+# about 4 mm, but simple drawings look less broken at the same error.
+DETAIL = os.environ.get("DRAW_DETAIL", "detailed")
 PEN_SQUEEZE = float(os.environ.get("PEN_SQUEEZE", "8"))  # close this much past the taught gripper value
 QUICKDRAW = "https://storage.googleapis.com/quickdraw_dataset/full/simplified/{}.ndjson"
 CATEGORIES = "https://raw.githubusercontent.com/googlecreativelab/quickdraw-dataset/master/categories.txt"
@@ -122,7 +128,8 @@ def best_of(drawings: list[list[Stroke]], what: str) -> list[Stroke]:
     reply = see.parse_reply(see.ask_claude(
         f'These are {len(drawings)} numbered line drawings that are each meant to be "{what}". Which single one '
         "would a stranger most readily recognise as that, and looks neatest? Prefer a complete, tidy drawing "
-        'over a detailed but messy one. Return only JSON: {"best": number}', sheet(drawings), max_tokens=300))
+        "over a detailed but messy one, and mark down any with stray marks or decoration that is not part of "
+        'the subject. Return only JSON: {"best": number}', sheet(drawings), max_tokens=300))
     best = reply.get("best") if isinstance(reply, dict) else None
     return drawings[best - 1] if type(best) is int and 1 <= best <= len(drawings) else drawings[0]
 
@@ -154,7 +161,7 @@ def sketch(what: str) -> list[Stroke]:
 
     see.load_env()
     slug = re.sub(r"[^a-z0-9]+", "_", what.lower()).strip("_") or "drawing"
-    cache = HERE / "drawings" / f"sketch_{slug}.json"
+    cache = HERE / "drawings" / (f"sketch_{slug}.json" if DETAIL == "detailed" else f"simple_{slug}.json")
     if cache.exists():
         return [[tuple(p) for p in s] for s in json.loads(cache.read_text())]
     names = categories()
@@ -241,6 +248,15 @@ def rounded(points: Stroke, passes: int = 2) -> Stroke:
     return points
 
 
+def closed_up(points: Stroke) -> Stroke:
+    """A loop whose ends nearly meet is closed. The model often draws a circle or an ellipse and stops just
+    short of where it started, which left a gap in a cup's rim and a saucer."""
+    (x0, y0), (x1, y1) = points[0], points[-1]
+    size = max(max(x for x, _ in points) - min(x for x, _ in points), max(y for _, y in points) - min(y for _, y in points))
+    gap = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
+    return points + [points[0]] if len(points) > 3 and 0 < gap < 0.2 * size else points
+
+
 def from_model(what: str, reference: bytes | None = None, mistaken_for: str | None = None) -> list[Stroke]:
     """Claude draws it. `reference` is a sheet of people's doodles of the same thing (JPEG), to show
     how people usually picture it. `mistaken_for` is what a viewer thought an earlier try was."""
@@ -250,10 +266,22 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
     prompt = (f"Draw {what} as a clean, charming line drawing for a pen plotter. "
               "It should be instantly recognisable and look good, like a well-made illustration in a children's "
               "book: the whole subject (all of an animal, not only its head), well proportioned, in its most "
-              "familiar view. Draw the main shapes first, then add the details that give it character: eyes and "
-              "expression, fur, feathers or scales suggested with a few short marks, windows, wheels with spokes, "
-              "patterns, and a hint of ground or setting where it helps. Use 14 to 36 strokes. No shading or "
-              "filling in, and do not let details crowd or cross each other. "
+              "familiar view. Draw only the thing named, in its plainest familiar form, with no accessories: a cup "
+              "is a cup with a handle (no saucer, no steam), a tree has no bird in it. Match the detail to the subject. Something simple (a smiley face, a heart, a star) "
+              "stays simple: a few clean strokes and nothing else. Something complex (a castle, a train, an animal) "
+              "gets the parts that make it what it is: eyes and expression, windows, wheels, a mane, a shell "
+              "pattern. Every stroke must be a part of the subject itself. Do not add decoration: no sparkles, "
+              "motion lines, blush marks, raindrops, clouds, stray ticks or background, and no ground line unless "
+              "the subject would look like it is floating without one. No shading or filling "
+              "in, and do not let strokes crowd or cross each other. Finish every shape: an outline meets itself, "
+              "a line that joins another reaches it. "
+              + ("Use 4 to 30 strokes. " if os.environ.get("DRAW_DETAIL", "detailed") == "detailed" else
+                 "The arm that draws this is imprecise: its pen can land 3 or 4 units away from where it aims, and "
+                 "differently for each stroke. So draw it bold and simple, like a road sign: 3 to 10 strokes, big "
+                 "shapes that fill the page, nothing smaller than 12 units across, at least 8 units between lines "
+                 "that are not meant to touch, and nothing that depends on two strokes meeting exactly (draw a "
+                 "shape in one stroke where you can). Leave out anything that would be lost or smudged at that "
+                 "accuracy: small eyes become plain dots or are left out, patterns and textures go. ")
               + (f'An earlier attempt was mistaken for "{mistaken_for}": make what sets {what} apart unmistakable. '
                  if mistaken_for else "")
               + "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. Mark a stroke "
@@ -271,7 +299,7 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
                 isinstance(q, list) and len(q) == 2 and all(type(n) in (int, float) and n == n and abs(n) < 1e6 for n in q)
                 for q in points)):
             continue  # a malformed stroke is dropped, never guessed
-        stroke = [(float(x), float(y)) for x, y in points]
+        stroke = closed_up([(float(x), float(y)) for x, y in points])
         strokes.append(rounded(stroke) if isinstance(item, dict) and item.get("smooth") is True else stroke)
     if not strokes:
         raise ValueError("the model returned no usable strokes")
@@ -347,4 +375,6 @@ if __name__ == "__main__":
     assert abs(square[0][0][0] - MARGIN) < 1e-9 and abs(square[0][1][0] - (1 - MARGIN)) < 1e-9
     assert abs((square[0][0][1] + square[0][2][1]) / 2 - 0.5) < 1e-9
     assert len(resample([(0, 0), (1, 0)])) == 51
+    ring = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 1)]  # stops just short of its start
+    assert closed_up(ring)[-1] == ring[0] and closed_up(ring[:4]) == ring[:4] and closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
     main()

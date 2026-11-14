@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:42 PM.
+Updated Sat Nov 14, 4:20 PM.
 
 ## Working on now
 
@@ -261,3 +261,32 @@ For whoever builds the pen holder (Ben's note says that is a person's job): the 
 - `skills/draw.py` (Ben's) now also: waits 0.25 s after lowering the pen and 0.15 s before lifting it; times pen-up travel by distance instead of a fixed second; checks `PEN_DRAG`. `draw ok` still prints.
 - Drawings are richer now: the prompt asks for 14 to 36 strokes with character details. Of 28 new subjects drawn end to end with the pencil, the blind viewer named 27; the one it marked wrong was "a robot arm drawing a picture" seen as a robot arm drawing. A detailed drawing takes about 13 seconds to work out and 60 to 70 seconds to draw. 45 drawings are cached in `drawings/`.
 - The arm now tracks the line much more closely than the drawings are good: what limits the result is how well Claude draws the thing (the fox and the knight's horse are weak).
+
+## Drawing: pencil in the jaws, no stray marks, Sat Nov 14, 3:57 PM
+
+- Eddy saw the pencil floating beside open jaws. It now lies against the fixed jaw with the moving jaw closed onto it (still sliding against its spring), and the taught paper grid allows for the pencil being 15.5 mm to one side of the gripper's reference point. The point still lands within 0.2 mm of the aim.
+- Eddy saw random extra lines on "a smiley face". The cause was my prompt asking for details, which invited sparkles, blush marks and motion lines. The prompt now says every stroke must be part of the subject and simple things stay simple, and the picker marks down stray marks. The smiley is four strokes. All 55 cached drawings were regenerated with it.
+
+## Drawing: closed shapes, plain subjects, gripped from the start, Sat Nov 14, 4:09 PM
+
+Eddy's report on "draw me a cup": jaws open before the drawing started, some lines unfinished, and an odd saucer.
+
+- Unfinished lines were in the drawing, not the arm: Claude often draws a circle or ellipse and stops just short of where it began. `draw.closed_up` now closes a stroke whose ends are within a fifth of its size of each other.
+- The prompt now asks for the thing named in its plainest form with no accessories (a cup has no saucer or steam) and for every shape to be finished.
+- `sim_draw.py` starts with the jaws closed on the pencil and the arm waiting above the page.
+- All 63 cached drawings regenerated and looked through; the cup drawn in the simulator had no missing ink and was 0.3 mm from the line on average.
+
+## Will detailed drawings survive the real arm? Sat Nov 14, 4:20 PM
+
+The team's worry: the drawings are detailed and the real arm will not be as accurate as the simulator. Tested by bending the strokes the way a sloppy arm would (the pen point lagging its direction of travel by a set distance, plus slow wobble at 40 percent of that), then asking a viewer that was not told the subject. 12 subjects, on a 12 cm page. The error model is my guess at what backlash does; it is not measured from the real arm.
+
+| Pen off by about | Detailed (5 to 23 strokes) named | Simple (4 to 10 strokes) named |
+|---|---|---|
+| 0 mm | 11 of 12 | 11 of 12 |
+| 2 mm | 12 of 12 | 11 of 12 |
+| 4 mm | 12 of 12 | 10 of 12 |
+| 6 mm | 8 of 12 | 9 of 12 |
+
+- Detail does not cost recognition up to about 4 mm. Past about 5 mm both styles fall apart, so that is the number the real arm has to beat, whatever the style.
+- Simple drawings look less broken at the same error and take about half as long. `DRAW_DETAIL=simple` switches to them (cached separately as `drawings/simple_*.json`); the default stays detailed.
+- To find out where the real arm is: draw a square and a circle with it and measure how far the ends miss each other.
