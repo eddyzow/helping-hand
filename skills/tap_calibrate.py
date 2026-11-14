@@ -39,40 +39,43 @@ def run(arm, params, stop):
     if not arm.to_key():
         return STOPPED
 
-    def creep(value, step, until_pressed, limit):
-        """Move TAP_JOINT in small steps until the key reads pressed (or released). None = not found."""
+    start = arm.hover_pose()[TAP_JOINT]
+    lowest = rough[TAP_JOINT] + max_travel  # never commanded below this, whatever the hover height was
+
+    def creep(value, step, until_pressed):
+        """Move TAP_JOINT in small steps until the key reads pressed (or released). None = not found.
+        The next target is checked against the travel limits, and stop is checked, before every write."""
         while key_down.is_set() != until_pressed:
-            if abs(value - rough[TAP_JOINT]) > limit:
-                return None
             value += step
+            if stop.is_set() or not start - 1e-9 <= value <= lowest + 1e-9:
+                return None
             pose = list(rough)
             pose[TAP_JOINT] = value
             arm._write(core.arm._checked(pose))
-            if stop.wait(STEP_S):
-                return None
+            stop.wait(STEP_S)
         return value
 
-    start = arm.hover_pose()[TAP_JOINT]
-    pressed_at = creep(start, STEP, True, max_travel + arm.lift)
+    pressed_at = creep(start, STEP, True)
     if stop.is_set():
         return STOPPED
     if pressed_at is None:
         arm.from_key()
         return {"ok": False, "reason": f"lowered {max_travel} past the taught pose and the key never registered. "
                 "Is keypad/listen.py running? Is the tip over the jump key?"}
-    released_at = creep(pressed_at, -STEP, False, max_travel + arm.lift)
+    released_at = creep(pressed_at, -STEP, False)
     if released_at is None:
         return STOPPED if stop.is_set() else {"ok": False, "reason": "the key never released while lifting"}
 
     key = list(rough)
     key[TAP_JOINT] = pressed_at + PAST
     lift = abs(key[TAP_JOINT] - released_at) + CLEAR
-    (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
-    (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": 0.0}))
-    try:
+    try:  # check the measurement first; only a valid one replaces the saved calibration
         arm.set_tap(lift, 0.0)
     except ValueError as err:
-        return {"ok": False, "reason": f"measured an odd stroke ({err}); nothing changed for this session"}
+        arm.from_key()
+        return {"ok": False, "reason": f"measured an odd stroke ({err}); the saved calibration is unchanged"}
+    (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
+    (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": 0.0}))
 
     seen = 0
     if not arm.release():

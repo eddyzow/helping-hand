@@ -29,6 +29,7 @@ _closing = False  # set by shutdown(): no new skill may start after it
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it
     NAME = "home"
+    PARAMS = {}
 
     @staticmethod
     def run(arm, params, stop):
@@ -60,6 +61,8 @@ def dispatch(skill_name: str, params: dict | None = None) -> dict:
             return {"ok": False, "reason": "busy"}
         if skill is None:
             return {"ok": False, "reason": f"unknown skill '{skill_name}'"}
+        if unknown := sorted(set(params or {}) - set(skill.PARAMS)):
+            return {"ok": False, "reason": f"{skill_name} has no option {unknown}; it takes {sorted(skill.PARAMS)}"}
         _arm.halt.clear()
         _worker = threading.Thread(target=_run, args=(skill, params or {}), daemon=True)
         _worker.start()

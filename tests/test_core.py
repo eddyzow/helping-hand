@@ -214,6 +214,12 @@ def test_core():
     assert get_arm(mock=True).lift == tune["lift"]                 # the next start loads it
     (core.arm.POSES / "tap_tune.json").unlink()
 
+    # an old or mistyped option is refused before anything runs
+    for old_name in ('{"press_deg": -2}', '{"lift_deg": 0}', '{"lfit": 2}'):
+        reply = dispatcher.handle(f"run gd_tap {old_name}")
+        assert reply["ok"] is False and "no option" in reply["reason"], reply
+    assert dispatcher.handle('run home {"x": 1}')["ok"] is False
+
     # no key ever registers: it gives up, changes nothing, and goes home
     before_file = (core.arm.POSES / "tap_key.json").read_text()
     key_down.clear()                                           # the pretend key ended up 'pressed' at home
@@ -222,6 +228,48 @@ def test_core():
     assert (core.arm.POSES / "tap_key.json").read_text() == before_file
     assert not (core.arm.POSES / "tap_tune.json").exists()
     assert close(arm.get_joints(), arm.load_pose("home"))
+
+    # with no key it never commands the tap joint below the rough pose + max_travel
+    lowest_seen = []
+    rough_pose = arm.load_pose("tap_key")
+    rough_elbow = rough_pose[2]
+    # creep steps are the rough pose with only the elbow changed; home and the approach glide differ elsewhere
+    arm._write = lambda joints: (lowest_seen.append(joints[2]) if joints[:2] + joints[3:] == rough_pose[:2] + rough_pose[3:] else None,
+                                 real_write(joints))
+    assert dispatcher.handle('run tap_calibrate {"max_travel": 2}')["ok"] is True
+    dispatcher._worker.join(60)
+    assert lowest_seen and max(lowest_seen) <= rough_elbow + 2 + 1e-6, max(lowest_seen)
+
+    # a stop that lands as the approach ends: not one creep step is written
+    import skills.tap_calibrate as cal
+    creep_writes = []
+
+    class StopAtKey(type(arm)):
+        def to_key(self):
+            self.halt.set()                                         # stop arrives exactly here
+            return True
+
+        def _write(self, joints):
+            creep_writes.append(joints)
+
+    halted = StopAtKey()
+    assert cal.run(halted, {}, halted.halt) == cal.STOPPED and creep_writes == []
+
+    # a measured stroke that fails the check leaves the saved calibration alone
+    arm._write = write_with_key
+    key_down.clear()
+    good_set_tap, before_file = arm.set_tap, (core.arm.POSES / "tap_key.json").read_text()
+
+    def reject(lift=None, press=None):
+        raise ValueError("pretend stroke out of range")
+
+    arm.set_tap = reject
+    assert dispatcher.handle("run tap_calibrate")["ok"] is True
+    dispatcher._worker.join(60)
+    arm.set_tap, arm._write = good_set_tap, real_write
+    assert (core.arm.POSES / "tap_key.json").read_text() == before_file
+    assert not (core.arm.POSES / "tap_tune.json").exists()
+    key_down.clear()
 
     skills = dispatcher.list_skills()
     assert by_keyword("please wave at me", skills) == {"skill": "wave"}
