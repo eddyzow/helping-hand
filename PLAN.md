@@ -38,11 +38,24 @@ Each project is in the Best Overall pool automatically and picks one HackUMass c
 
 Recommendation: Best Accessibility Hack. Our edge is a moving robot in a category that is mostly apps, and the story carries all three skills. Decide for good by Saturday 8 PM, before the initial submission.
 
-MLH opt-ins: tick Best Use of Gemini API only if Gemini is really the vision model in the demo. Skip the rest. Do not build anything for a sponsor prize.
+MLH opt-ins: tick Best Use of Gemini API only if Gemini is really the vision model in the demo. The DEV Writing Challenge is a blog post after the event, so it costs nothing this weekend. Skip Solana, Tiger Data, Vultr, MongoDB, GoDaddy and SpaceXSI: none of them belongs in this project. Do not build anything for a sponsor prize.
+
+### What the judges score
+
+Devpost lists four criteria. Each one maps to something we control:
+
+| Criterion | What it asks | Our answer |
+|---|---|---|
+| Innovation | A new idea or a fresh take on an old one | One cheap arm doing three assistive jobs, where commercial devices do one |
+| Functionality | Works as intended, reliably, with readable code | Three skills that pass 4 out of 5, and the 20-run hardening block. This is why we cut the cube. |
+| Practicality | Realistic in the real world, resources reasonable for the impact | Say the arm's cost next to the price of a feeding robot. Know both numbers before judging. |
+| Presentation | Clear communication, teamwork, purpose | The 90-second script below, rehearsed, with each teammate owning one part |
 
 ## Rules that can disqualify us
 
-- Initial submission on Devpost is due Sunday 12:00 AM (Saturday midnight). Final is due Sunday 9:00 AM. Judging is 12:30 to 3:00 PM at tables, live demo. These times are from hackumass.com; an older note says 11:59 PM and 10:00 AM, so confirm on Devpost and use the earlier time until then.
+- Initial submission on Devpost is due Sunday 12:00 AM (Saturday midnight). Judging is 12:30 to 3:00 PM at tables, live demo.
+- Final deadline: Devpost says Sunday 10:00 AM ET (7:00 AM PST), hackumass.com says 9:00 AM. We work to 9:00 AM and submit by 8:00 AM. Ask an organizer which is right, but do not plan around the extra hour.
+- Pick exactly one [HACKUMASS] category on Devpost. Sponsor and MLH prizes are separate opt-ins and do not count toward that limit.
 - No work from before Friday 8:30 PM. This repo was created after the start. Do not copy in code written earlier.
 - Open source is allowed if we disclose it. Keep the list in the README current.
 - The repo must be public at submission. It is private now; flip it Saturday night.
