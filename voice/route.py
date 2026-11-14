@@ -28,7 +28,8 @@ PROMPT = """You route a request to one skill of a desk robot arm.
 Skills: {skills}
 Return only JSON: {{"skill": "<name>", "params": {{}}}}. Use "stop" as the skill if the person wants
 the arm to stop. Use null if no skill fits. For fetch, put what the person asked for in
-params.object in their own words (for example "the red brick") and leave u and v out."""
+params.object in their own words (for example "the red brick") and leave u and v out; if they say how
+long to hold it up, put the seconds in params.hold."""
 
 
 def send(command: str):
@@ -86,8 +87,8 @@ def locate(thing: str) -> tuple[list[dict], str | None]:
     found = [{"object": label, "u": round(u, 3), "v": round(v, 3), "turn": round(turn, 1)}
              for u, v, label, turn in targets]
     if len(found) == 1 and near and len(near) == 1:  # "put it next to the car": add where to put it down
-        to_u, to_v = pick.drop_spot(targets[0], near[0])
-        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3))
+        to_u, to_v, lift = pick.drop_spot(targets[0], near[0], thing)
+        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3), to_lift=lift)
     return found, pick.place_problem(near)
 
 
@@ -128,7 +129,7 @@ def main() -> None:
         if problem:  # asked to put it somewhere, and that place is missing or unclear: do not hand it over instead
             speak(problem)
             return
-        params = found[0]
+        params = {**found[0], **({"hold": params["hold"]} if "hold" in params else {})}
     result = send(f"run {name} {json.dumps(params)}")
     print(name, params, result)
     if not result.get("ok"):

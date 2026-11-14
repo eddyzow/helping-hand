@@ -47,7 +47,9 @@ underside. People call the 2x4 brick with a sloped top the "triangle" brick; fro
 three round holes in a row. One box may hold two touching pieces.
 The person said: "{command}"
 Which numbered objects are what the person asked to pick up? Include every one that fits; a
-different kind of object does not fit. If the person also said where to put it, such as next to or
+different kind of object does not fit. Ignore words about position (left, right, closest, farthest):
+you cannot tell where the robot is, so list every object of the kind named and the robot will work
+out which one is meant. The same goes for the object it should be put by. If the person also said where to put it, such as next to or
 near another object, set "put_down" to true and list that other object under "near".
 Return only JSON: {{"matches": [numbers], "put_down": true or false, "near": [numbers]}}.
 Use [] where nothing fits; "near" stays [] if the place they named is not on the table."""

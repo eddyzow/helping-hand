@@ -141,7 +141,7 @@ TIEBREAKS = {
 
 
 # Not " on " or " by ": "the brick on the left" and "the one by the edge" describe the object itself.
-PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
+PLACE_WORDS = (" to the left of ", " to the right of ", " left of ", " right of ", " next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
                " close to ", " against ", " into ")
 
 
@@ -166,13 +166,28 @@ def narrow(targets: list, command: str | None) -> list:
     return targets
 
 
-def drop_spot(picked: tuple, near: tuple) -> tuple[float, float]:
-    """A place on the taught grid beside `near`, on the side the picked object came from.
-    If `near` is outside the grid, this is the closest point the arm can reach."""
+# Where to put it, relative to the other object: (step in u, step in v). Left and right are the arm's own;
+# in front is towards the arm. Anything else ("next to", "near") goes on the side the object came from.
+SIDES = {" left of ": (-1, 0), " right of ": (1, 0), " behind ": (0, -1), " in front of ": (0, 1)}
+STACK_LIFT = float(os.environ.get("STACK_LIFT", "0.5"))  # "on top of": how far up from the table layer to the
+# lifted layer to let go, 0 to 1. Set it so the held brick just touches the one below.
+
+
+def drop_spot(picked: tuple, near: tuple, said: str | None = "") -> tuple[float, float, float]:
+    """Where to let go, from the words of the request: (u, v, lift). Beside `near` by default, on the
+    side the picked object came from; "left of", "behind" and so on pick the side; "on top of" and
+    "onto" give `near`'s own position with a lift. Clamped to the taught grid."""
+    words = f" {(said or '').lower()} "
+    clamp = lambda n: min(max(n, 0.05), 0.95)
+    if " on top of " in words or " onto " in words:
+        return clamp(near[0]), clamp(near[1]), STACK_LIFT
     du, dv = picked[0] - near[0], picked[1] - near[1]
     length = (du * du + dv * dv) ** 0.5 or 1.0
-    u, v = near[0] + DROP_GAP * du / length, near[1] + DROP_GAP * dv / length
-    return min(max(u, 0.05), 0.95), min(max(v, 0.05), 0.95)
+    du, dv = du / length, dv / length
+    for word, (side_u, side_v) in SIDES.items():
+        if word in words:
+            du, dv = side_u, side_v * GRID_ASPECT  # the same distance on the table either way
+    return clamp(near[0] + DROP_GAP * du), clamp(near[1] + DROP_GAP * dv), 0.0
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -252,6 +267,6 @@ if __name__ == "__main__":
     assert place_problem(None) is None and place_problem([two[0]]) is None
     assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
     # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
-    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
-    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
+    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5, 0.0)))
+    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05, 0.0)
     main()

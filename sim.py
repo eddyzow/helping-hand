@@ -335,8 +335,9 @@ def request(arm, args: list[str]) -> None:
                 return
             params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
             if near:
-                params["to_u"], params["to_v"] = pick.drop_spot(targets[0], near[0])
-                print(f"  putting it beside: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f}")
+                pick.STACK_LIFT = 0.0192 / (CLEAR_Z - GRASP_Z)  # one Duplo brick high
+                params["to_u"], params["to_v"], params["to_lift"] = pick.drop_spot(targets[0], near[0], said)
+                print(f"  putting it by: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f} lift={params['to_lift']:.2f}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 
     lifted = dict(before)
@@ -365,8 +366,8 @@ def request(arm, args: list[str]) -> None:
         for name in NAMES:
             moved = np.linalg.norm(arm.data.body(name).xpos[:2] - start[name])
             if moved > 0.02:
-                gap = np.linalg.norm(arm.data.body(name).xpos[:2] - arm.data.body("car_body").xpos[:2])
-                print(f"  {name} moved {100 * moved:.0f} cm and now sits {100 * gap:.0f} cm from the car body")
+                x, y, z = arm.data.body(name).xpos
+                print(f"  {name} moved {100 * moved:.0f} cm, now at x={100 * x:.1f} y={100 * y:.1f} cm, {1000 * z:.0f} mm off the table")
     elif skill.NAME == "fetch":
         print(f"  carried to the handover in the jaws: {', '.join(sorted(carried)) or 'nothing'}")
     if arm.frames:
@@ -387,6 +388,7 @@ def main() -> None:
     fetch = importlib.import_module("skills.fetch")  # tell fetch this table's size and this gripper's geometry
     fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 1000 * (LEFT - RIGHT), 1000 * (FAR - NEAR)
     fetch.JAW_ARM_MM = JAW_ARM_MM
+    fetch.ROLL_MIN, fetch.ROLL_MAX = (math.degrees(limit) for limit in arm.model.jnt_range[4])
     if args:
         request(arm, args)
     while view and arm.window.is_running():  # live window: keep taking requests until it is closed
