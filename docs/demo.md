@@ -12,7 +12,7 @@ water also tomorrow."
 | Skill | Owner | State as recorded in the repo at 4:15 AM |
 |---|---|---|
 | Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. Dispatcher skill on `main`; newer tapping work held in review |
-| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. One review finding was still open at the merge: asking to put a piece next to something that is not on the table hands the piece over instead of refusing. Finder tested on two real phone photos, not from the real camera position |
+| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. The finding open at the merge (a missing placement destination became a handover) has a fix on `main` from Eddy at 4:45 AM (`f271764`), checked by Daniel's reviewer at 4:54 AM: a valid placement works. Two related cases were still open on `main` then: a malformed placement reply from the model, and the standalone `pick.py`, which ignores placement. Finder tested on two real phone photos, not from the real camera position |
 | Drawing | Ben, Eddy | `skills/draw.py` on `main`, mock only. Needs a pen holder and a taught paper grid. Planned for Saturday |
 | Feeding food and water | Daniel | Nothing in the repo yet. Planned for Saturday |
 
@@ -75,8 +75,9 @@ at the freeze by which passed the gate most cleanly.
 Notes on the blocks:
 
 - Block 2 shows the stop key on purpose. A judge who sees the arm stop on command trusts the rest.
-- Block 3: until the missing-destination case is fixed, only ask it to put a piece next to something
-  that is on the mat.
+- Block 3: a placement whose destination the camera does not find should now be refused and said
+  out loud. Having the destination on the mat is not a guarantee it is found, so rehearse a
+  refusal as well as a success.
 - Block 3 needs three keys on the demo machine: Gemini, Anthropic, and OpenAI for the fallback when
   Gemini stalls. Keep pieces apart on the mat (two touching pieces come back as one box), avoid
   thin plates and hollow pieces, and have the typed request ready: the hall will be loud, and the

@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:40 AM ET.
+Updated Sat Nov 14, 4:50 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (the destination being on the mat is not a software guard): agreed, and
+  `docs/demo.md` no longer suggests it is. It now says Eddy's fix `f271764` is on `main`, that your
+  verification was pending at 4:50 AM, and that the table should rehearse a refusal. Re-run on
+  `main` at `4e42e40`, no hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`.
 
 - Fetch merged to `main` (`3d49b9e`, pull request 3). Re-run at 4:40 AM on Ben's laptop, no
   hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`. `docs/demo.md` now shows Duplo by
