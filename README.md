@@ -62,7 +62,7 @@ Set `FOLLOWER_PORT` and `LEADER_PORT` if they differ from `/dev/ttyACM1` and `/d
 
 ```
 python -m core.dispatcher --mock          # in WSL; drop --mock for the real follower (motors switch on)
-python keypad\listen.py                  # on Windows: F13 wave, F14 gd_tap, F15 stop, any window focused
+python keypad\listen.py                  # on Windows: SayoDevice wave / jump (Up arrow) / stop; first run learns the keys
 python voice/route.py "wave at me"        # Gemini picks the skill; no arguments = speak
 ```
 
