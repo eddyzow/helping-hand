@@ -38,6 +38,12 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Shared startup 2b0312c: default fixed, bypass value too broad
+
+Extracted the actual shared `follower` body and supplied stub LeRobot classes plus fake input/environment. With the flag unset, the order is prompt, config, constructor, connect; EOF and KeyboardInterrupt stop at prompt with no construction/connection. Caller scan includes root teach/pose/check/record/replay, root pick/draw, and the core wrapper. This closes the original default-order finding.
+
+The newly introduced `if not os.environ.get("ARM_NO_PROMPT")` bypasses for every nonempty value. Independent fake cases show `0` and `false` connect without acknowledgement just like documented `1`. Require exact `1` for the opt-out, and leave unset/0/false/1 fake regressions. This review does not cover Jonathan's separate standalone motor-bus startup, nor establish physical readiness. No actual LeRobot class, serial connection, or torque action ran.
+
 ### Main vision 029a874: model-response validation
 
 Reviewed the two-stage finder, changed `pick.locate` return contract and callers, and Eddy's `73710c0` voice update. Voice now returns without dispatching fetch when multiple candidates match. The original fetch target-preflight code is unchanged, so the fetch candidate remains held.
