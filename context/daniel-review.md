@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Arm f3afabc: duplicate cue resend fixed
+Repeated the original fake accepted-and-consumed cue followed by recv ConnectionResetError using exact f3afabc notify with retry=False. Actual dispatcher handler/consumer sees one cue, no resend, and the stale connection is removed. Caller scan confirms wndproc now supplies retry=False. This closes the duplicate-cue reproduction; retain a durable regression and report uncertain/failed delivery, which is still silently swallowed. The unchanged EOF and measured-position cap findings still hold the branch. 7fc3260 moves ready polling off the message loop to a daemon thread; source reviewed, no native listener or latency measurement performed.
 ### Arm 3d0a41c: enter-then-restart option reviewed, existing holds unchanged
 Exact replay source with fake arm/key/cue/clock: after the enter press and 400 ms load delay, the first recorded press occurs 50 ms after the fake restart cue as requested; cancellation during the delay produces no later cue, press, release or home, and clears waiting. Five invalid delay values (-1, 20001, True, NaN, infinity) reject before any arm call. Initial fake clock stalled on a sub-resolution floating-point increment; interrupted that test, gave the clock a one-microsecond minimum advance, and both cases passed. This is fixture correction, not a product failure or physical timing measurement. No actual game, listener or motion ran. Duplicate cue retry, measured-step bypass and EOF holds remain unchanged.
 ### Fetch b274c92: original fixes verified, missing destination still changes action
