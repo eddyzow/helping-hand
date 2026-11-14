@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:05 AM.
+Updated Sat Nov 14, 1:15 AM.
 
 ## Working on now
 
@@ -14,9 +14,11 @@ Branch `eddy/fetch` (commit `f652789`), built on `daniel/arm-core` with `main` m
 
 Tested on the mock arm only: a mock dispatcher on a spare port, typed requests through `voice/route.py`, a synthetic test image in place of the camera. "bring me the red brick" started fetch at the right grid position, "grab the banana" was refused as not visible, a fetch sent during a wave got "busy". Never run on the real arm, a real camera or a live microphone.
 
+Real photos, tested Sat 1:15 AM: two phone photos of the Duplo set are in `photos/`. Across both, 15 of 16 requests for objects in view landed on the right object ("the purple brick", "the white flat brick", "the green brick", "the car chassis with wheels", "the blue car body", "the blue square brick", "the red triangle brick", "the red square brick"), about 1.3 seconds each. Banana and computer mouse were correctly reported as not there. The one miss: in `duplo_b.jpg` the red slope brick lies on its side and does not look triangular, so "the red triangle brick" came back not found. Three requests in a burst of 16 failed with an API error and worked on retry; `see.py` now retries once after 3 seconds and prints the error.
+
 Next:
 
-1. Real photos and a live microphone. Waiting on Eddy for photos of the objects.
+1. A live microphone and a photo from the real camera position. The finder itself is now proven on real photos.
 2. First real fetch, in an arm slot with Daniel, after the poses below are taught.
 
 ## Done and how it was tested

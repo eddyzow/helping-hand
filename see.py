@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import wave
 from pathlib import Path
 
@@ -19,7 +20,8 @@ import cv2
 # gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
-TIMEOUT_MS = 20000
+TIMEOUT_MS = 8000  # a normal answer takes 1 to 2 seconds; give up early and retry
+RETRY_SECONDS = 3
 SAMPLE_RATE = 16000
 
 PROMPT = """You guide a robot arm that picks objects off a table.
@@ -87,7 +89,15 @@ def find(frame, command=None, audio_path=None):
     request = (f'The person said: "{command}"' if command
                else "The person's spoken request is in the audio.")
     parts.append(PROMPT.format(request=request))
-    reply = client.models.generate_content(model=MODEL, contents=parts)
+    for attempt in (1, 2):  # the free tier sometimes refuses a burst of requests; one retry covers it
+        try:
+            reply = client.models.generate_content(model=MODEL, contents=parts)
+            break
+        except Exception as err:
+            print(f"Gemini error (attempt {attempt}): {str(err)[:200]}", file=sys.stderr)
+            if attempt == 2:
+                raise
+            time.sleep(RETRY_SECONDS)
     hit = parse_reply(reply.text or "")
     if not hit.get("match") or not hit.get("point"):
         return None
