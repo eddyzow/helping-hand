@@ -7,6 +7,16 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Retained calibration depth: 2a835de held
+
+`skills/tap_calibrate.py::run` now restores `before[1]` after testing the new base pose at press=0 and writing tap_key.json. `MockArm.set_tap` (inherited by Arm) validates scalar lift/press ranges only; it does not check the effective new key pose against `lowest`. Thus the new fallback cannot detect the pose-relative travel case its comment describes.
+
+QA `2000e8c`, `python -B -m tests.test_calibration_press_boundaries`, runs the actual calibration and MockArm.press with a fake key, no-wait clock and temporary pose directory. Rough joint=40, max_travel=1, registration at 40.88 gives saved base=41. Retained press=+1 is accepted and the subsequent press targets 42, beyond the calibration bound of 41. Retained press=-1 is accepted and the subsequent press targets 40 without registering. Both calibration results report 3 of 3 test taps, but those were at the different zero-depth setting. Zero-depth control passes. The regression permits a verified valid final setting or refusal that preserves files/live tune.
+
+Validate the effective key+press target before any save; verify registration/release using the configuration that will actually be retained. A retained setting is not validated by earlier tests at zero depth. Do not raise travel or force limits. This is a fake-only result, not physical calibration; the preceding full core pass was at f1e8a18, not this follow-up. Prior sequencer, timeout and retry holds remain open.
+
+Interview questions: Which values jointly determine the actual press target? Why is scalar validation insufficient after changing a base pose? Why must verification precede committing calibration files?
+
 ## Remote sequencer review: f1e8a18 held
 
 The new Windows `keypad/geometry_dash/arm_play.py::attempt` sends tap commands to dispatcher `handle`, which queues them for `skills/gd_remote.py::run`. The remote skill drains old commands before approaching, uses local monotonic time for its idle bound, clears readiness in finally, and respects the shared stop event without recovery motion. Exceptions propagate to the dispatcher's failed-result boundary. The TCP acknowledgement means queued, not physically executed; disconnect does not itself stop the skill, whose idle timeout defaults to 20 seconds. No native client, socket, screen capture, input, serial or real arm was used in these reproductions.
