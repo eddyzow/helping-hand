@@ -54,6 +54,7 @@ ROLL_TURNS_JAW = 1.0       # which way the roll joint turns the jaws on this mod
 # command of 5, so each new move restarts the gripper command at 17: no squeeze just as the arm speeds up,
 # and the brick slips. True here keeps the squeeze; False shows what core/arm.py does today.
 KEEP_SQUEEZE = os.environ.get("KEEP_SQUEEZE", "1") == "1"
+HELD_DROP_MM = 8.0  # measured on this model: a gripped brick's bottom hangs about 9 mm lower than where it was gripped
 HELD_SHIFT_MM = (-8.4, 4.1)  # measured on this model: where a gripped 2x2 brick lands relative to the aim, across and along
 JAW_ARM_MM = 16.0         # measured on this model: the point between the jaws is 16 mm off the wrist's turning axis
 HOME_DEG = [95, -95, 90, 70, 0, 20]      # folded to the side, out of the camera's view
@@ -362,6 +363,8 @@ def request(arm, args: list[str]) -> None:
             pick.CORNERS = SIM_POSES / "table_corners.json"
             pick.GRID_ASPECT = (LEFT - RIGHT) / (FAR - NEAR)
             pick.LAYER_GAP_MM = 1000 * (CLEAR_Z - GRASP_Z)
+            pick.CAMERA_HEIGHT_MM = 1000 * TOP_CAMERA["pos"][2]
+            pick.HELD_DROP_MM = HELD_DROP_MM
             pick.ROBOT_UV = (0.5, FAR / (FAR - NEAR))  # the arm's base is at x = 0, y = 0
             targets, said, spot, problem, lift = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2), f"turn {turn:.0f}") for u, v, label, turn in targets])

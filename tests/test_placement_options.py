@@ -53,6 +53,26 @@ def test_fetch_options():
                 assert not result["ok"] and calls == [], (result, calls)
 
 
+def test_held_shift():
+    coordinates = []
+
+    def interpolate(layer, n, u, v):
+        coordinates.append((round(u, 6), round(v, 6)))
+        return {name + ".pos": 0. for name in core.arm.JOINTS}
+
+    table = {"n": 2, "up": [], "down": []}
+    with patch.object(fetch, "interpolate", interpolate), patch.multiple(
+            fetch, HELD_SHIFT_MM=(10., 20.), GRID_WIDTH_MM=100., GRID_DEPTH_MM=100., JAW_ARM_MM=0.):
+        assert not isinstance(fetch._aim(table, .5, .5, 0., 0., holding=True), str)
+        assert coordinates[-2:] == [(.4, .3)] * 2
+        assert not isinstance(fetch._aim(table, .5, .5, 90., 0., holding=True), str)
+        assert coordinates[-2:] == [(.7, .4)] * 2
+        assert not isinstance(fetch._aim(table, .5, .5, 0., 0.), str)
+        assert coordinates[-2:] == [(.5, .5)] * 2
+        assert isinstance(fetch._aim(table, 0., 0., 0., 0., holding=True), str)
+
+
 if __name__ == "__main__":
     test_fetch_options()
+    test_held_shift()
     print("placement options ok")
