@@ -38,6 +38,14 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Arm candidate ddb5101: combined mock checks passed, missing result still held
+
+The inspected expanded WSL suite printed `core ok` under an external 120-second timeout, including calibration regressions, same-invocation waiting, and the mock CLI cue/status path. Source HEAD stayed `ddb5101`; only `poses/tap_key.json` became locally modified during the run, so this does not validate a particular committed or physical pose. No hardware connection occurred.
+
+Because the suite explicitly tests elbow calibration, a separate fake check exercised the default wrist: press/release changed the wrist target as expected, mutating a returned pose did not alter the cache, and successful calibration refreshed the cached tap pose before the departure helper. That check used a temporary pose directory and a simulated key state. Current `core.send` still lacks the idle/missing-result exit documented below, so the candidate remains held.
+
+Additional isolated voice check for `73710c0`: the extracted router main with fake list/locate/send/speak boundaries sends no run command for zero or multiple matches, asks which one for multiple matches, and dispatches for one match. No provider, microphone, camera, speech process, or socket ran.
+
 ### Fetch 752882b: target preflight fixed, config range/dwell unchecked
 
 Loaded the exact candidate skill/test source in memory against the integration worktree's mock core. The inspected suite printed `fetch ok`, including its malformed-grid regression. A separate fake check confirms NaN grip is rejected without home or movement, closing the original target-finiteness gap.
