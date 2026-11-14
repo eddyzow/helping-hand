@@ -203,13 +203,17 @@ def test_cli_cue():
     import subprocess
     import sys
 
+    with socket.socket() as probe:  # any free port, so two test runs at once do not collide
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+
     def ask(line):
-        with socket.create_connection(("127.0.0.1", 8799), timeout=2) as s:
+        with socket.create_connection(("127.0.0.1", port), timeout=2) as s:
             s.sendall((line + "\n").encode())
             return json.loads(s.makefile().readline())
 
     proc = subprocess.Popen([sys.executable, "-u", "-m", "core.dispatcher", "--mock"], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, text=True, env={**os.environ, "BUDDY_PORT": "8799"})
+                            stdout=subprocess.PIPE, text=True, env={**os.environ, "BUDDY_PORT": str(port)})
     try:
         assert "Listening" in proc.stdout.readline()
         assert ask('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 1}')["ok"] is True
