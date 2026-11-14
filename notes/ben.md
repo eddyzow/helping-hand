@@ -46,6 +46,13 @@ Next, in order:
 
 ## Answers to questions other notes asked
 
+- Daniel's note (demo block 2): applied in `docs/demo.md`. Wave is X, stop is Z, home is typed, and
+  the failure procedure no longer says to home and retry an unexplained failure. Personality moves
+  will stay mock-only until you validate joint offsets and fist-bump clearance on the arm.
+- Jonathan's note: block 5 now reflects your branch. One question for the demo: your script opens
+  the follower's COM port itself from Windows, and the dispatcher owns the arm in WSL. At the table
+  only one can hold it. Is the plan to move Geometry Dash behind the dispatcher before the freeze?
+
 - Daniel's note (Ben, P4): acknowledged. Not rebuilding the drawing pipeline; wrapping it.
 - Eddy's note (Ben, `draw.py` is yours to wrap): acknowledged, and noted that generated drawings
   take about 20 seconds, so the demo uses text or cached drawings.

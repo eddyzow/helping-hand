@@ -40,10 +40,10 @@ see work, so blocks are ordered most reliable first. Drop any block that failed 
 | # | Time | Trigger | What the judge sees | If it fails | Owner | State today |
 |---|---|---|---|---|---|---|
 | 1 | 0:00 | Teammate speaks | The one-sentence pitch | | Ben | Draft above |
-| 2 | 0:10 | Judge presses the wave key | Arm waves. Then judge presses stop mid-move and it freezes | Say so, press home, go on | Daniel | Mock only |
+| 2 | 0:10 | Judge presses the wave key (X) | Arm waves. Then judge presses stop (Z) mid-move and it freezes | See "When something breaks" | Daniel | Mock only |
 | 3 | 0:25 | Judge says "bring me the red brick" | Arm picks the brick from the mat and holds it out | Use the taped-spot fetch instead | Eddy, Daniel | Finder works on a synthetic image; no real camera yet |
 | 4 | 0:50 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy | Stroke preview works; no pen holder yet |
-| 5 | 1:15 | Judge presses the game key | Arm taps through the start of a Geometry Dash level | Show the recorded clip | Jonathan | Built off-repo, not yet seen by the team |
+| 5 | 1:15 | Judge presses the game key | Arm taps through the start of a Geometry Dash level | Show the recorded clip | Jonathan | On `jonathan/geometry-dash-replay`: simulated only, and a standalone script that does not yet go through the dispatcher |
 | 6 | 1:30 | Teammate speaks | Cost line, and what is next | | Ben | |
 
 Notes on the blocks:
@@ -58,8 +58,15 @@ Notes on the blocks:
 
 ## When something breaks at the table
 
-Say what failed in one sentence, press the stop key, press home, run it once more. If it fails
-twice, move to the next block. The backup video stays open in a browser tab.
+Press the stop key (Z) and say what failed in one sentence. Then it depends on the failure:
+
+- Understood and harmless (missed the object, the judge spoke too quietly): a teammate types `home`
+  at the dispatcher, and the block runs once more. Home is a typed command, not a keypad key.
+- Not understood, or the stop key did not stop it: use the power switch with someone supporting the
+  arm, and move to the next block. Do not home and retry a failure nobody can explain.
+
+If a block fails twice, move on. The backup video stays open in a browser tab.
+(Corrected 12:55 AM from Daniel's note: the first draft said to press home and retry every time.)
 
 ## Table setup checklist
 
