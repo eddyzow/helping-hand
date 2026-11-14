@@ -174,9 +174,6 @@ class MockArm:
     def temperatures(self) -> dict[str, float]:
         return {name: 30.0 for name in JOINTS}
 
-    def temperatures(self) -> dict[str, float]:
-        return {name: 30.0 for name in JOINTS}
-
     def stop(self) -> None:
         """Hold position now: moves stop sending, the motors keep holding the last target."""
         self.halt.set()
@@ -193,18 +190,18 @@ class Arm(MockArm):
             # without a resting home pose, switching the motors off drops the arm from mid-air
             raise FileNotFoundError("Teach a resting home pose first: python arm.py pose home")
         super().__init__()
+        gain = os.environ.get("TAP_P_GAIN")
+        if gain is not None and not (gain.isdigit() and 8 <= int(gain) <= 48):
+            raise ValueError("TAP_P_GAIN must be a whole number from 8 to 48")  # checked before connecting
         import arm as root_arm  # the root arm.py
 
         self._robot = root_arm.follower()  # connects: motors switch on and hold
-        gain = os.environ.get("TAP_P_GAIN")
         if gain is not None:
             # Daniel approved this on 14 Nov for the tapping (wrist) motor only: LeRobot sets every
             # motor's position gain to 16 at connect, which makes small moves slow and uneven. A
             # higher gain snaps the tip to the key. It is written again at every connect, so it does
             # not outlast this run. Unset TAP_P_GAIN to go back to 16.
             gain, name = int(gain), JOINTS[TAP_JOINT]
-            if not 8 <= gain <= 48:
-                raise ValueError("TAP_P_GAIN must be 8 to 48")
             with self._robot.bus.torque_disabled(name):
                 self._robot.bus.write("P_Coefficient", name, gain)
             print(f"position gain of {name} set to {gain}", flush=True)
