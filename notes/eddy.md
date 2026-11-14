@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:20 AM.
+Updated Sat Nov 14, 2:25 AM.
 
 ## Working on now
 
@@ -23,13 +23,15 @@ Eddy checked the marks on both photos himself at 1:30 AM and corrected my score:
 - OpenAI (Eddy's key, in `.env` as `OPENAI_API_KEY`), same cases: `gpt-6.1-sol` 5 of 7 at about 9 seconds, `gpt-6.1-terra` 4 of 7 at about 5 seconds, `gpt-6-luna`, `gpt-5.5` and `gpt-5.4-mini` 2 or 3 of 7. Points land on the pieces more often than Claude's but several sit on an edge. Not better than Claude at choosing, and slower.
 - So Gemini is good at where and weak at which; Claude is the reverse. Neither alone is good enough for a reliable grasp among look-alike bricks.
 
-Fix, built and on `main` at 2:20 AM: `see.py` now works in two steps. Gemini boxes every object on the table (it is accurate at where). The boxes are numbered on the image and Claude Sonnet 5.5 says which numbers match the request (it is accurate at which). On the two real photos the chooser got 16 of 17 requests right, and the full pipeline got 8 of 8 in a later run, including both red squares and the slope brick on its side. About 4.5 seconds per request. Plain OpenCV colour detection was tried first and was too fragile on the grey table: it missed pieces and took glare for pieces.
+Fix, built and on `main` at 2:00 AM: `see.py` now works in two steps. Gemini boxes every object on the table (it is accurate at where). The boxes are numbered on the image and Claude Sonnet 5.5 says which numbers match the request (it is accurate at which). On the two real photos the chooser got 16 of 17 requests right, and the full pipeline got 8 of 8 in a later run, including both red squares and the slope brick on its side. About 4.5 seconds per request. Plain OpenCV colour detection was tried first and was too fragile on the grey table: it missed pieces and took glare for pieces.
 
-What changed for callers: `see.find_all(frame, command, audio_path)` returns `(hits, said, boxes)`. `see.find` still exists and returns the first hit. `pick.locate` now returns `(targets, said)`, a list, and `pick.py` asks "which one?" when more than one object matches instead of picking silently. `eddy/fetch` still has the old `voice/route.py`; I am updating it next.
+What changed for callers: `see.find_all(frame, command, audio_path)` returns `(hits, said, boxes)`. `see.find` still exists and returns the first hit. `pick.locate` now returns `(targets, said)`, a list, and `pick.py` asks "which one?" when more than one object matches instead of picking silently. `eddy/fetch` has the matching `voice/route.py` and is open as pull request 3 (https://github.com/eddyzow/helping-hand/pull/3), ready for review and merge.
+
+Live microphone, tested by Eddy on his Mac at 2:25 AM: he said "pick up the purple brick" into the laptop microphone with `photos/duplo_a.jpg` as the frame. It heard "Pick up the purple brick.", saw 9 objects and matched the purple brick. One run, in a quiet spot; not tried in a noisy room.
 
 Known limits: two touching pieces come back as one box. The grasp point is the box centre, which is a hole on hollow pieces like the upside-down car body. Gemini's free tier still has bad spells (429, 503, timeouts); `see.py` retries up to three times, and one request in this run took 17 seconds because of it. `ANTHROPIC_API_KEY` is needed for the chooser; without it Gemini chooses and gets look-alikes wrong more often.
 
-Also: from 1:16 AM to 2:20 AM `see.py` on `main` had an 8 second timeout that Gemini rejects (minimum 10), so every request failed. That was my bug and it is fixed.
+Also: from 1:16 AM to 2:00 AM `see.py` on `main` had an 8 second timeout that Gemini rejects (minimum 10), so every request failed. That was my bug and it is fixed.
 
 Next:
 
@@ -68,6 +70,8 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 - Everyone: the Gemini key is not in the repo. Ask Eddy or make a free one at aistudio.google.com/apikey and put it in `.env`.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer, on torque toggling during connect: fixed at 2:15 AM. The warning now sits inside `arm.follower()`, before the connection, so every caller gets it, including `core/arm.py`. Set `ARM_NO_PROMPT=1` to skip it in unattended runs. Mock tests still pass; not run on hardware.
 
 - Daniel's note: agreed, the root files stay where they are and I own them. No YOLO or inverse kinematics from me.
 - Ben, track: agreed it has to be settled. My recommendation is in `PLAN.md`; the desk-buddy framing fits Best Hardware Hack better than Accessibility. This is the humans' call before the Saturday midnight submission.

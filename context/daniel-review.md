@@ -38,6 +38,26 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Shared startup 2b0312c: default fixed, bypass value too broad
+
+Extracted the actual shared `follower` body and supplied stub LeRobot classes plus fake input/environment. With the flag unset, the order is prompt, config, constructor, connect; EOF and KeyboardInterrupt stop at prompt with no construction/connection. Caller scan includes root teach/pose/check/record/replay, root pick/draw, and the core wrapper. This closes the original default-order finding.
+
+The newly introduced `if not os.environ.get("ARM_NO_PROMPT")` bypasses for every nonempty value. Independent fake cases show `0` and `false` connect without acknowledgement just like documented `1`. Require exact `1` for the opt-out, and leave unset/0/false/1 fake regressions. This review does not cover Jonathan's separate standalone motor-bus startup, nor establish physical readiness. No actual LeRobot class, serial connection, or torque action ran.
+
+### Main vision 029a874: model-response validation
+
+Reviewed the two-stage finder, changed `pick.locate` return contract and callers, and Eddy's `73710c0` voice update. Voice now returns without dispatching fetch when multiple candidates match. The original fetch target-preflight code is unchanged, so the fetch candidate remains held.
+
+Independent checks used a synthetic 100x100 frame, an empty fake provider environment, and replaced `_gemini`; no request, key access, camera, or hardware call occurred. Reproduced: `{"matches":[true]}` selects zero-based box 0 because Python treats bool as int; `[900,900,100,100]` produces a reversed pixel box (90,90)-(10,10); a string coordinate raises TypeError rather than dropping the malformed entry as documented. Validate the reply container and match IDs as non-bool integers, and each box as four finite numeric non-bool values with ordered bounds within the stated 0-to-1000 range before emitting targets. Leave a small malformed-response regression. This is already-main vision code, separate from held fetch/calibration candidates.
+
+### Browser tooling integration b4ecf89
+
+Merged Jonathan's isolated `0386284`: browser-local recorder/replay, a separate soundtrack-aligned CSV, Playwright requirement, and documentation. Its prior ancestry was already on main. This supports the browser demo without altering the held physical arm-core candidate. The requirements conflict retained both upstream Anthropic and branch Playwright entries. A rebase preserved Ben's concurrent demo update; only documentation changed after the combined check.
+
+Verification: both new scripts compiled; the CSV parsed as 146 events / 73 presses with timing compensation accepted. The extracted replay function passed five fake page/clock checks: normal completion of the event stream, key release on crash, retry restarting the stream, timeout without a cue, and release when timing out while a key is held. Combined WSL `tests.test_core` printed `core ok` under a 60-second external timeout. Whitespace checks passed. No live browser/recorder, native keyboard, MuJoCo, model API, or hardware run occurred; dependency installation was not repeated. A zero replay exit asks the operator to inspect the end screenshot; it is not an automated Level Complete assertion. Jonathan's reported level clear and simulation error remain attributed to him.
+
+Interview questions: Why does this recording use the soundtrack epoch rather than the desktop restart key? How do crash and timeout paths release a held key? What does a passing fake replay prove, and what still requires the live browser or hardware?
+
 ### Candidate 485ab71: waiting client reports another job's result
 
 The new `core.send` accepts a start reply, polls global `status.busy`, then returns the global last result without correlating it to the accepted invocation. A deterministic fake-transport check used actual `dispatcher.handle` and `send.main`: first job returns failure, then another client starts/completes a second successful job before the first status poll. The waiting client prints the second job's result and exits 0. No socket or real dispatcher was contacted.
