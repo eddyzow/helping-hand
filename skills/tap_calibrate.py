@@ -72,9 +72,15 @@ def run(arm, params, stop):
     hover = list(key)
     hover[TAP_JOINT] -= lift
     before = (arm.lift, arm.press_extra)
+    # Keep the press depth that was in use: calibration finds WHERE the key is, not how firmly to
+    # play it (resetting it to 0 made 1 press in 25 stall about 40 ms at the trigger point, 14 Nov).
+    # But never shallower than the point that registers, and never past the travel limit of this run.
+    press = max(0.0, min(before[1], lowest - key[TAP_JOINT]))
+    pressed = list(key)
+    pressed[TAP_JOINT] += press  # the pose a tap will really go to; the test taps below use it
     try:  # check the measurement first; only a valid, verified one replaces the saved calibration
-        arm.set_tap(lift, 0.0)
-        core.arm._checked(key), core.arm._checked(hover)
+        arm.set_tap(lift, press)
+        core.arm._checked(key), core.arm._checked(hover), core.arm._checked(pressed)
     except ValueError as err:
         arm.from_key()
         return {"ok": False, "reason": f"measured an odd stroke ({err}); the saved calibration is unchanged"}
@@ -93,7 +99,7 @@ def run(arm, params, stop):
     # three test taps with the new numbers; every press must register AND every lift must release
     taps = 0
     released = reaches(hover, False)
-    while released and taps < 3 and reaches(key, True):
+    while released and taps < 3 and reaches(pressed, True):
         taps += 1
         released = reaches(hover, False)
     if stop.is_set():
@@ -106,17 +112,9 @@ def run(arm, params, stop):
         return {"ok": False, "reason": f"{why}; the saved calibration is unchanged"}
 
     (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
-    # Keep the press depth that was in use: calibration finds WHERE the key is, not how firmly to
-    # play it. Resetting it to 0 made 1 press in 25 stall about 40 ms at the trigger point (14 Nov).
-    press = before[1]
-    try:
-        arm.set_tap(lift, press)
-    except ValueError:  # that depth no longer fits the travel limit at the new position
-        press = 0.0
-        arm.set_tap(lift, press)
     (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": press}))
     arm._poses.pop("tap_key", None)  # read the new pose from the file next time
     if not arm.from_key():
         return STOPPED
     return {"ok": True, "reason": f"key registers at {pressed_at:.2f}, releases at {released_at:.2f}, "
-            f"lift {lift:.2f}; 3 of 3 test taps registered and released"}
+            f"lift {lift:.2f}, press {press:.2f}; 3 of 3 test taps registered and released"}
