@@ -80,13 +80,21 @@ def record_wav():
     chunks = []
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
                         callback=lambda data, *_: chunks.append(data.copy())):
-        input("Listening. Enter to stop. ")
+        input("Listening. Speak now, then press Enter to stop. ")
+    samples = b"".join(c.tobytes() for c in chunks)
+    seconds = len(samples) / 2 / SAMPLE_RATE
+    loudest = max((abs(int(c.min())) for c in chunks), default=0)
+    print(f"Got {seconds:.1f} seconds of audio. Working on it, about 5 seconds...", flush=True)
+    if seconds < 0.3 or loudest < 300:  # 300 of 32768: quieter than any speech
+        print("That was silence. Check the terminal has microphone permission "
+              "(System Settings > Privacy & Security > Microphone) and the right input is selected.",
+              file=sys.stderr)
     path = tempfile.mkstemp(suffix=".wav")[1]
     with wave.open(path, "wb") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
         f.setframerate(SAMPLE_RATE)
-        f.writeframes(b"".join(c.tobytes() for c in chunks))
+        f.writeframes(samples)
     return path
 
 
