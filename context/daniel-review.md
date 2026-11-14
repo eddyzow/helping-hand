@@ -22,6 +22,9 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Durable timing-study regression
+python -B -m tests.test_study_reporting printed study reporting ok. It extracts the existing replay, one_run and main functions, uses a fake start cue with no completion signal, and checks temporary JSON for no_crash=true, no cleared field, percent=null and the saved screenshot path. A fake browser launch failure remains an error with no success/screenshot claim. Substituting the original 5c1273c study source in memory triggers the assertion, proving the check catches the original false-clear regression. No browser, input, network or simulator starts; production code is unchanged.
+
 ### Arm f833d28: final arm holds closed; integration checked
 The unchanged shared EOF and measured-step tests now both pass, including measured wrist positions 0 and 10. The implementation reads only the tapping motor before capping its goal; the installed Windows LeRobot sync_read API accepts a motor-name list. An independent fake read failure propagated without any write. Keypad safety, gain/temperature boundaries, WSL core and open-client dispatcher exit all passed. Cue-disconnect output warns of uncertain delivery and does not retry; existing key-state retry remains bounded. Windows fetch/draw/personality checks also passed. Current main added only docs to the candidate, and the integration merge tree exactly matched the tested QA tree before this notes update. This supersedes the prior arm hold and failing-target status below. Main's malformed-placement metadata and standalone-placement findings remain open. No native hook, injected input, camera/mic, model API, browser, MuJoCo or physical hardware ran. The old no-read tap docstring and pending-test description are now stale, nonblocking documentation follow-ups.
 ### Shared failing targets for open arm blockers: a38c084
