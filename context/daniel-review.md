@@ -38,6 +38,14 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Calibration 52392f2: partial fixes verified, sticky-key false success
+
+The inspected expanded WSL mock suite passed `core ok` under an external 120-second timeout, with bytecode disabled. It exercises rejection of obsolete/unknown options, bounded creep, zero writes after an approach-end stop, and preservation on invalid measured lift. The separate-instance test setup is corrected in this commit.
+
+**New fake-only reproduction, same calibration source `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1`:** the initial contact/release measurement succeeds, then the fake key stays held after the first verification press. Calibration returns `ok=True`, "3 of 3 test taps registered", although only one distinct verification down transition occurred. The loop counts `key_down.is_set()` without confirming release between taps. Observe a bounded release before each next press and after the last press; do not report success for sticky/missing-release feedback. Preserve the previous calibration if verification fails, and leave a regression. This check used only a fake arm and a temporary pose directory.
+
+The final PAST-adjusted target finding below remains unchanged in `52392f2`, so this candidate is not merged.
+
 ### Calibration follow-up draft: final target still exceeds travel cap
 
 Snapshot `78b337af8b9142fe3ee6e9a7146456c06724388c7c60cd9871ba437725dfb4d1` fixes the independently repeated creep-cap and approach-end stop cases: max_travel=8 commands no creep target above rough+8, and the stopped approach emits zero creep writes. Validation now precedes file saving, and the dispatcher draft rejects unknown parameter names.
