@@ -223,8 +223,16 @@ def choose(frame, boxes, command):
     else:
         print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
         answer = _gemini([(jpg, "image/jpeg"), prompt])
-    asked_to_place = isinstance(answer, dict) and (answer.get("put_down") is True or bool(answer.get("near")))
-    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near") if asked_to_place else None
+    return to_choice(answer, len(boxes))
+
+
+def to_choice(answer, count):
+    """The chooser's reply -> (picked indexes, near indexes or None when no placement was asked).
+    A reply without a true/false "put_down" is malformed: nothing is picked, so nothing moves."""
+    if not (isinstance(answer, dict) and isinstance(answer.get("put_down"), bool)):
+        return [], None
+    asked_to_place = answer["put_down"] or bool(answer.get("near"))
+    return to_matches(answer, count), to_matches(answer, count, "near") if asked_to_place else None
 
 
 def long_axis(frame, box):
@@ -317,5 +325,10 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
+    assert to_choice({"matches": [1], "put_down": False, "near": []}, 3) == ([0], None)
+    assert to_choice({"matches": [1], "put_down": True, "near": []}, 3) == ([0], [])
+    assert to_choice({"matches": [1], "put_down": True, "near": [2]}, 3) == ([0], [1])
+    for bad in [{"matches": [1], "near": []}, {"matches": [1], "put_down": "true", "near": []}, [1], None]:
+        assert to_choice(bad, 3) == ([], None), bad  # a missing or non-boolean flag never becomes a handover
     assert to_matches({"matches": [1], "near": [3]}, 3, "near") == [2]
     main()

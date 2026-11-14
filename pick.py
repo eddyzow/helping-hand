@@ -210,9 +210,11 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        targets, said, _ = locate(frame, command, audio)  # pick.py only hands over; putting down is in skills/fetch.py
+        targets, said, near = locate(frame, command, audio)
         target = targets[0] if len(targets) == 1 else None
-        if not targets:
+        if near is not None:  # pick.py only hands over; putting down is in skills/fetch.py via voice/route.py
+            print("This script only hands things over. Use voice/route.py to put something down.")
+        elif not targets:
             print(f"I can't see that. (heard: {said})")
         elif len(targets) > 1:  # never pick one silently: ask
             print(f"I see {len(targets)} of those: " + "; ".join(
