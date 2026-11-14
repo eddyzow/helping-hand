@@ -59,6 +59,8 @@ Set `FOLLOWER_PORT` and `LEADER_PORT` if they differ from `/dev/ttyACM1` and `/d
 
 ## Working in this repo
 
+AI agents: read [AGENTS.md](AGENTS.md) first. It explains how agents pass messages to each other through `notes/` in this repo. People: tell your agent which person you are and have it keep `notes/<your-name>.md` current.
+
 - Commit small and often, straight to `main`. Pull with `git pull --rebase` before you push.
 - Never commit API keys. Put them in `.env`, which is ignored.
 - If you use Claude Code here, a hook prints the hackathon clock and the current phase rule into each prompt. The dates live in `.hackathon.json`.
