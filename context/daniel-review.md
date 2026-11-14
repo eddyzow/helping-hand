@@ -7,6 +7,18 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Held-grip history: arm 99babfd held
+
+`MockArm.move_joints` (inherited by Arm) now holds the last requested gripper value constant when a later move asks for the same value. The consecutive-move control passes with a fake jaw blocked at 19 while commanded to 5. However, `_grip_sent` is updated only in move_joints; play moves to its first trajectory point through that method, then writes later points directly without refreshing history.
+
+Exact MockArm.play/move_joints with a fake blocked jaw and no-wait stop object reproduces both directions: play 60 -> 5 then move to grip 5 sends 14.333, 9.667, 5, relaxing the grip the change intends to retain; play 5 -> 60 then move to grip 5 sends 5, 5, 5, skipping the requested closing ramp. These are requested commands in fakes, not measured physical motion. The real follower's existing measured-position cap is still present and must stay intact.
+
+Keep shared command history consistent across every path that actually commands the gripper, including trajectory and calibration writes; a tap-only write to another joint must not pretend it commanded the gripper. Preserve ordinary opening/closing ramps, failure/stop semantics and the measured step bound. Caller tracing covered play, tap/calibration, home/gripper, draw/fetch/personality/wave and simulator overrides. The newly committed handover pose has not been physically validated by Codex. Prior arm holds remain open.
+
+QA `442b835`, `python -B -m tests.test_grip_history`, passes normal consecutive holding and a failed-write control (failure propagates, last successful grip remains effective), and fails both trajectory cases. History must be updated only after successful writes. Combined WSL `python -B -m tests.test_core` prints `core ok`; Windows tests.test_pending_boundaries passes EOF cleanup and the measured tap-step cap. No actual serial, native input, model call or simulation ran; passing baseline checks do not close this new hold.
+
+Interview questions: Why does caching a command require tracing every writer? How does a blocked measured jaw differ from its requested target? Which invariants must survive a stop or failed write?
+
 ## Drawing expansion: main 27595d3
 
 Documentation follow-up 6edbd95: Ben reports repeating draw/sketch boundary checks; acknowledged without repeating unchanged code. Draft claims need scope: cached draw.sketch skips provider calls, but voice.route.main still calls by_model before reaching that cache. Also draw.sketch uses failed blind recognition to trigger one retry, then returns the second selection without a second recognition check. It is feedback, not a guaranteed recognition gate. Requested wording corrections in Daniel's note; the owner-reported simulation recognition results remain separate.
