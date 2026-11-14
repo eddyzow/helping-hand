@@ -43,7 +43,16 @@ ROLL_MAX = float(os.environ.get("ROLL_MAX", "150"))
 JAW_ARM_MM = float(os.environ.get("JAW_ARM_MM", "0"))
 GRID_WIDTH_MM = float(os.environ.get("GRID_WIDTH_MM", "0"))
 GRID_DEPTH_MM = float(os.environ.get("GRID_DEPTH_MM", "0"))
+# Where a gripped brick ends up relative to where the jaws were centred, in mm: closing the one moving jaw
+# pushes it towards the fixed jaw. "across,along": across = to the arm's right with the jaws as taught,
+# along = towards the arm. Used when putting it down, so it lands on the spot. Measure: grip a brick, set it
+# down with no turn, and see how far it lands from where you aimed. Needs the grid's size too. 0,0 = off.
+HELD_SHIFT_MM = tuple(float(n) for n in os.environ.get("HELD_SHIFT_MM", "0,0").split(","))
 EDGE = 0.05  # how far outside the taught grid a target may be
+# After putting something down the arm rises this far before it leaves, as a multiple of the gap between the
+# taught table layer and lifted layer. 1 = the lifted layer. A two-brick stack is nearly as tall as that
+# layer, and on the way home the open jaw swept through the top of it.
+EXIT_LIFT = float(os.environ.get("EXIT_LIFT", "1.5"))
 STOPPED = {"ok": False, "reason": "stopped"}
 
 
@@ -51,9 +60,10 @@ def _joints(pose: dict, grip: float) -> list[float]:
     return [pose[f"{j}.pos"] for j in JOINTS[:5]] + [grip]
 
 
-def _aim(table, u, v, turn, lift):
+def _aim(table, u, v, turn, lift, holding=False):
     """The lifted and lowered poses over grid point u, v, with the jaws turned `turn` degrees and the
     lowered pose `lift` of the way up to the lifted one (0 = on the table, for stacks more).
+    With `holding`, u and v are where the held object should land, not where the jaws go.
     Returns (up, down), or a sentence saying why the arm cannot do it."""
     if turn:  # jaws closing one way or the opposite way are the same grasp: take the turn the wrist can reach
         taught = [interpolate(table[layer], table["n"], u, v)["wrist_roll.pos"] for layer in ("up", "down")]
@@ -62,10 +72,15 @@ def _aim(table, u, v, turn, lift):
         if not fits:
             return "the wrist cannot turn far enough to line up with it"
         turn = fits[0]
+    swing = math.radians(turn)
+    if holding and any(HELD_SHIFT_MM) and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:  # the shift turns with the jaws
+        across, along = HELD_SHIFT_MM
+        u -= (across * math.cos(swing) - along * math.sin(swing)) / GRID_WIDTH_MM
+        v -= (across * math.sin(swing) + along * math.cos(swing)) / GRID_DEPTH_MM
     if turn and JAW_ARM_MM and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:
-        swing = math.radians(turn)
         u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
         v -= math.sin(swing) * JAW_ARM_MM / GRID_DEPTH_MM
+    if swing or holding:
         if not (math.isfinite(u) and math.isfinite(v) and -EDGE <= u <= 1 + EDGE and -EDGE <= v <= 1 + EDGE):
             return f"out of reach once the wrist is turned: u={u:.2f} v={v:.2f}"
     up = interpolate(table["up"], table["n"], u, v)
@@ -105,7 +120,8 @@ def run(arm, params, stop):
                            for n in (to_u, to_v)):
         return {"ok": False, "reason": "the place to put it down is out of reach"}
     table = json.loads(table_file.read_text())
-    aimed = [_aim(table, u, v, turn, grasp_lift)] + ([_aim(table, to_u, to_v, to_turn, lift)] if placing else [])
+    aimed = [_aim(table, u, v, turn, grasp_lift)] + ([_aim(table, to_u, to_v, to_turn, lift, holding=True), _aim(table, to_u, to_v, to_turn, lift),
+                                                  _aim(table, to_u, to_v, to_turn, EXIT_LIFT)] if placing else [])
     for problem in aimed:
         if isinstance(problem, str):
             return {"ok": False, "reason": problem}
@@ -120,11 +136,15 @@ def run(arm, params, stop):
     ]
     if placing:  # carry it over, set it down, let go, lift clear
         above, on_table = aimed[1]
-        after = [(_joints(on_table, GRIP_OPEN), 0.6), (_joints(above, GRIP_OPEN), 1.0)]
+        clear_up, clear = aimed[2]  # jaws centred on the piece: the fixed jaw backs off it before the arm lifts,
+        after = [(_joints(on_table, GRIP_OPEN), 0.6), (_joints(clear, GRIP_OPEN), 0.4),  # or it drags it off a stack
+                 (_joints(clear_up, GRIP_OPEN), 1.0), (_joints(aimed[3][1], GRIP_OPEN), 0.6)]
         moves += [(_joints(above, GRIP_CLOSED), 2.0), (_joints(on_table, GRIP_CLOSED), 1.0)]
     else:
         after = [(handover + [GRIP_OPEN], 0.6)]
         moves += [(handover + [GRIP_CLOSED], 2.0)]
+    if placing:  # leave with the jaws still open: closing them on the way out swept the moving jaw through the stack
+        after += [(arm.load_pose("home")[:5] + [GRIP_OPEN], 1.5)]
     try:  # a bad taught pose must fail here, before the arm has moved at all
         for joints, _ in moves + after:
             core.arm._checked(joints)

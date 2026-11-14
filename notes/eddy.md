@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 12:24 PM.
+Updated Sat Nov 14, 12:49 PM.
 
 ## Working on now
 
@@ -189,3 +189,14 @@ Eddy: "your system looks like it uses hardcoded keywords. that wont work if we a
 - `see.parse_reply` used to return nothing when Claude explained itself with brackets before the JSON, which showed up as "0 match" on some runs. It now tries a fenced block first, then the widest list or object.
 - Random layouts, purple onto green: placed and lined up on seeds 3 and 11. On seed 11 the car body was knocked while reaching past it; pieces are close together in random layouts.
 - All ten modules in `tests/` print ok. `tests/test_perception_boundaries.py` was edited again for the `onto` field.
+
+## Why stacks fell, and three fixes in fetch, Sat Nov 14, 12:49 PM
+
+Measured in the simulator by logging the gripper and the bricks step by step. Daniel, all three will apply on the real arm, with its own numbers:
+
+- A gripped brick is not where the jaws were centred. Closing the one moving jaw pushes it towards the fixed jaw: 8.4 mm across and 4.1 mm along in the model. Put down without allowing for that, it lands that far off. New knob `HELD_SHIFT_MM` ("across,along", default "0,0" = off): grip a brick, set it down with no turn, measure how far it landed from the aim.
+- After letting go, the fixed jaw is still against the brick and drags it as the arm lifts. Fetch now first moves the open jaws to centre on the piece, then lifts.
+- A two-brick stack is nearly as tall as the taught lifted layer, and the open jaw swept through its top on the way home. Fetch now rises to `EXIT_LIFT` (default 1.5 times the layer gap, by extending the taught poses upwards) and goes home with the jaws still open.
+- Result: blue on purple on the white plate stood at five wrist angles with exact positions (landing within 3 mm), and in 4 of 5 runs through the camera.
+- The chooser prompt now lists the measured height of each piece in our set (white 2x4 is a 10 mm plate, bricks 19 mm). Eddy asked for this after it took the plate for a brick. It still said 19 instead of 29 for a brick on the plate once in five runs.
+- All ten modules in `tests/` print ok.

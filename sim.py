@@ -54,6 +54,7 @@ ROLL_TURNS_JAW = 1.0       # which way the roll joint turns the jaws on this mod
 # command of 5, so each new move restarts the gripper command at 17: no squeeze just as the arm speeds up,
 # and the brick slips. True here keeps the squeeze; False shows what core/arm.py does today.
 KEEP_SQUEEZE = os.environ.get("KEEP_SQUEEZE", "1") == "1"
+HELD_SHIFT_MM = (-8.4, 4.1)  # measured on this model: where a gripped 2x2 brick lands relative to the aim, across and along
 JAW_ARM_MM = 16.0         # measured on this model: the point between the jaws is 16 mm off the wrist's turning axis
 HOME_DEG = [95, -95, 90, 70, 0, 20]      # folded to the side, out of the camera's view
 HANDOVER_DEG = [-50, -30, 30, 50, 0, 0]  # held out to the front right
@@ -433,6 +434,7 @@ def main() -> None:
     fetch = importlib.import_module("skills.fetch")  # tell fetch this table's size and this gripper's geometry
     fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 1000 * (LEFT - RIGHT), 1000 * (FAR - NEAR)
     fetch.JAW_ARM_MM = JAW_ARM_MM
+    fetch.HELD_SHIFT_MM = HELD_SHIFT_MM
     fetch.ROLL_MIN, fetch.ROLL_MAX = (math.degrees(limit) for limit in arm.model.jnt_range[4])
     if args:
         request(arm, args)
