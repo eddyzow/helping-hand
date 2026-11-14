@@ -39,9 +39,10 @@ def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], fl
 
     def pose(layer: str, u: float, v: float) -> list[float]:
         p = interpolate(grid[layer], n, u, v)
+        joints = _checked(p[f"{j}.pos"] for j in JOINTS)  # before the clamp: max(0.0, nan) is 0.0 and would hide a bad value
         # taught limp around the pen, so the taught value is exactly pen width: squeeze a bit more
-        p["gripper.pos"] = max(0.0, p["gripper.pos"] - squeeze)
-        return _checked(p[f"{j}.pos"] for j in JOINTS)
+        joints[5] = max(0.0, joints[5] - squeeze)
+        return joints
 
     grip = pose("up", 0.5, 0.5)[5]
     rest = _checked(home[:5] + [grip])  # home, but still holding the pen
@@ -145,5 +146,11 @@ if __name__ == "__main__":
     write_grid({"n": 3, "down": taught(float("nan")), "up": taught(10)})
     arm = FakeArm()
     assert not run(arm, {}, arm.halt)["ok"] and arm.sent == [], "bad taught value: must not move"
+
+    bad_grip = taught(0)
+    bad_grip[4]["gripper.pos"] = float("nan")  # one taught point with a broken gripper reading
+    write_grid({"n": 3, "down": bad_grip, "up": taught(10)})
+    arm = FakeArm()
+    assert not run(arm, {}, arm.halt)["ok"] and arm.sent == [], "bad taught gripper: must not move"
     GRID = real_grid
     print("draw ok")

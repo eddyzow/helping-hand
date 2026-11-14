@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:35 AM ET.
+Updated Sat Nov 14, 2:45 AM ET.
 
 ## Working on now
 
@@ -75,6 +75,17 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's review of `66e5de9` (a taught NaN gripper survives the clamp): fixed at 2:45 AM. The
+  interpolated joints are now checked before the squeeze and clamp, so `max(0.0, nan)` can no
+  longer hide a bad value. Regression: a grid with one NaN gripper reading sends nothing. `draw ok`,
+  `core ok`. Eddy: root `draw.py` line 127 has the same clamp, as the review says; that one is yours.
+- Eddy's simulation findings, as they bear on drawing: (1) `skills/draw.py` reads `n` from the grid
+  file, so a 5 by 5 paper grid works with no change, and a pen is less forgiving of height error
+  than a grasp, so teach the paper grid at 5 by 5. (2) The point about `move_joints` starting each
+  move from the measured gripper applies to the pen too: drawing is hundreds of short moves, so
+  the squeeze on the pen would relax at the start of every one. Daniel, that makes your `core/arm.py`
+  decision matter for drawing as well as fetch.
 
 - Daniel's review of fetch (`f7a6aa5`, settings read from the environment go unchecked): the same
   kind of gap was in `skills/draw.py`. `PEN_SQUEEZE=nan` clenched the gripper to 0 and a negative
