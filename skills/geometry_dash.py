@@ -2,10 +2,10 @@
 
     run geometry_dash {"first_taps": 5}
 
-Be inside the level first. The arm goes to tap_up and waits; the keypad listener then presses R
+Be inside the level first. The arm hovers over the key and waits; the keypad listener then presses R
 (restart) in the game and the replay clock starts at that instant, so the game and the arm start
 together. Pressing R yourself does the same, and R again mid-run restarts the replay.
-Needs the taught tap_up pose; tune the press depth first with gd_tap (see skills/gd_tap.py). The recording and its reader are
+Needs the taught tap_key pose; tune the tap first with gd_tap (see skills/gd_tap.py). The recording and its reader are
 Jonathan's: keypad/geometry_dash/.
 """
 import sys
@@ -44,7 +44,7 @@ def run(arm, params, stop):
     if commands[0].at < 0:
         return {"ok": False, "reason": "the timing lead is longer than the wait before the first press"}
 
-    if not (arm.home() and arm.move_joints(arm.load_pose("tap_up"), 1.5)):
+    if not (arm.home() and arm.move_joints(arm.hover_pose(), 1.5)):
         return STOPPED
     cue.clear()
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)

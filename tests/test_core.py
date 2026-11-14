@@ -18,7 +18,7 @@ def test_core():
     # the same made-up poses on every machine, whatever is taught in the real poses/ folder
     core.arm.POSES = Path(tempfile.mkdtemp())
     for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80],
-                         "tap_up": [10, -20, 40, 70, 0, 0]}.items():
+                         "tap_key": [10, -20, 40, 70, 0, 0]}.items():
         (core.arm.POSES / f"{name}.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, joints)}))
     arm = get_arm(mock=True)
     dispatcher.load(arm)
@@ -48,20 +48,24 @@ def test_core():
     assert not dispatcher._worker.is_alive() and close(arm.get_joints(), arm.load_pose("home"))
 
     # a tap goes down and comes back
-    assert arm.tap(3.0) and close(arm.get_joints(), arm.load_pose("tap_up"))
-    pressed = [10, -20, 40, 71.5, 0, 0]                        # tap_up with the wrist dipped 1.5 degrees
+    hover = [10, -20, 37, 70, 0, 0]                            # tap_key with the elbow raised 3 degrees
+    assert arm.tap(3.0) and close(arm.get_joints(), hover)
+    pressed = arm.load_pose("tap_key")                         # a press comes down to the taught pose, no lower
     assert arm.press() and close(arm.get_joints(), pressed)
     assert dispatcher.handle('run wave {"roll": 999}')["ok"] is True  # refused inside the skill, before motion
     dispatcher._worker.join(2)
     assert close(arm.get_joints(), pressed)
     assert dispatcher.handle('run gd_tap {"press_deg": 50}')["ok"] is True  # too deep: refused, no motion
     dispatcher._worker.join(2)
-    assert close(arm.get_joints(), pressed) and arm.press_deg == 1.5
+    assert close(arm.get_joints(), pressed) and arm.press_deg == 0.0
+    assert dispatcher.handle('run gd_tap {"lift_deg": 0}')["ok"] is True     # no hover height: refused
+    dispatcher._worker.join(2)
+    assert close(arm.get_joints(), pressed) and arm.lift_deg == 3.0
 
     # Geometry Dash replay: waits for the cue, then presses and releases on the recording's clock
     log = []
     real_write = arm._write
-    arm._write = lambda joints: (log.append((time.perf_counter(), joints[3])), real_write(joints))
+    arm._write = lambda joints: (log.append((time.perf_counter(), joints[2])), real_write(joints))
     assert dispatcher.handle("ready")["ok"] is False
     assert dispatcher.handle('run geometry_dash {"pattern": "demo_taps.csv", "first_taps": 2}')["ok"] is True
     for _ in range(100):                                        # home, approach, then it waits
@@ -75,7 +79,7 @@ def test_core():
     dispatcher._worker.join(8)
     assert not dispatcher._worker.is_alive() and dispatcher.handle("ready")["ok"] is False
     presses = [(round(t - t0, 2), elbow) for t, elbow in log[:4]]
-    assert [e for _, e in presses] == [71.5, 70, 71.5, 70], presses      # down, up, down, up
+    assert [e for _, e in presses] == [40, 37, 40, 37], presses          # down, up, down, up
     assert all(abs(t - want) < 0.06 for (t, _), want in zip(presses, (0.30, 0.38, 0.68, 0.76))), presses
     arm._write = real_write
     before_gd = arm.get_joints()
