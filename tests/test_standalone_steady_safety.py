@@ -22,19 +22,27 @@ def scenario(mode):
             raise ConnectionError("fake lost leader")
         if mode == "stop_during_read" and reads[0] == 3:
             steady.command("stop")
-        pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode == "slow_meter" else 50
+        pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode in ("slow_meter", "meter_warmup") else 50
         return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 0]))
 
     def send(action):
         writes.append((steady.state["hold"], dict(action)))
-        if mode == "hold_during_ease" and len(writes) == 2:
+        if mode in ("hold_during_ease", "hold_grip") and len(writes) == 2:
             steady.command("hold on")
-        if len(writes) >= (205 if mode == "slow_meter" else 3 if mode == "hold_during_ease" else 2):
+        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 3 if mode in ("hold_during_ease", "hold_grip") else 2):
             steady.state["quit"] = True
+
+    def observe():
+        values = dict.fromkeys(steady.KEYS, 0.0)
+        if mode == "invalid_follower":
+            values[steady.KEYS[0]] = float("nan")
+        if mode == "hold_grip" and len(writes) >= 2:
+            values["gripper.pos"] = 20.0
+        return values
 
     leader.get_action = read
     follower.connect = lambda: None
-    follower.get_observation = lambda: dict.fromkeys(steady.KEYS, 0.0)
+    follower.get_observation = observe
     follower.send_action = send
     follower.disconnect = lambda: cleanup.append(("follower", follower.config.disable_torque_on_disconnect))
     follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {})
@@ -50,13 +58,13 @@ def scenario(mode):
     sleeps = [0]
 
     def sleep(seconds):
-        now[0] += .04 if mode == "slow_meter" else 4 if mode == "stop_during_read" else 1
+        now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode == "stop_during_read" else 1
         sleeps[0] += 1
-        if sleeps[0] >= (210 if mode == "slow_meter" else 4):
+        if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 4):
             steady.state["quit"] = True
 
     clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake", sleep=sleep)
-    tip = SimpleNamespace(mm=lambda joints: np.array(joints[:3]) if mode == "slow_meter" else np.zeros(3),
+    tip = SimpleNamespace(mm=lambda joints: np.array(joints[:3]) if mode in ("slow_meter", "meter_warmup") else np.zeros(3),
                           chain=lambda joints: [])
     with tempfile.TemporaryDirectory() as temporary:
         offsets = Path(temporary) / "offsets.json"
@@ -64,9 +72,13 @@ def scenario(mode):
         if mode == "invalid_offset":
             values[steady.KEYS[0]] = float("nan")
         offsets.write_text(json.dumps(values))
+        history = Path(temporary) / "sessions.json"
+        read_sessions, save_sessions = steady.read_sessions, steady.save_sessions
         with patch.dict(sys.modules, {"lerobot.robots.so_follower": fake_follower,
                 "lerobot.teleoperators.so_leader": fake_leader}), \
-                patch.object(sys, "argv", ["steady", "--yes"]), \
+                patch.object(sys, "argv", ["steady", "--yes"] + (["--shake", "6", "2"] if mode == "shake" else [])), \
+                patch.object(steady, "read_sessions", lambda: read_sessions(history)), \
+                patch.object(steady, "save_sessions", lambda values: save_sessions(values, history)), \
                 patch.object(steady, "OFFSETS", offsets), patch.object(steady, "OUT", Path(temporary) / "out"), \
                 patch.object(steady, "Fingertip", lambda: tip), patch.object(steady, "time", clock), \
                 patch.object(steady.socketserver, "ThreadingTCPServer", server), \
@@ -76,7 +88,7 @@ def scenario(mode):
             try:
                 steady.main()
             except (ConnectionError, ValueError):
-                if mode not in ("read_failure", "invalid_offset"):
+                if mode not in ("read_failure", "invalid_offset", "invalid_follower"):
                     raise
     return writes, cleanup
 
@@ -106,16 +118,37 @@ def test_meter_timestamps():
     assert abs(steady.shared["tremor_hz"] - 6) < .3, ("six-Hz input reported as", steady.shared["tremor_hz"])
 
 
+def test_invalid_follower():
+    writes, _ = scenario("invalid_follower")
+    assert not writes, ("invalid initial follower reading reached send_action", writes)
+
+
+def test_hold_grip():
+    writes, _ = scenario("hold_grip")
+    assert len(writes) < 3 or writes[2][1] == writes[1][1], ("held grip target changed", writes)
+
+
+def test_shake():
+    writes, _ = scenario("shake")
+    assert writes and all(math.isfinite(value) for _, action in writes for value in action.values())
+
+
+def test_meter_warmup():
+    scenario("meter_warmup")
+    assert steady.shared["tremor_hz"] == 0 or abs(steady.shared["tremor_hz"] - 6) < .3, steady.shared["tremor_hz"]
+
+
 if __name__ == "__main__":
     normal, _ = scenario("normal")
     assert normal and all(math.isfinite(value) for _, action in normal for value in action.values())
     print("finite normal-loop control passes")
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
-                 test_meter_timestamps):
+                 test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup):
         try:
             test()
-        except AssertionError as error:
+            print("PASS", test.__name__)
+        except (AssertionError, NameError) as error:
             failures.append(test.__name__)
             print("FAIL", test.__name__, error)
     assert not failures, failures

@@ -10,13 +10,14 @@ second back, so the follower moves where the hand means to go without the shake.
 
 While it runs it also MEASURES the hand: how big the shake is at the fingertip (mm), how fast
 (Hz), and how much of it the filter removed. That is written to outputs/steady/ as one CSV per
-session and served to the dashboard at http://127.0.0.1:8780/state.
+session and served to the dashboard at http://127.0.0.1:8780/state; one summary per session goes
+to outputs/steady/sessions.json, served at /sessions.
 
 Keys (the keypad listener and typed commands both arrive on port 8765, like the dispatcher's):
     middle key  -> steady mode on/off (the A/B that shows what the filter does)
     jump key    -> hold: the follower freezes and keeps holding, the person can let go and rest
     stop key    -> hold, at once
-    typed: steady on|off, hold on|off, cutoff <Hz>, status, quit
+    typed: steady on|off, hold on|off, cutoff <Hz>, test (10 s hold-still score), status, quit
 
 Limits, stated plainly: this is a prototype, tested only with a person shaking the leader on
 purpose. The arm holds light things (well under 200 g). Grip effort and arm load are the motors'
@@ -24,89 +25,59 @@ own load readings, an estimate, not a measured force. The follower's speed is ca
 """
 import collections
 import json
-import math
 import os
 import socketserver
 import sys
 import threading
 import time
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import numpy as np
 
+from core.tremor import CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, HoldStillTest, LowPass, Session, band_rms_and_peak
+
 HERE = Path(__file__).parent
 OFFSETS = HERE / "poses" / "teleop_offset.json"
 OUT = HERE / "outputs" / "steady"
+SESSIONS = OUT / "sessions.json"
 JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
 KEYS = [f"{j}.pos" for j in JOINTS]
 HZ = 50
-CUTOFF_HZ = 2.0          # movement slower than this passes; tremor above it is held back
-GRIP_CUTOFF_HZ = 4.0     # the claw answers faster, so a pinch still feels direct
-TREMOR_BAND = (3.0, 12.0)  # Hz: where tremor lives (essential tremor about 4 to 8, Parkinsonian about 4 to 6)
 MAX_SPEED = 120.0        # degrees per second: the follower never moves faster than this, whatever the hand does
 MAX_STEP = 15.0          # LeRobot's own per-command limit, in degrees
 EASE_S = 3.0             # at the start and after a hold the follower glides to the leader over this long
 WINDOW_S = 4.0           # how much history the tremor measurement looks at
+GRIP_FLOOR = 4.0         # the follower's claw is never commanded tighter than this (0 to 100)
+GRIP_SQUEEZE = 6.0       # nor more than this far past where the jaws really are: that bounds the grip effort
+ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
+# --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
+SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
+SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
 state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
           "arm_load": 0.0, "speed_mm_s": 0.0, "leader": [0.0] * 6, "follower": [0.0] * 6, "raw_tip": [0.0] * 3,
-          "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": []}
+          "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [],
+          "test": {"running": False, "seconds_left": 0, "score": None, "tremor_mm": None}}
 lock = threading.Lock()
+hold_test = HoldStillTest()
 
 
-class LowPass:
-    """Two one-pole stages in a row: smooth, no overshoot, about 12 dB per octave above the cutoff."""
-
-    def __init__(self, first):
-        self.a = self.b = np.array(first, float)
-
-    def step(self, value, cutoff_hz, dt):
-        k = 1.0 - np.exp(-2.0 * math.pi * np.asarray(cutoff_hz) * dt)
-        self.a = self.a + k * (np.asarray(value, float) - self.a)
-        self.b = self.b + k * (self.a - self.b)
-        return self.b
+def read_sessions(path=SESSIONS):
+    """The saved session summaries, or [] if the file is missing or unreadable."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return []
 
 
-def band_rms_and_peak(samples, rate):
-    """Size (RMS) and main frequency of the part of a signal inside the tremor band."""
-    x = np.asarray(samples, float)
-    if len(x) < rate:  # under a second of data says nothing about a 4 Hz shake
-        return 0.0, 0.0
-    x = x - x.mean(axis=0)
-    spectrum = np.fft.rfft(x * np.hanning(len(x))[:, None], axis=0)
-    freqs = np.fft.rfftfreq(len(x), 1.0 / rate)
-    band = (freqs >= TREMOR_BAND[0]) & (freqs <= TREMOR_BAND[1])
-    power = (np.abs(spectrum) ** 2).sum(axis=1)
-    if not band.any() or power[band].sum() <= 0:
-        return 0.0, 0.0
-    # Parseval, corrected for the window: RMS of the band-limited signal, summed over x, y, z
-    rms = math.sqrt(2.0 * power[band].sum() / (len(x) * (np.hanning(len(x)) ** 2).sum()))
-    return rms, float(freqs[band][np.argmax(power[band])])
-
-
-class Fingertip:
-    """Where the fingertip is for a set of joint angles, from the SO-101 model. Used only to turn
-    joint shake into millimetres at the hand; a few degrees of zero error do not matter for that."""
-
-    def __init__(self):
-        import mujoco
-        self.mj = mujoco
-        self.model = mujoco.MjModel.from_xml_path(str(HERE / "keypad" / "geometry_dash" / "robotstudio_so101" / "so101.xml"))
-        self.data = mujoco.MjData(self.model)
-        self.site = self.model.site("gripperframe").id
-
-    def mm(self, degrees):
-        self.data.qpos[:5] = [math.radians(v) for v in degrees[:5]]
-        self.mj.mj_forward(self.model, self.data)
-        return self.data.site_xpos[self.site] * 1000.0
-
-    def chain(self, degrees):
-        """The arm as a line of points (mm), base to fingertip, for the dashboard's drawing."""
-        tip = self.mm(degrees)
-        points = [self.data.xpos[i] * 1000.0 for i in range(1, 7)] + [tip]  # base, shoulder, upper arm, forearm, wrist, gripper
-        return [[round(float(v)) for v in point] for point in points]
+def save_sessions(sessions, path=SESSIONS):
+    """Write through a temp file, so a crash mid-write never leaves half a file."""
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps(sessions, indent=1))
+    os.replace(temp, path)
 
 
 class Commands(socketserver.StreamRequestHandler):
@@ -135,12 +106,15 @@ def command(line: str) -> dict:
                 state["cutoff"] = min(8.0, max(0.5, float(rest)))
             except ValueError:
                 return {"ok": False, "reason": "cutoff needs a number of Hz, 0.5 to 8"}
+        elif word == "test":   # the ten-second hold-still test; the main loop feeds it and ends it
+            hold_test.start(time.perf_counter())
+            shared["test"] = hold_test.view(time.perf_counter())
         elif word == "quit":
             state["quit"] = True
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
-            return {"ok": False, "reason": "commands: steady on|off, hold on|off, cutoff <Hz>, status, quit"}
+            return {"ok": False, "reason": "commands: steady on|off, hold on|off, cutoff <Hz>, test, status, quit"}
         return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff")}}
 
 
@@ -153,6 +127,8 @@ class Dashboard(BaseHTTPRequestHandler):
             with lock:
                 body = json.dumps({**{k: state[k] for k in ("steady", "hold", "cutoff")}, **shared}).encode()
             kind = "application/json"
+        elif self.path.startswith("/sessions"):
+            body, kind = json.dumps(read_sessions()).encode(), "application/json"
         else:
             page = HERE / "steady_dashboard.html"
             body = page.read_bytes() if page.exists() else b"steady_dashboard.html is not written yet; /state has the numbers"
@@ -172,7 +148,11 @@ def main() -> None:
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
     from lerobot.teleoperators.so_leader import SO101Leader, SO101LeaderConfig
 
+    import logging
+    logging.getLogger("lerobot.robots.utils").setLevel(logging.ERROR)  # its per-command "clamped" warning floods the screen
     ask = (lambda text: None) if "--yes" in sys.argv else input
+    shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
+    seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
     measure = "--measure" in sys.argv or not OFFSETS.exists()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
@@ -184,6 +164,10 @@ def main() -> None:
     follower = SO101Follower(SO101FollowerConfig(
         port=os.environ.get("FOLLOWER_PORT", "COM3"), id="follower", max_relative_target=MAX_STEP))
     leader = SO101Leader(SO101LeaderConfig(port=os.environ.get("LEADER_PORT", "COM4"), id="leader"))
+    # An arm that holds is safer than an arm that drops. So on ANY exit the follower's motors stay on,
+    # unless a person at the keyboard confirms they are holding it (the prompt in the clean shutdown).
+    follower.config.disable_torque_on_disconnect = False
+    clean = False
     ask("The follower's motors switch off and on while connecting. Hold it or check it is resting, then Enter. ")
     follower.connect()
     leader.connect()
@@ -191,6 +175,18 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     log = (OUT / f"session_{time.strftime('%Y%m%d_%H%M%S')}.csv").open("w")
     log.write("t_s,steady,hold,tremor_mm,tremor_hz,arm_shake_mm,removed_pct,grip_effort,arm_load\n")
+    session, past, warned = Session(datetime.now().isoformat(timespec="seconds")), read_sessions(), []
+
+    def save_history():   # never raises into the control loop
+        if not session.n:
+            return
+        try:
+            save_sessions(past + [session.summary()])
+        except OSError as error:
+            if not warned:
+                warned.append(True)
+                print(f"  could not write {SESSIONS}: {error}", flush=True)
+
     try:
         if measure:
             ask("The follower goes LIMP next. Hold it, then Enter. ")
@@ -200,48 +196,82 @@ def main() -> None:
             OFFSETS.write_text(json.dumps({k: round(float(follow[k]) - float(lead[k]), 2) for k in KEYS}, indent=1))
             follower.bus.enable_torque()
             ask("The follower is holding again. Let go of it, take the leader, then Enter to start. ")
-        offset = np.array([json.loads(OFFSETS.read_text())[k] for k in KEYS])
+        offset = np.array([float(json.loads(OFFSETS.read_text())[k]) for k in KEYS])
+        if not np.all(np.isfinite(offset)):   # checked before anything is sent to the arm
+            raise ValueError(f"{OFFSETS} holds a value that is not a number; run steady.py --measure again")
 
         def read_leader():
+            """The leader's six joints in the follower's terms. Raises if any is not a finite number:
+            a bad reading must never become a command."""
             action = leader.get_action()
-            return np.array([float(action[k]) for k in KEYS]) + offset
+            joints = np.array([float(action[k]) for k in KEYS]) + offset
+            if not np.all(np.isfinite(joints)):
+                raise ValueError(f"the leader sent a reading that is not a number: {joints}")
+            return joints
 
         observation = follower.get_observation()
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
         smooth = LowPass(read_leader())
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
+        stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
         began = ease_from = time.perf_counter()
-        ease_start, was_hold, last, tick_n = sent.copy(), False, began, 0
+        ease_start, was_hold, last, tick_n, elbow_told = sent.copy(), False, began, 0, False
         print(f"Steady Hand running. Dashboard: http://127.0.0.1:8780  Keys: middle = steady on/off, jump = hold, stop = hold.")
         while not state["quit"]:
             now = time.perf_counter()
+            if seconds is not None and now - began > seconds:
+                break
             dt, last = max(1e-3, now - last), now
+            raw = read_leader()   # this can block for a moment, so the keys are read AFTER it, not before
+            if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
+                raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             with lock:
                 steady, hold, cutoff = state["steady"], state["hold"], state["cutoff"]
-            raw = read_leader()
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
-            want = filtered if steady else raw
-            if hold:
-                want = sent
-            elif was_hold:  # coming out of a hold: glide back to the hand, do not jump
-                ease_from, ease_start = now, sent.copy()
+            if not hold:   # while held, the target does not change at all: no easing, no stepping
+                want = filtered if steady else raw
+                if was_hold:  # coming out of a hold: glide back to the hand, do not jump
+                    ease_from, ease_start = now, sent.copy()
+                share = min(1.0, (now - ease_from) / EASE_S)
+                if share < 1.0:
+                    want = ease_start + (want - ease_start) * share
+                step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
+                moved = sent + step
+                with lock:   # a stop that arrived while this was being worked out still wins
+                    hold = state["hold"]
+                if not hold:
+                    sent = moved
             was_hold = hold
-            share = min(1.0, (now - ease_from) / EASE_S)
-            if share < 1.0:
-                want = ease_start + (want - ease_start) * share
-            step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
-            sent = sent + step
-            sent[5] = min(100.0, max(0.0, sent[5]))
+            # never drive the claw hard into its closed stop: at 0 it pressed at 98 % load the whole
+            # time the leader's claw was shut (first real run), which only heats the motor
+            # Second real run: with a floor of 4 the claw still pressed at 98 %, because the jaws meet
+            # a little above 4. So the squeeze itself is capped: the claw is never told to be more
+            # than GRIP_SQUEEZE tighter than where it really is, whatever it is closing on.
+            sent[5] = min(100.0, max(GRIP_FLOOR, float(observation["gripper.pos"]) - GRIP_SQUEEZE, sent[5]))
+            # the follower's elbow stops at about +65 (its calibration range is stored in the motor as
+            # a limit). Asking for more does nothing but lag and a warning on every tick.
+            if sent[2] > ELBOW_MAX:
+                sent[2] = ELBOW_MAX
+                if not elbow_told:
+                    elbow_told = True
+                    print(f"  note: the follower's elbow is at its limit ({ELBOW_MAX:.0f} degrees); it cannot bend as far as the leader")
             follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
 
-            raw_tip, out_tip = tip.mm(raw), tip.mm(sent)
+            # the arm's shake is taken from where the follower really IS (its measured joints), not
+            # from what it was told: the honest number, since a motor also smooths what it is sent
+            observation = follower.get_observation()
+            seen = np.array([float(observation[k]) for k in KEYS])
+            raw_tip, out_tip = tip.mm(raw), tip.mm(seen)
             raw_tips.append(raw_tip.copy())
             out_tips.append(out_tip.copy())
+            stamps.append(now)
             tick_n += 1
             if tick_n % 5 == 0:   # ten times a second: measure, publish, log
-                rate = len(raw_tips) / WINDOW_S if len(raw_tips) == raw_tips.maxlen else HZ
+                # the real sample rate, from the clock: two serial buses may not keep up with HZ, and
+                # a wrong rate would put the tremor at the wrong frequency
+                rate = (len(stamps) - 1) / (stamps[-1] - stamps[0]) if len(stamps) > HZ else HZ
                 tremor_mm, tremor_hz = band_rms_and_peak(raw_tips, rate)
                 out_mm, _ = band_rms_and_peak(out_tips, rate)
                 removed = 0.0 if tremor_mm < 0.15 else max(0.0, min(100.0, 100.0 * (1.0 - out_mm / tremor_mm)))
@@ -257,6 +287,13 @@ def main() -> None:
                                   raw_chain=tip.chain(raw), out_chain=tip.chain(sent))
                     shared["history"] = (shared["history"] + [[round(now - began, 2), round(float(raw_tip[2]), 1),
                                                                round(float(out_tip[2]), 1)]])[-300:]
+                    done = hold_test.feed(now, tremor_mm)
+                    shared["test"] = hold_test.view(now)
+                session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
+                if done:
+                    session.tests.append(done)
+                if tick_n % 500 == 0:   # every ten seconds, so a crash loses little
+                    save_history()
                 log.write(f"{now - began:.2f},{int(steady)},{int(hold)},{tremor_mm:.2f},{tremor_hz:.1f},{out_mm:.2f},"
                           f"{removed:.0f},{effort.get('gripper', 0.0):.1f},{shared['arm_load']:.1f}\n")
                 if tick_n % 50 == 0:
@@ -264,13 +301,28 @@ def main() -> None:
                           f"{tremor_hz:4.1f} Hz -> arm {out_mm:5.1f} mm ({removed:3.0f}% removed)  grip {effort.get('gripper', 0):4.1f}%",
                           flush=True)
             time.sleep(max(0.0, 1.0 / HZ - (time.perf_counter() - now)))
+        clean = True
     except KeyboardInterrupt:
-        pass
+        clean = True
     finally:
-        log.close()
-        ask("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
-        leader.disconnect()
-        follower.disconnect()
+        try:      # whatever goes wrong with the files, the arms are still dealt with below
+            log.close()
+            save_history()
+        finally:
+            # The motors are switched off ONLY after a normal stop AND a person at the keyboard saying
+            # they have the arm. After a fault, or with --yes (nobody there), they stay on and holding.
+            if clean and "--yes" not in sys.argv:
+                try:
+                    input("Stopping: the follower's motors switch OFF next. Hold it or rest it, then Enter. ")
+                    follower.config.disable_torque_on_disconnect = True
+                except (EOFError, KeyboardInterrupt):
+                    pass
+            if not follower.config.disable_torque_on_disconnect:
+                print("The follower's motors stay ON and holding. Hold the arm and cut its power, or start steady.py again.", flush=True)
+            try:
+                leader.disconnect()
+            finally:
+                follower.disconnect()
 
 
 if __name__ == "__main__":
