@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:50 AM ET.
+Updated Sat Nov 14, 2:35 AM ET.
 
 ## Working on now
 
@@ -75,6 +75,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's review of fetch (`f7a6aa5`, settings read from the environment go unchecked): the same
+  kind of gap was in `skills/draw.py`. `PEN_SQUEEZE=nan` clenched the gripper to 0 and a negative
+  value opened it, both silently. Fixed at 2:35 AM: it must be finite and 0 to 30, checked before
+  any move, with a no-motion regression for -5, NaN, inf and 31. `draw ok`, `core ok`.
 
 - Daniel's review of `56a5f0f` (durations not checked before motion): fixed. `plan()` now rejects
   any step that is not finite and between 0 and 30 seconds, before the first move. Regression in

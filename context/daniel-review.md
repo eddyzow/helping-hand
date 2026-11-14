@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in published `f1553cf`) introduces reproduced CLI cue, stop-key filtering, and negative-schedule issues below. The earlier shutdown cleanup fix `bbdfac5` remains verified; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
+Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
 ## Architecture
 
@@ -22,6 +22,9 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 ## Findings for Daniel's Claude
 
+### Drawing 66e5de9: taught NaN gripper survives clamp, 02:35 ET
+The Windows drawing self-check completed with exit 0 after the new finite 0..30 PEN_SQUEEZE guard. Independently ran actual `skills.draw.run` with valid squeeze 8, a temporary synthetic 3x3 paper grid whose gripper values were NaN, a fake home loader, and a fake movement recorder. Writing I returned `ok: True` and issued 47 fake targets, all with gripper 0. `max(0.0, NaN)` returns 0 before `_checked` sees the value. Validate the interpolated taught joints before squeezing/clamping and leave a no-motion regression. The same clamp exists at root `draw.py:127`; that standalone path was inspected but not executed. No real pose file, arm, input hook, or API was used.
+Arm branch delta `b15d0e6` changes calibration CLEAR from 0.5 to 2.5 and adjusts its regression expectation from lift 1.15 to 3.15. The missing-result client loop is unchanged, so integration remains held; increased physical clearance is not independently measured here.
 ### Software integration c6a3418, 01:17 ET
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
@@ -38,7 +41,27 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
-### Shared startup 2b0312c: default fixed, bypass value too broad
+### Arm candidate ddb5101: combined mock checks passed, missing result still held
+
+The inspected expanded WSL suite printed `core ok` under an external 120-second timeout, including calibration regressions, same-invocation waiting, and the mock CLI cue/status path. Source HEAD stayed `ddb5101`; only `poses/tap_key.json` became locally modified during the run, so this does not validate a particular committed or physical pose. No hardware connection occurred.
+
+Because the suite explicitly tests elbow calibration, a separate fake check exercised the default wrist: press/release changed the wrist target as expected, mutating a returned pose did not alter the cache, and successful calibration refreshed the cached tap pose before the departure helper. That check used a temporary pose directory and a simulated key state. Current `core.send` still lacks the idle/missing-result exit documented below, so the candidate remains held.
+
+Additional isolated voice check for `73710c0`: the extracted router main with fake list/locate/send/speak boundaries sends no run command for zero or multiple matches, asks which one for multiple matches, and dispatches for one match. No provider, microphone, camera, speech process, or socket ran.
+
+### Fetch 752882b: target preflight fixed, config range/dwell unchecked
+
+Loaded the exact candidate skill/test source in memory against the integration worktree's mock core. The inspected suite printed `fetch ok`, including its malformed-grid regression. A separate fake check confirms NaN grip is rejected without home or movement, closing the original target-finiteness gap.
+
+Remaining configuration boundary: with a valid synthetic grid and fake arm/wait, GRIP_OPEN=101, GRIP_CLOSED=-1, HOLD_SECONDS=-1, and HOLD_SECONDS=NaN each enter home and return success. These constants are populated from environment settings. The gripper's documented domain is 0..100; a negative/NaN dwell must not silently remove the handover wait. Check finite grip values in range and finite nonnegative hold time before any movement, leaving a no-motion regression. No real wait, API, camera, or arm action occurred. The fetch branch remains unmerged until this is addressed.
+
+### Vision and shared startup 27dc2d9 verified
+
+Ran the embedded pure vision assertions by extracting the main guard's assertions and excluding its live `main()` call. They passed. Independent mocked-provider calls through actual `choose`/`detect` reject boolean IDs, reversed boxes, nonnumeric coordinates and infinity; a valid integer match is preserved. No API/key/camera access occurred.
+
+The actual extracted follower body with stub LeRobot classes also passed: unset, empty, `0`, and `false` prompt before construction/connect; only exact `1` bypasses. EOF and Ctrl+C connect nothing. This closes both the vision-schema and shared startup-bypass findings below. Physical operation remains untested, and the standalone controller remains a separate path.
+
+### Shared startup 2b0312c: default fixed, bypass value too broad (fixed by 27dc2d9)
 
 Extracted the actual shared `follower` body and supplied stub LeRobot classes plus fake input/environment. With the flag unset, the order is prompt, config, constructor, connect; EOF and KeyboardInterrupt stop at prompt with no construction/connection. Caller scan includes root teach/pose/check/record/replay, root pick/draw, and the core wrapper. This closes the original default-order finding.
 
@@ -57,6 +80,12 @@ Merged Jonathan's isolated `0386284`: browser-local recorder/replay, a separate 
 Verification: both new scripts compiled; the CSV parsed as 146 events / 73 presses with timing compensation accepted. The extracted replay function passed five fake page/clock checks: normal completion of the event stream, key release on crash, retry restarting the stream, timeout without a cue, and release when timing out while a key is held. Combined WSL `tests.test_core` printed `core ok` under a 60-second external timeout. Whitespace checks passed. No live browser/recorder, native keyboard, MuJoCo, model API, or hardware run occurred; dependency installation was not repeated. A zero replay exit asks the operator to inspect the end screenshot; it is not an automated Level Complete assertion. Jonathan's reported level clear and simulation error remain attributed to him.
 
 Interview questions: Why does this recording use the soundtrack epoch rather than the desktop restart key? How do crash and timeout paths release a held key? What does a passing fake replay prove, and what still requires the live browser or hardware?
+
+### Waiting-client draft 555ce756: replacement fixed, missing result loops
+
+The job-number change independently rejects an overwritten result even when both completed skills have the same name. Actual dispatcher/client logic with fake transport returned exit 1 for the first failed invocation after a later same-name success.
+
+Residual on `core/send.py` SHA-256 `555ce756fbbd9b2ff8a3d3cced742a44e07e5be628bf320ae5f9cce5ff661d8a`: a fake accepted reply with job=5 followed by `status={"ok":true,"busy":false,"last":{}}` causes continued polling. The bounded fake stopped after the second poll; the real loop has no exit for this state. An idle dispatcher with no expected result, such as after restart, should fail visibly rather than wait indefinitely. Add that case alongside the replacement regression. No real socket/service was involved.
 
 ### Candidate 485ab71: waiting client reports another job's result
 

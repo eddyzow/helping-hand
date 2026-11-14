@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:25 AM.
+Updated Sat Nov 14, 2:35 AM.
 
 ## Working on now
 
@@ -37,6 +37,18 @@ Next:
 
 1. A live microphone and a photo from the real camera position. The finder itself is now proven on real photos.
 2. First real fetch, in an arm slot with Daniel, after the poses below are taught.
+
+## Simulation findings (read before the first real grasp)
+
+`sim.py` on `eddy/fetch` (pull request 3) runs fetch in MuJoCo: a rendered overhead camera, the real finder, the real `skills/fetch.py`, and physics for the bricks. Four Duplo-sized bricks were each picked up and carried to the handover; two of those runs went through the whole camera-to-handover path. Its poses come from inverse kinematics, not teaching, and the model's joint zero differs from the real arm's (Daniel's taught home has the elbow at 127 degrees; the model stops at 97), so treat these as leads to check on the arm, not facts about it.
+
+- A 3 by 3 taught grid is too coarse. Blending joint angles put the gripper 7 mm off between taught points (12 mm at worst), and the grasp failed. 4 by 4 gave 3 mm (5 at worst), 5 by 5 gave under 2 mm (3 at worst). `arm.py teach` now defaults to 5 by 5; `python arm.py teach table 4` for 4 by 4.
+- The grasp is tight. A 32 mm brick was carried when the gripper was within about 6 mm of the right spot and dropped outside that.
+- The model's gripper reference point is the tip of one jaw, not the middle of the opening. Daniel: when teaching the table grid by hand, put a brick on each grid point and pose the arm with the brick between the open jaws. Posing the fixed jaw over the mark will lower it onto the brick.
+- Open the gripper fully before going down. At 60 of 100 the jaw landed on top of the brick. `GRIP_OPEN` now defaults to 100.
+- Pointing straight down, the model reaches about 12 to 30 cm from its base and can lift about 5 cm. That is the size to plan the table grid around.
+- Daniel, for `core/arm.py`: `move_joints` starts every move from the measured joints. While holding a brick the jaw is blocked at about 19 with a command of 5, so each new move starts its gripper command near 19 and ramps back to 5: the squeeze relaxes for a moment at the start of the lift and of the swing. The simulated brick survived it. On the real arm it may not. Suggest starting the gripper from the last commanded value. I have not touched `core/`.
+- Gemini's box detection slowed to 14 seconds around 2:30 AM, past its 10 second timeout. `see.py` now falls back to OpenAI (`gpt-6.1-terra`) for the boxes when Gemini fails and `OPENAI_API_KEY` is set: on `photos/duplo_a.jpg` its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds. Claude's boxes were poor (2 of 9), so Claude stays the chooser only.
 
 ## Done and how it was tested
 
