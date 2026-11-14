@@ -8,7 +8,7 @@ Status: the object finder works on still images. The arm is not wired in yet. Re
 
 ```
 uv venv && uv pip install -r requirements.txt
-echo "GEMINI_API_KEY=your-key" > .env        # key from aistudio.google.com/apikey
+printf "OPENAI_API_KEY=your-key\nANTHROPIC_API_KEY=your-key\n" > .env   # ask Eddy for the keys
 .venv/bin/python see.py "pick up the red brick"          # uses the camera
 .venv/bin/python see.py                                  # speak the request
 .venv/bin/python see.py --image photo.jpg "the mouse"    # test on a photo
@@ -54,7 +54,7 @@ It writes `outputs/sim.mp4` and prints whether the brick was carried to the hand
 ```
 .venv/bin/python draw.py cat                # a doodle from the Quick, Draw! database
 .venv/bin/python draw.py --text "Eddy"      # write a word
-.venv/bin/python draw.py --gen "a rocket"   # Gemini invents the strokes (about 20 seconds)
+.venv/bin/python draw.py --gen "a rocket"   # Claude invents the strokes (about 20 seconds)
 ```
 
 Each run saves a preview to `outputs/draw.png`. Add `--go` to draw it with the arm, after teaching the paper grid.
@@ -74,7 +74,7 @@ Set `FOLLOWER_PORT` and `LEADER_PORT` if they differ from `/dev/ttyACM1` and `/d
 ```
 python -m core.dispatcher --mock          # in WSL; drop --mock for the real follower (motors switch on)
 python keypad\listen.py                  # on Windows: SayoDevice wave / jump (Up arrow) / stop; first run learns the keys
-python voice/route.py "wave at me"        # Gemini picks the skill; no arguments = speak
+python voice/route.py "wave at me"        # Claude picks the skill; no arguments = speak
 ```
 
 A skill is one file in `skills/` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` (see `newcontext.md` section 5). The arm API is `core/arm.py`; `get_arm(mock=True)` needs no hardware. Before the real arm: `python arm.py pose home` (a resting pose), `pose wave_up`, `pose tap_key` (fingertip resting on the key). Check with `python -m tests.test_core`.

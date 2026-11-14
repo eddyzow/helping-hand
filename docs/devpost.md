@@ -22,8 +22,8 @@ the arm must confirm each physical claim.
    this is expected at hackathons this year and no organizer question is needed. Ben has not
    weighed in. A search did not turn up the HackUMass rule text either way, so this is unverified,
    not settled; the Devpost rules tab would answer it in a minute.
-5. Repo public, all four teammates added on Devpost, MLH opt-ins ticked (Best Use of Gemini API
-   fits: Gemini is in the live path).
+5. Repo public, all four teammates added on Devpost. Do NOT tick MLH's Best Use of Gemini API:
+   Gemini was removed from the project at 10:34 AM Saturday and is in no live path.
 
 ## Title and tagline
 
@@ -71,11 +71,11 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - A dispatcher process owns the arm and runs one skill at a time. Every skill is one Python file
   with a name, a description and a `run(arm, params, stop)` function. The keypad, the voice router
   and a typed command line all send the dispatcher the same one-line commands.
-- Finding objects takes two models. Gemini draws a numbered box around every object in the camera
+- Finding objects takes two models. An OpenAI model draws a numbered box around every object in the camera
   frame, because it was accurate about where things are. Claude then picks which numbers match the
   request, because it was better at telling look-alike pieces apart. A spoken request is
-  transcribed by Gemini in its own call before the boxes are found. When Gemini stalls, OpenAI
-  draws the boxes instead.
+  transcribed by an OpenAI speech model in its own call before the boxes are found. We started
+  with Gemini for all of this and removed it when its free tier kept timing out.
 - Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
@@ -83,10 +83,13 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint
-  values, move durations, settings and the replies from the models. A bad value means the arm does not move
-  at all, and each check has a test that runs on a mock arm with no hardware.
+  values, move durations, settings and the replies from the models. For the dispatcher skills a
+  rejected value means no move is sent, and each of those checks has a test that runs on a mock
+  arm with no hardware.
+  [Keep it this narrow. Closed findings do not prove every bad input gives zero motion: the
+  standalone `pick.py`, for one, homes the arm before it refuses.]
   [CONFIRM at the freeze that no review finding about an unchecked value is still open. At
-  10:30 AM Eddy had pushed fixes for the last two (`b49533d`); the reviewer had not yet checked them.]
+  10:40 AM all tracked ones were closed, and the Gemini-free finder (`bdea8c0`) was unreviewed.]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
@@ -128,7 +131,7 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 
 ## Built with
 
-python, lerobot, so-101, feetech-sts3215, gemini-api, claude-api, openai-api, opencv, mujoco, playwright,
+python, lerobot, so-101, feetech-sts3215, claude-api, openai-api, opencv, mujoco, playwright,
 pynput, sounddevice, hershey-fonts, quick-draw-dataset
 [REMOVE any that are not in the final demo path.]
 
@@ -140,7 +143,7 @@ pynput, sounddevice, hershey-fonts, quick-draw-dataset
 - Hershey-Fonts (single-stroke text) and Google's Quick, Draw! dataset (doodles).
 - MuJoCo (simulation) and Playwright (browser Geometry Dash replay).
 - SayoDevice O3C keypad model files in `keypad/geometry_dash/sayodevice_o3c/` (see its LICENSE).
-- Google Gemini API, Anthropic Claude API, and the OpenAI API as a fallback.
+- Anthropic Claude API and OpenAI API.
 - Geometry Dash is RobTop's game; we only press its keys.
 [CHECK this list against `requirements.txt` and the README on Saturday night.]
 
