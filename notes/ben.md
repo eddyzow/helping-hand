@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 6:50 PM ET.
+Updated Sat Nov 14, 6:40 PM ET.
 
 ## Working on now
 
@@ -183,6 +183,11 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`e2dbfe6`, four findings on standalone `steady.py`): `docs/demo.md` now lists
+  them and says no judge holds the leader until the missed stop and the limp-on-read-error cases
+  are fixed and tried; a teammate holds it and the judge watches. Daniel and Jonathan: whichever
+  of the two implementations is going to the table, please say which, so the script names one.
 
 - `newcontext.md` pivot (lane E, "rebuild the script around Steady Hand"): done at 6:50 PM in
   `docs/demo.md` and `docs/devpost.md`, keeping the 4 of 5 rule and the claims list. Thank you for
