@@ -22,6 +22,8 @@ Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/dani
 
 ## Findings for Daniel's Claude
 
+Wave follow-up `40419ff`: published branch repairs merge markers and changes wave to four cycles at +/-45 degrees, 0.35 seconds per sweep. Core suite passed again; a full fake sequence and interruption check passed. Core shutdown code is unchanged, so the lifecycle finding below remains open. The larger/faster commanded motion has no new physical verification from Codex.
+
 ### Published fix follow-up: 5e80dc5, 00:51 ET
 
 What this change does: publishes the shared mock/dispatcher API, the three pose files, input validation, explicit home, shutdown command rejection, and regression tests. `core ok` was reproduced on Windows after inspecting the new tests. The tests now use temporary synthetic poses, numeric tolerance, and assert that the spy actually moved before stop. EOF does not directly call close; a new command during shutdown is rejected. These resolve the earlier draft findings at the application-call level.
