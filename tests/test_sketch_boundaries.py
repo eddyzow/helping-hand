@@ -45,7 +45,7 @@ def test_generated_and_cached():
         assert loop[0] == loop[-1], "near-closed model loop reopened during smoothing"
         assert draw.closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
         for detail, wording in (("detailed", "4 to 30 strokes"), ("simple", "3 to 10 strokes")):
-            with patch.dict(os.environ, {"DRAW_DETAIL": detail}):
+            with patch.object(draw, "DETAIL", detail):
                 assert skill.checked_strokes(draw.from_model("loop"))
                 assert wording in prompts[-1]
         with tempfile.TemporaryDirectory() as temporary, patch.object(draw, "HERE", Path(temporary)):
