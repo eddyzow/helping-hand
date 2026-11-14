@@ -122,6 +122,8 @@ def handle(line: str):
         return {"ok": True, "busy": bool(_worker and _worker.is_alive()), "last": _last}
     if command == "temps":  # motor temperatures; only while idle, because it uses the serial bus
         with _lock:
+            if _closing:  # the bus may already be closing
+                return {"ok": False, "reason": "shutting down"}
             if _worker and _worker.is_alive():
                 return {"ok": False, "reason": "busy"}
             return {"ok": True, "temps": _arm.temperatures()}
