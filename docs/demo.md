@@ -111,6 +111,13 @@ If a block fails twice, move on. The backup video stays open in a browser tab.
 ## Table setup checklist
 
 - Arm clamped to the table, mat taped down, camera fixed. Nothing that was calibrated may move.
+- For the Duplo block, Eddy's setup list (`notes/eddy.md`, "From the simulator to the real arm",
+  1:08 PM): a camera fixed about 50 cm straight above the table, seeing the whole grid, with the arm
+  out of view at home; a taught 4 by 4 or 5 by 5 table grid and a handover pose; the grid's four
+  corners clicked in the camera picture; and 15 settings measured once on the real arm (gripper
+  open and closed, wrist range and direction, grid size, jaw and held-brick offsets, layer gap,
+  camera height, arm base position). If the camera or the arm moves afterwards, redo the corners.
+  As of 1:10 PM none of this had been reported done, and no overhead camera had been mounted.
 - Stop key within reach of a teammate at all times, and one person on the power switch.
 - Cards and a capped marker. Dry food, a bowl with a non-slip base, a lidded cup with a straw.
 - A lamp, a power strip, and a phone hotspot for the model calls.

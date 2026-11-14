@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:01 PM.
+Updated Sat Nov 14, 1:08 PM.
 
 ## Working on now
 
@@ -210,3 +210,31 @@ Eddy: bricks landed a little off and then slid or jumped into place. Measured in
 - The jumping: a gripped brick hangs about 8 mm lower in the jaws than where it was gripped, so the arm was pressing it into the brick below and it sprang out on release. New knob `pick.HELD_DROP_MM` (0 = off) lets go that much higher.
 - Result, two runs of four stacking requests through the camera: bricks landed 1.7 to 5.2 mm from the centre of the piece below, and every stack stood when built. Not better than that yet: the leftover depends on the wrist turn, so `HELD_SHIFT_MM` and `JAW_ARM_MM` are not quite right as fixed numbers.
 - New limit found: a stack three bricks high is as tall as the lifted layer, and carrying a brick past an existing two-brick stack knocked it over in both runs. The arm only lifts about 5 cm.
+
+## From the simulator to the real arm, Sat Nov 14, 1:08 PM
+
+The simulator swaps in three things and nothing else: the camera picture (rendered from above), the taught poses (worked out by inverse kinematics), and the arm (`SimArm`). `see.py`, `pick.py`, `skills/fetch.py` and `voice/route.py` are the same code on the real arm. So the real setup needs the same three things, real:
+
+1. A camera fixed above the table, looking straight down, seeing the whole taught grid, with the arm out of its view at `home`. About 50 cm up. It must not move after step 3. It plugs into the machine that runs `voice/route.py` (Windows on the arm laptop; WSL has no camera).
+2. A taught grid: `python arm.py teach table 4` (or 5), jaw tips 3 to 6 mm off the table, jaws closing left-right the same way round at every point, plus `python arm.py pose handover`.
+3. `python pick.py --corners`: click the grid's four corners in the camera picture.
+
+Then these numbers, each measured once on the real arm (all are environment variables; unset means the feature is off or at its default):
+
+| Setting | What to measure |
+|---|---|
+| `GRIP_OPEN`, `GRIP_CLOSED` | gripper reading fully open, and squeezing a 2x2 brick |
+| `ROLL_SIGN` | turn the wrist for a turned brick; if it turns the wrong way, flip to 1 |
+| `ROLL_MIN`, `ROLL_MAX` | the wrist roll joint's range in degrees |
+| `GRID_WIDTH_MM`, `GRID_DEPTH_MM` | the taught grid's size with a ruler |
+| `GRID_ASPECT` | width divided by depth |
+| `JAW_ARM_MM` | turn the wrist a quarter turn; how far the point between the jaws moves, divided by 1.4 |
+| `HELD_SHIFT_MM` | grip a brick, set it down with no turn, how far it lands from the aim (across,along) |
+| `HELD_DROP_MM` | how much lower a gripped brick hangs than where it was gripped |
+| `LAYER_GAP_MM` | height difference between the taught lifted layer and table layer |
+| `CAMERA_HEIGHT_MM` | camera lens to table |
+| `ROBOT_UV` | where the arm's base is in grid units, e.g. `0.5,1.6` |
+
+What will not carry over: real Duplo studs have to be pressed together and lined up to a millimetre or two, and the simulator has no studs; the real arm repeats to a few millimetres at best; shadows and glare on the grey table can break the outline step (it falls back to the detector's box). Expect pick-up and handover first, putting beside second, resting one brick on another third, pressed-on stacks and the car body last or not at all.
+
+Can be done before the arm is free: mount the camera, photograph the real table from it, run `python see.py --image that.jpg "..."` and `python pick.py --image` on it, and try a spoken request on the Windows side.
