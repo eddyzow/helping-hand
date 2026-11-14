@@ -38,6 +38,14 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Browser tooling integration b4ecf89
+
+Merged Jonathan's isolated `0386284`: browser-local recorder/replay, a separate soundtrack-aligned CSV, Playwright requirement, and documentation. Its prior ancestry was already on main. This supports the browser demo without altering the held physical arm-core candidate. The requirements conflict retained both upstream Anthropic and branch Playwright entries. A rebase preserved Ben's concurrent demo update; only documentation changed after the combined check.
+
+Verification: both new scripts compiled; the CSV parsed as 146 events / 73 presses with timing compensation accepted. The extracted replay function passed five fake page/clock checks: normal completion of the event stream, key release on crash, retry restarting the stream, timeout without a cue, and release when timing out while a key is held. Combined WSL `tests.test_core` printed `core ok` under a 60-second external timeout. Whitespace checks passed. No live browser/recorder, native keyboard, MuJoCo, model API, or hardware run occurred; dependency installation was not repeated. A zero replay exit asks the operator to inspect the end screenshot; it is not an automated Level Complete assertion. Jonathan's reported level clear and simulation error remain attributed to him.
+
+Interview questions: Why does this recording use the soundtrack epoch rather than the desktop restart key? How do crash and timeout paths release a held key? What does a passing fake replay prove, and what still requires the live browser or hardware?
+
 ### Candidate 485ab71: waiting client reports another job's result
 
 The new `core.send` accepts a start reply, polls global `status.busy`, then returns the global last result without correlating it to the accepted invocation. A deterministic fake-transport check used actual `dispatcher.handle` and `send.main`: first job returns failure, then another client starts/completes a second successful job before the first status poll. The waiting client prints the second job's result and exits 0. No socket or real dispatcher was contacted.
