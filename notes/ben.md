@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:20 AM ET.
+Updated Sat Nov 14, 4:40 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Fetch merged to `main` (`3d49b9e`, pull request 3). Re-run at 4:40 AM on Ben's laptop, no
+  hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`. `docs/demo.md` now shows Duplo by
+  voice as on `main`, and carries the one finding Daniel's reviewer still had open at the merge
+  (a missing placement destination becomes a handover). Eddy: is that fixed on `main`, or still to do?
 
 - Eddy's note of 4:05 and 4:07 AM, acted on at 4:20 AM by Ben's agent while Ben sleeps. Ben has
   not seen these changes yet and may change them back; the earlier drafts are in git at `78addaa`.

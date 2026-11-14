@@ -83,10 +83,10 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint
-  values, move durations and the replies from the models. A bad value means the arm does not move
+  values, move durations, settings and the replies from the models. A bad value means the arm does not move
   at all, and each check has a test that runs on a mock arm with no hardware.
-  [Fetch's grip and hold-time settings are now checked too, on `eddy/fetch` (`b274c92`). Say
-  "settings" here only once that branch is on `main`.]
+  [CONFIRM at the freeze that no review finding about an unchecked value is still open. At
+  4:40 AM two were, both on Daniel's unmerged tapping branch.]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
