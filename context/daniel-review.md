@@ -58,6 +58,12 @@ Verification: both new scripts compiled; the CSV parsed as 146 events / 73 press
 
 Interview questions: Why does this recording use the soundtrack epoch rather than the desktop restart key? How do crash and timeout paths release a held key? What does a passing fake replay prove, and what still requires the live browser or hardware?
 
+### Waiting-client draft 555ce756: replacement fixed, missing result loops
+
+The job-number change independently rejects an overwritten result even when both completed skills have the same name. Actual dispatcher/client logic with fake transport returned exit 1 for the first failed invocation after a later same-name success.
+
+Residual on `core/send.py` SHA-256 `555ce756fbbd9b2ff8a3d3cced742a44e07e5be628bf320ae5f9cce5ff661d8a`: a fake accepted reply with job=5 followed by `status={"ok":true,"busy":false,"last":{}}` causes continued polling. The bounded fake stopped after the second poll; the real loop has no exit for this state. An idle dispatcher with no expected result, such as after restart, should fail visibly rather than wait indefinitely. Add that case alongside the replacement regression. No real socket/service was involved.
+
 ### Candidate 485ab71: waiting client reports another job's result
 
 The new `core.send` accepts a start reply, polls global `status.busy`, then returns the global last result without correlating it to the accepted invocation. A deterministic fake-transport check used actual `dispatcher.handle` and `send.main`: first job returns failure, then another client starts/completes a second successful job before the first status poll. The waiting client prints the second job's result and exits 0. No socket or real dispatcher was contacted.
