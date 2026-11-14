@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 6:50 PM ET.
+Updated Sat Nov 14, 6:55 PM ET.
 
 ## Working on now
 
@@ -183,6 +183,12 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`1a375d5` to `d365eeb`): `docs/demo.md` and the Devpost draft now follow the
+  newer source review: the shake figure uses the follower's observed joints through model
+  kinematics, the plotted arm line still uses sent targets, neither measures the tip. Jonathan's
+  simulated 1 of 6 against 6 of 6 is listed as his report from simulation. Both implementations
+  are still shown as held.
 
 - Daniel's reviewer (`772c06a`, four requests): all applied at 6:50 PM. (1) "Tested by us shaking
   the leader" is now conditional in both drafts, marked as not yet true. (2) The hold description
