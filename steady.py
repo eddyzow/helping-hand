@@ -37,7 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.tremor import CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, HoldStillTest, LowPass, Session, band_rms_and_peak
+from core.tremor import CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, HoldStillTest, LowPass, Session, band_rms_and_peak, insights
 
 HERE = Path(__file__).parent
 OFFSETS = HERE / "poses" / "teleop_offset.json"
@@ -113,6 +113,13 @@ def command(line: str) -> dict:
             shared["test"] = hold_test.view(time.perf_counter())
         elif word == "quit":
             state["quit"] = True
+        elif word == "voice":   # RobTop's voice script reports what it heard and said, for the dashboard
+            try:
+                said = json.loads(rest)
+                shared["voice"] = {"heard": str(said.get("heard", ""))[:200], "said": str(said.get("said", ""))[:200],
+                                   "at": shared["t"]}
+            except (ValueError, AttributeError):
+                return {"ok": False, "reason": 'voice needs JSON: {"heard": "...", "said": "..."}'}
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
@@ -303,8 +310,9 @@ def main() -> None:
                                                                round(float(out_tip[2]), 1)]])[-300:]
                     # one point a second for the slower graphs: [seconds, hand shake mm, arm shake mm, grip effort %]
                     if tick_n % 50 == 0:
-                        shared["trend"] = (shared.get("trend", []) + [[round(now - began, 1), round(tremor_mm, 2),
-                                                                      round(out_mm, 2), effort.get("gripper", 0.0)]])[-600:]
+                        shared["trend"] = (shared.get("trend", []) + [[round(now - began, 1), round(tremor_mm, 2), round(out_mm, 2),
+                                                                      effort.get("gripper", 0.0), round(tremor_hz, 1)]])[-600:]
+                        shared["insights"] = insights(shared["trend"], hold_test.view(now))
                     done = hold_test.feed(now, tremor_mm)
                     shared["test"] = hold_test.view(now)
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
