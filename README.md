@@ -2,7 +2,19 @@
 
 A voice-controlled SO-101 robot arm for people with limited hand use. It fetches objects you name, feeds you from a bowl, and counts the coins on the table. Built at HackUMass XIV, November 13 to 15, 2026.
 
-Status: planning. Nothing runs yet. Read [PLAN.md](PLAN.md) for scope, schedule, lanes and the track choice.
+Status: the object finder works on still images. The arm is not wired in yet. Read [PLAN.md](PLAN.md) for scope, schedule, lanes and the track choice.
+
+## Try the object finder
+
+```
+uv venv && uv pip install -r requirements.txt
+echo "GEMINI_API_KEY=your-key" > .env        # key from aistudio.google.com/apikey
+.venv/bin/python see.py "pick up the red brick"          # uses the camera
+.venv/bin/python see.py                                  # speak the request
+.venv/bin/python see.py --image photo.jpg "the mouse"    # test on a photo
+```
+
+It prints the pixel to grasp and saves the marked-up frame to `outputs/last.jpg`. Set `CAMERA=1` to use a different camera. On a Mac, the terminal needs camera and microphone permission in System Settings.
 
 ## Working in this repo
 
