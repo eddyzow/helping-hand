@@ -2,6 +2,31 @@
 
 HackUMass XIV, Nov 13 to 15 2026. Written Fri Nov 13, about 10 PM ET, 90 minutes after hacking began.
 
+## Status (Fri night, read this first)
+
+We are building fetch first. Target commands: "pick up the mouse", "pick up the lanyard", "pick up the red brick", "pick up the triangular brick". The bricks are Duplo, which are bigger than Lego and easier to grip.
+
+Done:
+
+- `see.py` takes a typed or spoken request plus a camera frame and returns the pixel to grasp. Run commands are in the README.
+- Tested on a synthetic image with shapes at known positions: within about 5 pixels on a 1280 by 720 frame, 1.1 to 1.7 seconds per request, and it answers "Not found" for objects that are not there. A synthesized voice clip also worked.
+
+Not tested yet: real photos, the live camera, the live microphone, anything with the arm.
+
+Next, in order:
+
+1. Calibrate the leader and follower under LeRobot and get teleoperation working. Everything else waits on this.
+2. Mount the overhead camera and photograph the real table with the mouse, lanyard and Duplo. Run `see.py --image` on those photos with all four commands.
+3. Teach the 3 by 3 grid of hover poses and write the code that turns a pixel into an arm move (see "How it works").
+4. Record one grasp motion per object type and chain it: request, pixel, move, grasp, hand over.
+
+Decisions made tonight:
+
+- No YOLO training for now. The Gemini finder already handles colour and shape phrases and new objects with no training. YOLO would cost 2 to 4 hours of labelling and training, and each colour or shape would need its own class. Revisit Saturday afternoon only if fetch already passes and either the Wi-Fi is flaky or we want live boxes on a screen.
+- Hardcode the motion. The arm replays taught poses and recorded grasps. Finding the object already works; the grasp is the unproven part, so the hours go there.
+- Fallback if the pixel-to-arm mapping is not reliable by Saturday 3 PM: each object gets a marked home spot and one recorded motion. It needs no vision but breaks if a judge moves an object.
+- We have one working arm. The follower has the claw. The leader has the trigger handle and no claw, and control only runs from leader to follower. Use the leader to teach motions. You can also switch off the follower's motors and pose it by hand while reading its joint angles.
+
 ## What we are building
 
 An SO-101 arm on a table that a person with limited hand use can talk to. It has one overhead camera and one loop: hear a request, find the thing on the table, run a taught motion. Three skills use that loop:
@@ -36,7 +61,9 @@ Each project is in the Best Overall pool automatically and picks one HackUMass c
 | Best Mechanical Hack | Weak unless we build a custom gripper or spoon mount worth showing. | |
 | Most Impactful AI Hack | Weak. Crowded, and the AI here is a means. | |
 
-Recommendation: Best Accessibility Hack. Our edge is a moving robot in a category that is mostly apps, and the story carries all three skills. Decide for good by Saturday 8 PM, before the initial submission.
+Prizes, one winner each: Mechanical is a mechanical keyboard, MedTech a Fitbit, Accessibility Life 360 Tiles, Hardware an Arduino Uno. Devpost does not say whether each teammate gets one. The grand prizes (monitor, Beats, FPV drone) are bigger and every project is in that pool.
+
+Recommendation: Best Accessibility Hack, with MedTech as the alternative if feeding works well enough to lead the pitch. Our edge is a moving robot in a category that is mostly apps, and the story carries all three skills. Decide for good by Saturday 8 PM, before the initial submission.
 
 MLH opt-ins: tick Best Use of Gemini API only if Gemini is really the vision model in the demo. The DEV Writing Challenge is a blog post after the event, so it costs nothing this weekend. Skip Solana, Tiger Data, Vultr, MongoDB, GoDaddy and SpaceXSI: none of them belongs in this project. Do not build anything for a sponsor prize.
 
@@ -72,11 +99,11 @@ speaker <- spoken reply
 
 Calls made here, change them if a teammate knows better:
 
-- Python, with LeRobot for the motor bus, calibration, teleoperation, and recording and replaying trajectories. Use whichever of our two arms is the leader to teach motions.
+- Python, with LeRobot for the motor bus, calibration, teleoperation, and recording and replaying trajectories. Use the leader arm to teach motions.
 - Pixel to arm position without inverse kinematics. Tape a 3 by 3 grid on the table, teach the arm a "hover over this cell" pose for each of the 9 cells with the leader arm, and interpolate joint angles between them. This absorbs servo slop and camera angle in one step. Move to real IK only if interpolation misses by more than the gripper width.
 - Camera fixed overhead on a rigid mount (makerspace: clamp or printed bracket). Four ArUco tags at the grid corners so the mapping survives a bumped camera.
-- Vision model returns a point for the named object. Gemini has a pointing mode and an MLH prize. Any model that returns coordinates works.
-- Speech in with push to talk (a key or a big button on the ESP32). Open mics fail in a loud atrium. Speech out with the laptop's built-in voice.
+- Vision model returns a point for the named object. We use `gemini-3.5-flash-lite` (set `GEMINI_MODEL` to change it). Our key has no access to Google's robotics models, `gemini-3.8-flash` timed out, and `gemini-3.5-flash` was just as accurate but took 7 to 11 seconds.
+- Speech in with push to talk (a key or a big button on the ESP32). Open mics fail in a loud atrium. The recorded audio goes to Gemini in the same call as the image, so there is no separate speech-to-text step. Speech out with the laptop's built-in voice.
 - Feeding: one recorded scoop. The spoon stops at a fixed point about 10 cm from where the person's mouth is, found with face tracking, and the person leans in. The arm never moves toward a face. Cap speed and torque. A physical stop button cuts servo power.
 - Coins: detect circles, convert diameter to millimeters using the tags, classify (dime 17.9, penny 19.05, nickel 21.2, quarter 24.3), use color to confirm pennies. Fall back to asking the vision model.
 - Everything runs on one laptop over USB. No venue Wi-Fi in the control loop except the vision call, and that needs a phone hotspot as backup.
@@ -87,7 +114,7 @@ The clock hook in this repo prints the current phase into every Claude session.
 
 | When | Goal | Gate |
 |---|---|---|
-| Fri 10 PM to Sat 2 AM | Both arms calibrated, teleoperation working, camera mounted, one pick recorded and replayed | The arm replays a taught pick 5 times out of 5. If the arms are not moving by 2 AM, that is the only problem anyone works on. |
+| Fri 10 PM to Sat 2 AM | Leader and follower calibrated, teleoperation working, camera mounted, one pick recorded and replayed | The arm replays a taught pick 5 times out of 5. If the arms are not moving by 2 AM, that is the only problem anyone works on. |
 | Sat 2 AM to 9 AM | Sleep. One person may stay to print the camera mount and spoon holder. | |
 | Sat 9 AM to 3 PM | Fetch works end to end by voice. In parallel, one person records the feeding scoop. | "Hand me the X" works 4 out of 5 times across 3 objects placed anywhere on the grid. |
 | Sat 3 PM to 8 PM | Feeding with face tracking and the stop button. Coin counting on camera. | Feeding works 4 out of 5. If fetch is still below 4 out of 5 at 3 PM, drop coins and fix fetch. |
@@ -105,9 +132,9 @@ Four lanes. Put names here tonight.
 
 | Lane | Owner | First job tonight |
 |---|---|---|
-| Arm: calibration, teaching poses, replay, safety stop | | Calibrate both arms and get teleoperation running |
-| Vision: camera mount, tags, grid mapping, object pointing, coins | | Mount the camera and get tag detection on a live feed |
-| Voice and glue: speech in and out, intent, the main loop | | Push to talk into text, then a spoken reply |
+| Arm: calibration, teaching poses, replay, safety stop | | Calibrate the leader and follower and get teleoperation running |
+| Vision: camera mount, tags, grid mapping, object pointing, coins | | Mount the camera, photograph the real objects, run `see.py` on the photos |
+| Voice and glue: speech in and out, intent, the main loop | | Test `see.py` with a live microphone, then add a spoken reply |
 | Hardware and demo: spoon holder, gripper pads, stop button, table layout, Devpost, pitch | | Find out what the makerspaces can print or cut tonight and their hours |
 
 ## The demo (90 seconds at the table)
@@ -118,11 +145,10 @@ Four lanes. Put names here tonight.
 4. A teammate says "feed me". The arm scoops and holds the spoon out.
 5. If something fails, say what failed, reset in 10 seconds, run it again. Have the backup video open in a tab.
 
-Bring: dry scoopable food (cereal or M&Ms), a bowl with a non-slip base, a lamp, a dark mat for contrast, spare servos, tape, a power strip, the second arm as a spare.
+Bring: dry scoopable food (cereal or M&Ms), a bowl with a non-slip base, a lamp, a dark mat for contrast, spare servos, tape, a power strip, a phone hotspot for the vision calls.
 
 ## Open questions for the team
 
-- Are our two arms a leader and a follower, or two followers? This decides how we teach motions.
 - Which laptop runs the demo, and does it have a GPU? This decides local speech to text or a cloud call.
 - Which camera, and can a makerspace print a mount tonight?
 - Does anyone on the team count as a beginner? Not for the track, only for pairing.
