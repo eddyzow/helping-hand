@@ -67,6 +67,19 @@ def test_standalone_placement():
         assert calls[-1] == "disconnect", calls
 
 
+def test_contradictory_place():
+    scope = {"math": __import__("math")}
+    functions("see.py", {"_number", "to_matches", "to_choice"}, scope)
+    failures = []
+    for value in ("0.4", float("nan"), float("inf"), True):
+        reply = {"matches": [1], "put_down": False,
+                 "place": {"u": value, "v": .6, "on_top": True}}
+        picked, placing, place = scope["to_choice"](reply, 1)
+        if picked and not placing:
+            failures.append((value, picked, placing, place))
+    assert not failures, ("malformed non-null place became handover", failures)
+
+
 def test_taught_draw():
     calls = []
     robot = SimpleNamespace(disconnect=lambda: calls.append("disconnect"))
@@ -93,6 +106,7 @@ def test_taught_draw():
 
 if __name__ == "__main__":
     test_chooser_flag()
+    test_contradictory_place()
     test_standalone_placement()
     test_taught_draw()
     print("perception boundaries ok")
