@@ -54,7 +54,14 @@ and boxes at v above 1 are usually parts of the robot itself: never pick those o
 The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showing its hollow
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
 three round holes in a row. One box may hold two touching pieces, or one piece stacked on another.
-A Duplo brick is 19 mm tall and a flat plate is 10 mm; pieces stacked on each other add up.
+Heights, measured, in mm. Use these, whatever the person calls the piece:
+- white 2x4: 10. It is a flat plate, half the height of a brick, even if they say "white brick".
+- every 2x2 square brick (red, blue, purple): 19.
+- green 2x4 with the curved underside: 19.
+- red "triangle" 2x4: 19 at its flat ends; its sloped top cannot hold another piece.
+- black car chassis: 18. Blue car body: 30.
+Pieces stacked on each other add up: a brick on the white plate is 29 at its top.
+Look at the image for stacks: if the piece it goes onto is itself sitting on another piece, count both.
 The person said: "{command}"
 
 "matches": the numbered objects they asked to pick up. Use the positions to settle words such as left,

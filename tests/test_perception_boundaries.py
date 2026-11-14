@@ -40,7 +40,9 @@ def test_chooser_flag():
         assert hits == [] and not placing and place is None, (answer, hits, placing, place)
     bad_place = {"u": "0.4", "v": .6, "height_mm": 19, "onto": None}
     for flag, given, placing_expected, place_expected in (
-            (False, None, False, None), (True, None, True, None), (True, bad_place, True, None), (True, spot, True, spot)):
+            (False, None, False, None), (True, None, True, None), (True, bad_place, True, None), (True, spot, True, spot),
+            (True, {**spot, "onto": 2}, True, {**spot, "onto": 2, "box": boxes[1]}),
+            (True, {**spot, "onto": True}, True, None), (True, {**spot, "onto": 3}, True, None)):
         scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "pick_height_mm": 0, "put_down": flag, "place": given})
         with contextlib.redirect_stderr(io.StringIO()):
             hits, _, _, placing, place, _ = scope["find_all"](frame, "request")
