@@ -30,12 +30,14 @@ def check_repair(down, initial):
     assert len(calls) <= 2, calls
     final = arm.press_extra if down else arm.lift
     assert final >= initial, ("press" if down else "lift", initial, final)
+    limit = 3. if down else 9.
+    assert final == initial if initial >= limit else final <= limit, (initial, final, limit)
     return final
 
 
 if __name__ == "__main__":
     failures = []
-    for down, initial in ((True, 0.), (False, 3.), (True, 5.), (False, 12.)):
+    for down, initial in ((True, 0.), (False, 3.), (True, 3.), (False, 9.), (True, 5.), (False, 12.)):
         try:
             print("repair", down, initial, "->", check_repair(down, initial))
         except AssertionError as error:
