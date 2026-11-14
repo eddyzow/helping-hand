@@ -2,7 +2,7 @@
 
 Read this before writing any code or prompting any agent. It replaces the earlier Lego-only plan.
 
-> Updated Sat Nov 14, 12:50 AM by Daniel: names assigned, and each role now says what already exists so nobody rebuilds it. If you want a different role, say so in your `notes/<name>.md` and swap; do not just start on someone else's folder.
+> Updated Sat Nov 14, 12:50 AM by Daniel: names assigned (Ben and Jonathan swapped at 1:00 AM: Jonathan had already built Geometry Dash), and each role now says what already exists so nobody rebuilds it. If you want a different role, say so in your `notes/<name>.md` and swap; do not just start on someone else's folder.
 
 ## Who does what
 
@@ -10,8 +10,8 @@ Read this before writing any code or prompting any agent. It replaces the earlie
 |---|---|---|---|
 | P1 | **Eddy** | Voice, object finding, fetch by camera | Run `see.py` and the `pick.py` dry run on real photos from the overhead camera, then a live microphone |
 | P2 | **Daniel** | Arm core, dispatcher, the real arm, fetch from a taped spot, feed | Wave and single tap on the real arm from the keypad, then publish `daniel/arm-core` |
-| P3 | **Ben** | Keypad and games: Geometry Dash, tap timing, reaction duel | Write `skills/geometry_dash.py` against `MockArm`; measure tap delay in a booked arm slot |
-| P4 | **Jonathan** | Drawing, personality moves, status screen, demo, pitch, Devpost | Demo script and pitch outline tonight; pen holder; personality moves against `MockArm` |
+| P3 | **Jonathan** | Keypad and games: Geometry Dash (his version already works), tap timing, reaction duel | Push the Geometry Dash code, then fit it to `arm.tap()` and the skill interface |
+| P4 | **Ben** | Drawing, personality moves, status screen, demo, pitch, Devpost | Demo script and pitch outline tonight; pen holder; personality moves against `MockArm` |
 
 Facts filled in: final submission Sun 9:00 AM (work to 8:00), table judging Sun 12:30 to 3:00 PM, feature freeze Sat 8:50 PM. The SayoDevice is a 3-key pad (USB id `8089:0009`): its keys send X (wave), C (jump, the key the arm taps) and Z (stop). No external camera is connected yet; the only camera on the arm laptop is its built-in webcam, and WSL sees no camera at all.
 
@@ -121,16 +121,17 @@ One folder per person. Stay in your folder unless you have agreed otherwise.
 
 **Done when:** fetch and feed each succeed 4 times out of 5, and the other three people are using the arm API without asking questions.
 
-### Person 3: Keypad and games (Ben)
+### Person 3: Keypad and games (Jonathan)
 
 **Owns:** `skills/geometry_dash.py`, `skills/duel.py`, `skills/rhythm.py`, `skills/replay.py`, and `keypad/` apart from `listen.py`.
 
-**Changed from the first draft:** phase 1 item 1 is done. `keypad/listen.py` already maps the three SayoDevice keys (wave, jump, stop), and `skills/gd_tap.py` does one tap. Ben starts at item 2.
+**Changed from the first draft:** phase 1 item 1 is done. `keypad/listen.py` already maps the three SayoDevice keys (wave, jump, stop), and `skills/gd_tap.py` does one tap. Jonathan has already built the Geometry Dash part; it is not in the repo yet.
 
-**Next for Ben**
-1. `skills/geometry_dash.py`: a list of tap times for the start of one easy level, played with `arm.tap()`, written and tested against `MockArm`.
-2. Tap delay: in an arm slot with Daniel, command 20 taps on the jump key, time each key event, save the mean delay and the jitter. Shift the tap times by the mean.
-3. Reaction duel, which needs no arm to write: flash, time two keys, show milliseconds.
+**Next for Jonathan**
+1. Push the Geometry Dash code and write `notes/jonathan.md` saying what it does and how it was tested, so the rest of the team can see it.
+2. Fit it to the shared pieces: a `skills/geometry_dash.py` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` that presses the key with `arm.tap()`, so it runs from the dispatcher and the stop key works. Test it against `MockArm`.
+3. Tap delay: in an arm slot with Daniel, command 20 taps on the jump key, time each key event, save the mean delay and the jitter. Shift the tap times by the mean.
+4. Reaction duel, which needs no arm to write: flash, time two keys, show milliseconds.
 
 **Phase 1**
 1. Read the SayoDevice keys. Map each key to a skill through the dispatcher. One key is always emergency stop.
@@ -148,13 +149,13 @@ One folder per person. Stay in your folder unless you have agreed otherwise.
 
 **Done when:** every skill can be started and stopped from the keypad, and the arm clears the hard-coded Geometry Dash section most attempts.
 
-### Person 4: Drawing, personality and demo (Jonathan)
+### Person 4: Drawing, personality and demo (Ben)
 
 **Owns:** `skills/draw.py`, `skills/personality.py`, `skills/tictactoe.py`, `ui/`, `docs/`.
 
-**Changed from the first draft:** Eddy's root `draw.py` already turns a word or a doodle into pen strokes with a preview, and `skills/wave.py` exists. Jonathan wraps and extends these and does not rewrite them.
+**Changed from the first draft:** Eddy's root `draw.py` already turns a word or a doodle into pen strokes with a preview, and `skills/wave.py` exists. Ben wraps and extends these and does not rewrite them.
 
-**Next for Jonathan**
+**Next for Ben**
 1. Demo script and pitch outline in `docs/`, and settle the track with the team (`PLAN.md` recommends Best Accessibility Hack; this plan dropped that framing).
 2. A pen holder that gives a little (spring, foam or rubber band), since the arm cannot feel pressure.
 3. `skills/personality.py`: nod, dance, fist bump, celebrate and droop as short joint sequences, tested against `MockArm`, then tried in an arm slot.
