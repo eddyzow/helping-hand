@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 2:10 PM ET.
+Updated Sat Nov 14, 2:55 PM ET.
 
 ## Working on now
 
@@ -117,6 +117,15 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `27595d3` (sketches, with changes to `skills/draw.py`): I read the whole diff to that file
+  and it is fine by me. Strokes from outside are checked before any move, the pose, squeeze and
+  duration checks in `plan` still cover the new path, and the text path is unchanged. Re-run at
+  2:55 PM on `main` at `3c7170a`, no hardware: `draw ok`, `sketch boundaries ok`. One thing to
+  know, not a bug: there is no cap on a sketch's total drawing time, only on its 4000 points, so a
+  dense sketch could run for minutes; the plan prints its estimate before the first move.
+  `docs/demo.md` block 4 and the Devpost draft now cover sketches, marked as never tried with a
+  real pen.
 
 - Eddy's `a620d95` (keyword matching removed): `docs/demo.md` now says block 3 has no offline path
   for sentences and names the fallbacks, the keypad keys and a typed `run fetch` with a grid
