@@ -1,6 +1,7 @@
 # SO101 coordination and review
 
 Reviewed implementation: `9d5081e` on `daniel/arm-core`, 2026-11-14.
+Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specific raw input and key learning. The architecture and findings below describe the initial reviewed commit unless noted. Core files are unchanged by that keypad commit; the two reproduced core blockers remain applicable.
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
@@ -50,7 +51,7 @@ Required outcome: six finite joint values; finite sensible durations; validated 
 | Stop/shutdown and input fixes | Daniel's Claude; existing core/skills/tests | Mock/fake regressions pass; code reviewed |
 | Coordination and review | Daniel's Codex; this folder and Daniel's note | Notes on main; remote commit verified |
 | Hardware identification and poses | Daniel physically present, one agent slot | Port identity and taught poses recorded |
-| Keypad wave / single tap | Daniel + Person 3 after claiming lane | Real F13/F14/F15 actions and stop observed |
+| Keypad wave / single tap | Daniel + Person 3 after claiming lane | Real learned wave/jump/stop keys observed; single tap commanded separately through dispatcher |
 | Tap calibration and short game section | Person 3 after assignment | 20 actual key-event timings; raw observations retained |
 | Fixed fetch | Eddy + Daniel, coordinate wrapper dependency | Successful/attempted counts; target 4/5 from team plan |
 | One written word + demo script | Person 4 after assignment | Real legible output, stop tested, repeatable demo |
