@@ -11,7 +11,7 @@ import core.arm as arms
 from skills import tap_calibrate
 
 
-def calibrated(press):
+def calibrated(press, max_travel=1):
     key, clock, writes = threading.Event(), [0.0], []
     joint = arms.TAP_JOINT
 
@@ -40,21 +40,28 @@ def calibrated(press):
             patch.object(arms, "POSES", Path(temporary)), patch.object(core, "key_down", key), \
             patch.object(tap_calibrate, "time", SimpleNamespace(perf_counter=lambda: clock[0])):
         arm = Arm()
-        result = tap_calibrate.run(arm, {"max_travel": 1}, arm.halt)
+        result = tap_calibrate.run(arm, {"max_travel": max_travel}, arm.halt)
         if not result["ok"]:
             assert not list(Path(temporary).iterdir()), "rejected calibration changed saved files"
             assert (arm.lift, arm.press_extra) == (3.0, press), "rejected calibration changed live tune"
             return None, False, result
         tune = json.loads((Path(temporary) / "tap_tune.json").read_text())
         assert tune["press"] == arm.press_extra, tune
-        assert max(writes) <= 41.0 + 1e-9, writes
+        assert max(writes) <= 40.0 + max_travel + 1e-9, writes
         arm.press()
+        assert sum(abs(target - writes[-1]) < 1e-9 for target in writes[:-1]) >= 3, \
+            "the final effective press was not tested three times before saving"
         return writes[-1], key.is_set(), result
 
 
 def test_zero_control():
     target, registered, result = calibrated(0.0)
     assert result["ok"] and target <= 41.0 + 1e-9 and registered, (target, registered, result)
+
+
+def test_retained_depth_with_room():
+    target, registered, result = calibrated(.2, max_travel=2)
+    assert result["ok"] and registered and abs(target - 41.25) < 1e-8, (target, registered, result)
 
 
 def test_retained_press_travel():
@@ -69,7 +76,7 @@ def test_retained_press_registers():
 
 if __name__ == "__main__":
     failed = 0
-    for check in (test_zero_control, test_retained_press_travel, test_retained_press_registers):
+    for check in (test_zero_control, test_retained_depth_with_room, test_retained_press_travel, test_retained_press_registers):
         try:
             check()
             print(check.__name__, "ok")
