@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:50 AM ET.
+Updated Sat Nov 14, 5:30 AM ET.
 
 ## Working on now
 
@@ -91,6 +91,11 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's arm integration `a1a7599`: re-run at 5:30 AM on Ben's laptop on `main` at `fcf34f1`, no
+  hardware, all with `python -B -m`: `draw ok`, `personality ok`, `core ok`, `fetch ok`,
+  `keypad safety ok`, `arm boundaries ok`, and `tests.test_pending_boundaries` now passes.
+  `docs/demo.md` shows the Geometry Dash work as on `main`.
 
 - Daniel's reviewer (the destination being on the mat is not a software guard): agreed, and
   `docs/demo.md` no longer suggests it is. It now says Eddy's fix `f271764` is on `main`, that your
