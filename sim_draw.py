@@ -3,7 +3,7 @@
     python sim_draw.py cat              # no window: saves outputs/sim_drawing.png and outputs/sim_draw.mp4
     python sim_draw.py --text HI        # write a word
     python sim_draw.py --write Dr. Lee  # a name, as the write skill does it; --script for handwriting
-    mjpython sim_draw.py --view         # live window; type what to draw, one after another
+    mjpython sim_draw.py --view         # live window; type "draw a cat" or "write Dr. Lee", one after another
 
 It runs the real skills/draw.py. Like sim.py it stands in for the taught paper grid (worked out by
 inverse kinematics) and the arm. The pencil is a body in the physics, in a spring-loaded holder on the
@@ -191,11 +191,31 @@ def sketch(arm, strokes) -> dict:
 
 
 def strokes_for(words: list[str]):
+    """What was typed -> pen strokes. Understands the same things the real arm does: a dispatcher line
+    (run write {"text": "Dr. Lee"}), a plain request ("write Dr. Lee", "draw a cat"), or a flag."""
+    line = " ".join(words)
     if words[:1] == ["--text"]:
         return draw.from_text(" ".join(words[1:]))
     if words[:1] in (["--write"], ["--script"]):  # a name, as skills/write.py lays it out
         return draw.from_writing(" ".join(words[1:]), "script" if words[0] == "--script" else "print")
-    return draw.sketch(" ".join(words))
+    if words[:1] == ["run"] and len(words) > 1:   # typed the way the dispatcher takes it
+        skill, params = words[1], json.loads(line.split(None, 2)[2]) if len(words) > 2 else {}
+    else:  # a plain sentence: the voice router decides whether it is a drawing or writing, as on the real arm
+        import see
+        import voice.route as route
+
+        see.load_env()
+        skills = [{"name": m.NAME, "description": m.DESCRIPTION, "params": m.PARAMS}
+                  for m in (importlib.import_module("skills.draw"), importlib.import_module("skills.write"))]
+        choice = route.by_model(line, skills)
+        skill, params = choice.get("skill"), choice.get("params") or {}
+    if skill == "write" or (skill == "draw" and isinstance(params.get("text"), str) and "what" not in params):
+        style = params.get("style", "print")
+        print(f"Writing {params.get('text')!r}" + (" in script" if style == "script" else ""))
+        return draw.from_writing(str(params.get("text", "")), style if style in draw.FONTS else "print")
+    what = str(params.get("what") or line)
+    print(f"Drawing {what!r}")
+    return draw.sketch(what)
 
 
 def main() -> None:
@@ -215,7 +235,7 @@ def main() -> None:
         if not args:
             if not (view and arm.window.is_running()):
                 break
-            args = input('What should I draw, e.g. "a cat" or "--write Dr. Lee" (Enter to quit)? ').split()
+            args = input('What should I draw, e.g. "draw a cat" or "write Dr. Lee" (Enter to quit)? ').split()
             if not args:
                 break
         try:

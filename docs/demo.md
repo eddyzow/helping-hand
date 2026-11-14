@@ -104,6 +104,12 @@ Notes on the blocks:
   model and not from the arm, is that either style stays recognisable while the pen is within
   about 4 mm of the line and not past about 5 mm. The first real square drawn on the arm will say
   where we are; until then, plan on simple sketches or a name.
+- Block 4, names: since 4:34 PM there is a separate `write` skill from Eddy (`run write {"text":
+  "Dr. Lee"}`, optional `"style": "script"`), up to 24 characters, one word per line for long
+  names, 22 to 67 seconds in his simulator. It hands its strokes to `skills/draw.py`, so it needs
+  the same pen and paper grid. Known bug at 4:36 PM: a name of four or more words is cut to three
+  lines without saying so ("Dr. Ann Marie Lee" writes "Dr. Ann Marie"). Until that is fixed, ask
+  for a first name or a two-word name.
 - Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
   `PEN_SPEED` if the writing stays legible, or write one initial live and hand over a full-name
   card made earlier.
