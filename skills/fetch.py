@@ -29,6 +29,10 @@ GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 t
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper value when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 ROLL_SIGN = float(os.environ.get("ROLL_SIGN", "-1"))      # which way wrist_roll turns the jaws; flip if it turns the wrong way
+# How far wrist_roll can go, in degrees. Past this the joint stops short and the jaws meet the brick at
+# an angle (one on a face, one on a corner), which drops it. Set from the real arm's calibration.
+ROLL_MIN = float(os.environ.get("ROLL_MIN", "-150"))
+ROLL_MAX = float(os.environ.get("ROLL_MAX", "150"))
 # Turning the wrist swings the jaws around its axis, so the grasp point moves. To cancel that, give the
 # distance from that axis to the point between the jaws (along the jaws; measure by turning the wrist a
 # quarter turn and seeing how far the tip moves) and the taught grid's real size. 0 = no correction.
@@ -61,6 +65,13 @@ def run(arm, params, stop):
     if not (type(turn) in (int, float) and math.isfinite(turn) and -90 <= turn <= 90):
         return {"ok": False, "reason": "turn must be a number of degrees from -90 to 90"}
     table = json.loads(table_file.read_text())
+    if turn:  # jaws closing one way or the opposite way are the same grasp: take the turn the wrist can reach
+        taught = [interpolate(table[layer], table["n"], u, v)["wrist_roll.pos"] for layer in ("up", "down")]
+        fits = [t for t in (turn, turn - math.copysign(180, turn))
+                if all(ROLL_MIN <= roll + ROLL_SIGN * t <= ROLL_MAX for roll in taught)]
+        if not fits:
+            return {"ok": False, "reason": "the wrist cannot turn far enough to line up with it"}
+        turn = fits[0]
     if turn and JAW_ARM_MM and GRID_WIDTH_MM > 0 and GRID_DEPTH_MM > 0:
         swing = math.radians(turn)
         u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
@@ -71,6 +82,8 @@ def run(arm, params, stop):
     down = interpolate(table["down"], table["n"], u, v)
     for pose in (up, down):  # the wrist turns before the jaws come down, and stays turned while lifting
         pose["wrist_roll.pos"] += ROLL_SIGN * turn
+        if turn and not ROLL_MIN <= pose["wrist_roll.pos"] <= ROLL_MAX:
+            return {"ok": False, "reason": "the wrist cannot turn far enough to line up with it"}
     handover = arm.load_pose("handover")[:5]
     to_u, to_v = params.get("to_u"), params.get("to_v")
     placing = to_u is not None or to_v is not None

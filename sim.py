@@ -387,6 +387,7 @@ def main() -> None:
     fetch = importlib.import_module("skills.fetch")  # tell fetch this table's size and this gripper's geometry
     fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 1000 * (LEFT - RIGHT), 1000 * (FAR - NEAR)
     fetch.JAW_ARM_MM = JAW_ARM_MM
+    fetch.ROLL_MIN, fetch.ROLL_MAX = (math.degrees(limit) for limit in arm.model.jnt_range[4])
     if args:
         request(arm, args)
     while view and arm.window.is_running():  # live window: keep taking requests until it is closed

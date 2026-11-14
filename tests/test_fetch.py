@@ -68,6 +68,18 @@ def test_fetch():
     fetch.JAW_ARM_MM, fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 20.0, 100.0, 100.0
     assert "wrist" in fetch.run(arm, {"u": 1.0, "v": 0.5, "turn": 90}, stop)["reason"] and arm.get_joints() == here
     fetch.JAW_ARM_MM = 0.0
+    # a turn past the wrist's limit goes the other way round (same grasp); with no way round it is refused
+    fetch.ROLL_MIN, fetch.ROLL_MAX = -20.0, 150.0
+    rolls = []
+    move = arm.move_joints
+    arm.move_joints = lambda joints, seconds: rolls.append(joints[4]) or move(joints, seconds)
+    # the taught roll at the centre is 44 on the table: a turn of 80 means 44 - 80 = -36, past the limit,
+    # so it goes 100 the other way, to 144
+    assert fetch.run(arm, {"u": 0.5, "v": 0.5, "turn": 80}, stop)["ok"]
+    assert all(-20 <= r <= 150 for r in rolls) and 144.0 in rolls, rolls
+    fetch.ROLL_MAX, here = 100.0, arm.get_joints()
+    assert "wrist" in fetch.run(arm, {"u": 0.5, "v": 0.5, "turn": 80}, stop)["reason"] and arm.get_joints() == here
+    arm.move_joints, fetch.ROLL_MIN, fetch.ROLL_MAX = move, -150.0, 150.0
 
     # stop during the run: it reports stopped and does not go on to open the gripper at handover
     stop.set()
