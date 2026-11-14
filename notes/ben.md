@@ -1,28 +1,51 @@
-# Ben (agent: Claude Code)
+# Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 12:30 AM ET.
+Updated Sat Nov 14, 1:00 AM ET.
 
 ## Working on now
 
-Nothing claimed yet. Ben has no person number in `newcontext.md`. Persons 3 (keypad and games) and 4 (drawing, personality, demo) are unassigned; tell Ben which one you want him on.
+Person 4: drawing, personality moves, status screen, demo, pitch, Devpost. Owns `skills/draw.py`,
+`skills/personality.py`, `skills/tictactoe.py`, `ui/`, `docs/`. Ben accepted the role at 12:49 AM.
 
-So far this agent has only read the repo on `main`. It has no arm, camera or keypad attached and has run nothing except `python grid.py` (prints `grid ok`).
+Next, in order:
+
+1. Team review of `docs/demo.md` (first draft pushed with this note).
+2. `skills/personality.py` (nod, celebrate, droop, fist bump) against `MockArm`. Waiting for
+   `daniel/arm-core` to merge to `main` so it lands in the right tree; will build on the branch if
+   the merge is not soon.
+3. `skills/draw.py` as a thin skill around Eddy's root `draw.py`, one fixed word first.
+4. Pen holder: a person's job, not this agent's.
 
 ## Done and how it was tested
 
-Code read of the root scripts at `6eb8253`. Everything below is from reading, not from running on hardware.
+- `docs/demo.md`: pitch outline, a 90-second table script in blocks, failure procedure, table and
+  submission checklists. A document only. No skill in it has run on the real arm.
+- Earlier code read of Eddy's root scripts. Eddy acted on it in `965bcea`. I read the `draw.py`
+  change (pen squeeze) and it does what the note says; I have not read the `arm.py` and `pick.py`
+  changes.
+- This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
 
-- Daniel: `daniel/arm-core` (`9d5081e`, `e03beaa`) is not on GitHub; only `main` exists there. Nobody else can develop against `MockArm`, the dispatcher or the skill interface until it is pushed. Your note already asks your Claude to publish it; this is a second request.
-- Daniel: whoever takes Person 3 or 4 needs `core/skill.py` and `MockArm` to start. If the full branch is not ready, pushing just those two files would unblock them.
-- Eddy: `arm.py teach` and `arm.py pose` call `bus.disable_torque()` right after connecting. The arm will go limp and fall unless someone is already holding it. Worth a line in the prompt text before the torque goes off.
-- Eddy: `draw.py --go` replays `gripper.pos` as it was read while the arm was limp, so the gripper is commanded to exactly the pen's width and may not squeeze it. Suggest overriding `gripper.pos` with a closed value during drawing, the way `pick.py` does with `GRIP_CLOSED`.
-- Eddy: `pick.py` maps the pixel through a flat-table homography. A grasp point on top of a tall object is off by roughly (object height / camera height) times its distance from the point under the camera. Fine for a lanyard, worth checking on a Duplo stack or a mouse near the grid edge.
-- Eddy: `grid.py` blends joint angles, so between taught points the gripper height is not guaranteed. Before the first real grasp, send the arm to the four cell midpoints of the `up` grid and then the `down` grid and look for dips into the table.
-- Eddy and Daniel: `pick.py --go` needs the arm, camera and microphone in one process, and the arm is under WSL. Daniel's note says the WSL camera is untested. If it does not open, `pick.py --corners x,y ...` and `--image` already let the camera side run on Windows; the missing piece would be passing the frame across.
-- Everyone: `newcontext.md` drops the accessibility framing and `PLAN.md` still recommends Best Accessibility Hack. The track has to be one or the other by the Saturday night submission.
+- Everyone: the track. `docs/demo.md` lays out Accessibility against Hardware and what each needs
+  from the demo. Ben leans Accessibility if fetch works live; Eddy leans Hardware. Four humans need
+  to settle it before the Saturday midnight submission.
+- Everyone: read the table script in `docs/demo.md` and correct your own row (trigger, fallback,
+  state today). Daniel block 2, Eddy block 3, Jonathan block 5.
+- Daniel: when `daniel/arm-core` merges to `main`, say so in your note. `newcontext.md` says poses
+  `home`, `wave_up` and `tap_up` are taught, and they are in the branch; your reviewer's note still
+  says only `home` was seen. Which is current?
+- Daniel: for personality moves I plan to follow `skills/wave.py`: load a taught pose, offset one
+  or two joints by a few degrees, return home. That needs no new taught poses except one for fist
+  bump. Object if joint offsets from `wave_up` are unsafe on the real arm.
+- Jonathan: please push the Geometry Dash code and a `notes/jonathan.md`. Block 5 of the script is
+  written without having seen it.
+- Eddy: how long does `draw.py --go` take for a five-letter word at the default `PEN_SPEED`? An
+  estimate from the stroke length is enough for now; the script assumes it may exceed 25 seconds.
+- Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
 
-None addressed to Ben yet.
+- Daniel's note (Ben, P4): acknowledged. Not rebuilding the drawing pipeline; wrapping it.
+- Eddy's note (Ben, `draw.py` is yours to wrap): acknowledged, and noted that generated drawings
+  take about 20 seconds, so the demo uses text or cached drawings.
