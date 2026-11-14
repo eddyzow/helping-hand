@@ -38,7 +38,13 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
-### Shared startup 2b0312c: default fixed, bypass value too broad
+### Vision and shared startup 27dc2d9 verified
+
+Ran the embedded pure vision assertions by extracting the main guard's assertions and excluding its live `main()` call. They passed. Independent mocked-provider calls through actual `choose`/`detect` reject boolean IDs, reversed boxes, nonnumeric coordinates and infinity; a valid integer match is preserved. No API/key/camera access occurred.
+
+The actual extracted follower body with stub LeRobot classes also passed: unset, empty, `0`, and `false` prompt before construction/connect; only exact `1` bypasses. EOF and Ctrl+C connect nothing. This closes both the vision-schema and shared startup-bypass findings below. Physical operation remains untested, and the standalone controller remains a separate path.
+
+### Shared startup 2b0312c: default fixed, bypass value too broad (fixed by 27dc2d9)
 
 Extracted the actual shared `follower` body and supplied stub LeRobot classes plus fake input/environment. With the flag unset, the order is prompt, config, constructor, connect; EOF and KeyboardInterrupt stop at prompt with no construction/connection. Caller scan includes root teach/pose/check/record/replay, root pick/draw, and the core wrapper. This closes the original default-order finding.
 
