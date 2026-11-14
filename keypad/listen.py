@@ -13,15 +13,16 @@ Needs the dispatcher running for wave and stop. No extra packages.
 
     python keypad\\listen.py --learn    # relearn the three keys, then quit
     python keypad\\listen.py --record my_macro
-        Record your own run. With the game on the level's Play page and the pointer on Play, press the
-        jump key: that click starts the level and is time zero. Play with the jump key, then press the
-        stop key. Replay: run geometry_dash {"enter": true, "pattern": "my_macro.csv"}
+        Record your own run. Inside the level, press R (restart): that is time zero. Play with the
+        jump key, then press the stop key. Dying and pressing R again starts the recording over.
+        Replay: run geometry_dash {"pattern": "my_macro.csv"}  (the listener presses R for the arm)
 """
 import ctypes
 import json
 import os
 import socket
 import sys
+import threading
 import time
 from ctypes import wintypes
 from pathlib import Path
@@ -80,6 +81,39 @@ def send(command: str, timeout: float = 1) -> str:
         return f"dispatcher not reachable: {err}"
 
 
+_open = []  # the one connection kept open for key events
+
+
+def notify(command: str, retry: bool = True) -> None:
+    """Report a key event on a connection that stays open. Opening a new connection for every key
+    press took a few milliseconds that varied each time, and the arm's clock starts from this event.
+    A key state may be sent again after a failed send, because sending it twice changes nothing.
+    A cue may not (retry=False): it might have arrived the first time, and a second one would
+    restart the replay."""
+    for _ in range(2 if retry else 1):  # a second try only if the kept connection had gone stale
+        had = bool(_open)
+        try:
+            if not _open:
+                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.2)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                s.setblocking(False)
+                _open.append(s)
+            _open[0].sendall((command + "\n").encode())
+            try:
+                if _open[0].recv(4096) == b"":  # the dispatcher closed this connection
+                    raise ConnectionResetError("the dispatcher closed the connection")
+            except BlockingIOError:
+                pass  # no reply waiting yet: normal
+            return
+        except OSError as err:
+            if _open:
+                _open.pop().close()  # never keep a dead connection
+            if not retry:
+                print(f"'{command}' may not have reached the dispatcher ({err}); it is not sent again", flush=True)
+            if not had:
+                return
+
+
 def device_name(handle) -> str:
     size = wintypes.UINT(512)
     buf = ctypes.create_unicode_buffer(size.value)
@@ -126,15 +160,11 @@ def main() -> None:
                 # in the game: a left mouse click. It jumps in a level and presses Play on the level
                 # page (park the mouse pointer on the Play button), so the arm can start the level itself.
                 user32.mouse_event(0x0002 if down else 0x0004, 0, 0, 0, 0)
-            elif vk != VK_UP:  # anywhere else a click could hit anything, so stay with the harmless Up arrow
-                user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
+            # Anywhere else it sends nothing at all. It used to send an Up arrow, which scrolled or
+            # changed whatever window happened to be in front while the arm kept tapping.
             if not recording:
-                send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
-            elif in_game and "t0" not in recording:
-                if down:  # the press that clicks Play is time zero and is not itself part of the macro
-                    recording["t0"] = now
-                    print("Recording. Play the level; press the STOP key when done.", flush=True)
-            elif in_game and (down or recording["events"]):  # skip the release of that first press
+                notify("key down" if down else "key up")  # lets the arm feel the key: see skills/tap_calibrate.py
+            elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
             print(f"wave -> {send('run wave')}", flush=True)
@@ -172,9 +202,18 @@ def main() -> None:
             told.append(1)
             print(f"Arm is ready. Click the {GAME_TITLE} window and press {chr(VK_RESTART)} to start.", flush=True)
 
+    def poll_ready() -> None:
+        """Ask the dispatcher twice a second, on a thread of its own. This used to run on a timer
+        inside the key-handling loop, where each question could block for up to 0.2 s: a jump key
+        pressed during that time reached the game late, by as much as a second when several piled up."""
+        while True:
+            try:
+                start_game_when_ready()
+            except Exception as err:  # never let this helper die quietly
+                print(f"ready check failed: {err}", flush=True)
+            time.sleep(0.3)
+
     def wndproc(hwnd, msg, wparam, lparam):
-        if msg == WM_TIMER:
-            start_game_when_ready()
         if msg == WM_INPUT:
             raw = RAWKEYBOARD()
             size = wintypes.UINT(ctypes.sizeof(raw))
@@ -187,7 +226,14 @@ def main() -> None:
                     if DEVICE and DEVICE in device_name(raw.hDevice):
                         on_key(raw.VKey, down)
                     elif down and raw.VKey == VK_RESTART:  # the level restarts: start the replay clock now
-                        send("cue", 0.2)
+                        if recording:
+                            # Time zero of a recording is the restart key: a restart begins the level at
+                            # once, with no click release or loading in between, and the replay starts
+                            # from the same key. Each restart begins the recording again.
+                            recording["t0"], recording["events"] = time.perf_counter(), []
+                            print("Recording from this restart. Play; press the STOP key when done.", flush=True)
+                        else:
+                            notify("cue", retry=False)  # on the kept-open connection: the replay clock starts from this
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
     proc = WNDPROC(wndproc)  # keep a reference so it is not garbage collected
@@ -198,7 +244,7 @@ def main() -> None:
     rid = RAWINPUTDEVICE(1, 6, 0x100, hwnd)  # keyboards, delivered even without focus
     if not hwnd or not user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(rid)):
         raise SystemExit(f"Could not listen for keys (Windows error {ctypes.get_last_error()}).")
-    user32.SetTimer(hwnd, 1, 500, None)
+    threading.Thread(target=poll_ready, daemon=True).start()
     if not prompt():
         print("Keypad ready: wave, jump (Up arrow), stop. Ctrl+C to quit.", flush=True)
     msg = wintypes.MSG()

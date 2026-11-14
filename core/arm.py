@@ -143,8 +143,12 @@ class MockArm:
     def _jump(self, lower: float) -> bool:
         if self.halt.is_set():
             return False
-        self._write(_checked(self.key_pose(lower)))
+        self._write_tap(_checked(self.key_pose(lower)))
         return True
+
+    def _write_tap(self, joints: list[float]) -> None:
+        """Send a tap. The mock has nothing faster than a normal write."""
+        self._write(joints)
 
     def tap(self, depth_mm: float = 3.0) -> bool:
         # ponytail: depth_mm is ignored until there is IK; the stroke is set_tap(lift, press).
@@ -167,6 +171,9 @@ class MockArm:
             self._write(joints)
         return True
 
+    def temperatures(self) -> dict[str, float]:
+        return {name: 30.0 for name in JOINTS}
+
     def stop(self) -> None:
         """Hold position now: moves stop sending, the motors keep holding the last target."""
         self.halt.set()
@@ -183,9 +190,25 @@ class Arm(MockArm):
             # without a resting home pose, switching the motors off drops the arm from mid-air
             raise FileNotFoundError("Teach a resting home pose first: python arm.py pose home")
         super().__init__()
+        gain = os.environ.get("TAP_P_GAIN")
+        if gain is not None and not (gain.isdigit() and 8 <= int(gain) <= 48):
+            raise ValueError("TAP_P_GAIN must be a whole number from 8 to 48")  # checked before connecting
         import arm as root_arm  # the root arm.py
 
         self._robot = root_arm.follower()  # connects: motors switch on and hold
+        if gain is not None:
+            # Daniel approved this on 14 Nov for the tapping (wrist) motor only: LeRobot sets every
+            # motor's position gain to 16 at connect, which makes small moves slow and uneven. A
+            # higher gain snaps the tip to the key. It is written again at every connect, so it does
+            # not outlast this run. Unset TAP_P_GAIN to go back to 16.
+            gain, name = int(gain), JOINTS[TAP_JOINT]
+            with self._robot.bus.torque_disabled(name):
+                self._robot.bus.write("P_Coefficient", name, gain)
+            print(f"position gain of {name} set to {gain}", flush=True)
+
+    def temperatures(self) -> dict[str, float]:
+        """Degrees Celsius of each motor. Call only while no skill is running: it uses the serial bus."""
+        return {name: float(value) for name, value in self._robot.bus.sync_read("Present_Temperature").items()}
 
     def _read(self) -> list[float]:
         obs = self._robot.get_observation()
@@ -193,6 +216,19 @@ class Arm(MockArm):
 
     def _write(self, joints: list[float]) -> None:
         self._robot.send_action({f"{j}.pos": v for j, v in zip(JOINTS, joints)})
+
+    def _write_tap(self, joints: list[float]) -> None:
+        """One packet to the tapping motor only. The normal write first reads all six motors to
+        limit the step, which added a few milliseconds that varied from tap to tap; a tap is a
+        small, already-checked move of one joint, so it does not need that."""
+        name, goal = JOINTS[TAP_JOINT], joints[TAP_JOINT]
+        cap = self._robot.config.max_relative_target
+        if cap is not None:
+            # Keep the same safety the normal write has, for this one motor: read where it really is
+            # and never command it further than the step limit from there. One motor, one read.
+            here = float(self._robot.bus.sync_read("Present_Position", [name])[name])
+            goal = max(here - cap, min(here + cap, goal))
+        self._robot.bus.sync_write("Goal_Position", {name: goal})
 
     def close(self, release: bool = True) -> None:
         """Close the serial port. Never moves. release=True switches the motors off, so the arm

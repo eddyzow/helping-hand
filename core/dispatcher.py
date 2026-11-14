@@ -16,7 +16,7 @@ import sys
 import threading
 from pathlib import Path
 
-from core import cue, key_down, waiting
+from core import cue, key_down, key_events, waiting
 from core.arm import get_arm
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
@@ -98,6 +98,7 @@ def shutdown(confirm=input, server=None) -> None:
     stop_all()
     if server:
         server.shutdown()
+        server.server_close()  # free the port for the next dispatcher
     if _worker:
         _worker.join()  # moves check the stop flag every 1/30 s, so this is quick
     if _arm.REAL:
@@ -119,10 +120,18 @@ def handle(line: str):
         return list_skills()
     if command == "status":
         return {"ok": True, "busy": bool(_worker and _worker.is_alive()), "last": _last}
+    if command == "temps":  # motor temperatures; only while idle, because it uses the serial bus
+        with _lock:
+            if _closing:  # the bus may already be closing
+                return {"ok": False, "reason": "shutting down"}
+            if _worker and _worker.is_alive():
+                return {"ok": False, "reason": "busy"}
+            return {"ok": True, "temps": _arm.temperatures()}
     if command == "home":
         return dispatch("home")
     if command == "key":  # the keypad listener reports the jump key: "key down" / "key up"
         (key_down.set if rest.strip() == "down" else key_down.clear)()
+        key_events[0] += 1
         return {"ok": True, "reason": ""}
     if command == "cue":
         cue.set()
@@ -146,6 +155,9 @@ class _Handler(socketserver.StreamRequestHandler):
 
 def main() -> None:
     socketserver.ThreadingTCPServer.allow_reuse_address = True
+    # A client that keeps its connection open (the keypad listener does) must not keep this process
+    # alive after shutdown: without this the dispatcher hung on exit and went on holding the port.
+    socketserver.ThreadingTCPServer.daemon_threads = True
     # localhost only: this port moves a robot, and WSL mirrored networking would put 0.0.0.0 on the Wi-Fi.
     # Bind before touching the arm: a second dispatcher fails here and never opens the serial port.
     server = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), _Handler)
