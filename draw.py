@@ -26,6 +26,12 @@ PEN_SPEED = float(os.environ.get("PEN_SPEED", "0.15"))  # fractions of the page 
 # ahead along the direction of travel cancels it. As a fraction of the page; 0 = off. Measure: draw a line and
 # see how far short of its end the ink stops.
 PEN_DRAG = float(os.environ.get("PEN_DRAG", "0"))
+# "detailed": up to 30 strokes with small features. "simple": bold drawings of 3 to 10 strokes, about half the
+# drawing time. Tested by bending both the way a sloppy arm would (pen lagging its direction of travel, plus
+# wobble) and asking a viewer that was not told the subject, 12 subjects each: detailed was named 12 of 12 with
+# the pen 2 and 4 mm off and 8 of 12 at 6 mm; simple 11, 10 and 9. So detail does not cost recognition up to
+# about 4 mm, but simple drawings look less broken at the same error.
+DETAIL = os.environ.get("DRAW_DETAIL", "detailed")
 PEN_SQUEEZE = float(os.environ.get("PEN_SQUEEZE", "8"))  # close this much past the taught gripper value
 QUICKDRAW = "https://storage.googleapis.com/quickdraw_dataset/full/simplified/{}.ndjson"
 CATEGORIES = "https://raw.githubusercontent.com/googlecreativelab/quickdraw-dataset/master/categories.txt"
@@ -155,7 +161,7 @@ def sketch(what: str) -> list[Stroke]:
 
     see.load_env()
     slug = re.sub(r"[^a-z0-9]+", "_", what.lower()).strip("_") or "drawing"
-    cache = HERE / "drawings" / f"sketch_{slug}.json"
+    cache = HERE / "drawings" / (f"sketch_{slug}.json" if DETAIL == "detailed" else f"simple_{slug}.json")
     if cache.exists():
         return [[tuple(p) for p in s] for s in json.loads(cache.read_text())]
     names = categories()
@@ -266,9 +272,16 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
               "gets the parts that make it what it is: eyes and expression, windows, wheels, a mane, a shell "
               "pattern. Every stroke must be a part of the subject itself. Do not add decoration: no sparkles, "
               "motion lines, blush marks, raindrops, clouds, stray ticks or background, and no ground line unless "
-              "the subject would look like it is floating without one. Use 4 to 30 strokes. No shading or filling "
+              "the subject would look like it is floating without one. No shading or filling "
               "in, and do not let strokes crowd or cross each other. Finish every shape: an outline meets itself, "
               "a line that joins another reaches it. "
+              + ("Use 4 to 30 strokes. " if DETAIL == "detailed" else
+                 "The arm that draws this is imprecise: its pen can land 3 or 4 units away from where it aims, and "
+                 "differently for each stroke. So draw it bold and simple, like a road sign: 3 to 10 strokes, big "
+                 "shapes that fill the page, nothing smaller than 12 units across, at least 8 units between lines "
+                 "that are not meant to touch, and nothing that depends on two strokes meeting exactly (draw a "
+                 "shape in one stroke where you can). Leave out anything that would be lost or smudged at that "
+                 "accuracy: small eyes become plain dots or are left out, patterns and textures go. ")
               + (f'An earlier attempt was mistaken for "{mistaken_for}": make what sets {what} apart unmistakable. '
                  if mistaken_for else "")
               + "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. Mark a stroke "
