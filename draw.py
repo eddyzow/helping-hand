@@ -2,7 +2,7 @@
 
     python draw.py cat                 # from the Quick, Draw! database (345 everyday things)
     python draw.py --text "Eddy"       # write a word
-    python draw.py --gen "a rocket"    # ask Gemini to invent the strokes
+    python draw.py --gen "a rocket"    # ask Claude to invent the strokes
     python draw.py cat --go            # also draw it (needs poses/paper.json from arm.py teach)
 
 Every run saves outputs/draw.png so you can see the drawing before the arm moves.
@@ -76,19 +76,14 @@ def from_text(text: str) -> list[Stroke]:
     return fit(strokes)
 
 
-def from_gemini(what: str) -> list[Stroke]:
+def from_model(what: str) -> list[Stroke]:
     import see
-    from google import genai
-    from google.genai import types
 
     see.load_env()
-    client = genai.Client(http_options=types.HttpOptions(timeout=60000))
     prompt = (f"Draw {what} as a simple line drawing for a pen plotter. Use 4 to 15 strokes. "
               "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. "
               "Curves need enough points to look smooth. Return only JSON: [[[x, y], ...], ...]")
-    reply = client.models.generate_content(
-        model=os.environ.get("DRAW_MODEL", "gemini-3.5-flash"), contents=prompt)
-    text = reply.text or ""
+    text = see.ask_claude(prompt, model=os.environ.get("DRAW_MODEL", "claude-sonnet-5-5"), max_tokens=8000)
     strokes = json.loads(text[text.index("["):text.rindex("]") + 1])
     return fit([[(float(x), float(y)) for x, y in s] for s in strokes if len(s) > 1])
 
@@ -146,7 +141,7 @@ def main() -> None:
     if args[0] == "--text":
         strokes = from_text(" ".join(args[1:]))
     elif args[0] == "--gen":
-        strokes = from_gemini(" ".join(args[1:]))
+        strokes = from_model(" ".join(args[1:]))
     else:
         strokes = from_quickdraw(" ".join(args).lower())
     preview(strokes)

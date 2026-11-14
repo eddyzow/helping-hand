@@ -5,12 +5,12 @@
     python see.py --image photo.jpg "the mouse"  # test on a still photo
 
 Two steps, because no single model did both well on our Duplo photos (notes/eddy.md):
-  1. Gemini draws a box around every object on the table. It is accurate at where.
+  1. OpenAI draws a box around every object on the table. It is accurate at where.
   2. Claude sees the boxes numbered and says which numbers match the request. It is
      accurate at which, including "there are two of those".
-Saves the annotated frame to outputs/last.jpg.
-Needs GEMINI_API_KEY and ANTHROPIC_API_KEY in .env. Without the Anthropic key, Gemini
-does step 2 as well, and gets look-alike pieces wrong more often.
+Speech is written down by OpenAI. Saves the annotated frame to outputs/last.jpg.
+Needs OPENAI_API_KEY and ANTHROPIC_API_KEY in .env. Gemini was dropped on Nov 14: its free
+tier timed out or refused most requests.
 """
 import base64
 import json
@@ -19,32 +19,25 @@ import os
 import re
 import sys
 import tempfile
-import time
 import wave
 from pathlib import Path
 
 import cv2
 
-# gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+DETECTOR = os.environ.get("DETECTOR", "gpt-6.1-terra")  # boxes the frame: 8 of 9 Duplo pieces, about 5 seconds
 CHOOSER = os.environ.get("CHOOSER_MODEL", "claude-sonnet-5-5")
-BACKUP_DETECTOR = os.environ.get("BACKUP_DETECTOR", "gpt-6.1-terra")  # boxes the frame when Gemini fails
+LISTENER = os.environ.get("LISTENER", "gpt-4o-mini-transcribe")  # writes down what was said
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
-TIMEOUT_MS = 10000  # Gemini rejects anything under 10 seconds; a normal answer takes 1 to 2
-RETRY_SECONDS = 3
+TIMEOUT_S = 30.0
 SAMPLE_RATE = 16000
 AXIS_CONTRAST = float(os.environ.get("AXIS_CONTRAST", "22"))  # how different from the table counts as the object
 CHOOSER_LONG_EDGE = 1024  # the numbered image is shrunk to this before it goes to the chooser
 
-# Keep this prompt as a bare list. Wrapping it in an object, or asking for the transcript in the
-# same call, made gemini-3.5-flash-lite return malformed JSON on Nov 14.
 DETECT = """Detect every separate physical object lying on the table. Two objects that touch are
 still two objects. Do not skip any object, whatever its colour, and do not report shadows or
 marks on the table.
 Return only JSON: [{"box_2d": [ymin, xmin, ymax, xmax], "label": "<colour and shape>"}]
 Coordinates are normalized to 0-1000."""
-
-TRANSCRIBE = 'Write down exactly what the person says in the audio. Return only JSON: {"said": "..."}'
 
 # ponytail: the hint names our Duplo set. Edit it when the objects on the table change.
 CHOOSE = """A robot arm picks objects off a table. Each object in the image has a green box and a
@@ -113,20 +106,28 @@ def parse_reply(text):
         return {}  # a malformed reply counts as "nothing found", never as a guess
 
 
-def _gemini(parts, attempts=3):
-    from google import genai
-    from google.genai import types
+def ask_claude(prompt, jpg=None, model=None, max_tokens=2000):
+    """One question to Claude, with an optional JPEG. Returns the reply's text."""
+    import anthropic
 
-    client = genai.Client(http_options=types.HttpOptions(timeout=TIMEOUT_MS))
-    parts = [types.Part.from_bytes(data=p[0], mime_type=p[1]) if isinstance(p, tuple) else p for p in parts]
-    for attempt in range(1, attempts + 1):  # the free tier refuses bursts (429), stalls, and has busy spells (503)
-        try:
-            return parse_reply(client.models.generate_content(model=MODEL, contents=parts).text or "")
-        except Exception as err:
-            print(f"Gemini error (attempt {attempt}): {str(err)[:200]}", file=sys.stderr)
-            if attempt == attempts:
-                raise
-            time.sleep(RETRY_SECONDS)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        sys.exit("ANTHROPIC_API_KEY is missing from .env.")
+    content = [{"type": "text", "text": prompt}]
+    if jpg:
+        content.insert(0, {"type": "image", "source": {
+            "type": "base64", "media_type": "image/jpeg", "data": base64.standard_b64encode(jpg).decode()}})
+    reply = anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=1).messages.create(
+        model=model or CHOOSER, max_tokens=max_tokens, output_config={"effort": "low"},
+        messages=[{"role": "user", "content": content}])
+    return "".join(block.text for block in reply.content if block.type == "text")
+
+
+def _openai():
+    import openai
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        sys.exit("OPENAI_API_KEY is missing from .env.")
+    return openai.OpenAI(timeout=TIMEOUT_S, max_retries=1)
 
 
 def _number(value):
@@ -157,32 +158,20 @@ def to_matches(answer, count, key="matches"):
 
 
 def detect(frame):
-    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label.
-    Gemini first. If it fails and OPENAI_API_KEY is set, OpenAI boxes the frame instead: on our
-    Duplo photo its boxes overlapped Gemini's on 8 of 9 pieces, in about 5 seconds."""
+    """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label."""
     jpg = cv2.imencode(".jpg", frame)[1].tobytes()
-    backup = os.environ.get("OPENAI_API_KEY")
-    try:
-        reply = _gemini([(jpg, "image/jpeg"), DETECT], attempts=1 if backup else 3)
-    except Exception:
-        if not backup:
-            raise
-        import openai
-
-        print(f"Gemini failed; {BACKUP_DETECTOR} is boxing the frame.", file=sys.stderr)
-        answer = openai.OpenAI(timeout=30.0, max_retries=1).chat.completions.create(
-            model=BACKUP_DETECTOR, reasoning_effort="low",
-            messages=[{"role": "user", "content": [
-                {"type": "image_url", "image_url": {
-                    "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
-                {"type": "text", "text": DETECT}]}])
-        reply = parse_reply(answer.choices[0].message.content or "")
-    return to_boxes(reply, frame.shape[1], frame.shape[0])
+    answer = _openai().chat.completions.create(
+        model=DETECTOR, reasoning_effort="low",
+        messages=[{"role": "user", "content": [
+            {"type": "image_url", "image_url": {
+                "url": "data:image/jpeg;base64," + base64.standard_b64encode(jpg).decode()}},
+            {"type": "text", "text": DETECT}]}])
+    return to_boxes(parse_reply(answer.choices[0].message.content or ""), frame.shape[1], frame.shape[0])
 
 
 def transcribe(audio_path):
-    reply = _gemini([(Path(audio_path).read_bytes(), "audio/wav"), TRANSCRIBE])
-    return reply.get("said") if isinstance(reply, dict) else None
+    with open(audio_path, "rb") as audio:
+        return _openai().audio.transcriptions.create(model=LISTENER, file=audio).text.strip() or None
 
 
 def numbered(frame, boxes):
@@ -210,19 +199,7 @@ def choose(frame, boxes, command):
     jpg = cv2.imencode(".jpg", image)[1].tobytes()
     prompt = CHOOSE.format(labels=", ".join(f"{i}: {b['label']}" for i, b in enumerate(boxes, 1)),
                            command=command)
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        import anthropic
-
-        reply = anthropic.Anthropic(timeout=TIMEOUT_MS / 1000 * 2, max_retries=1).messages.create(
-            model=CHOOSER, max_tokens=2000, output_config={"effort": "low"},
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                             "data": base64.standard_b64encode(jpg).decode()}},
-                {"type": "text", "text": prompt}]}])
-        answer = parse_reply("".join(b.text for b in reply.content if b.type == "text"))
-    else:
-        print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
-        answer = _gemini([(jpg, "image/jpeg"), prompt])
+    answer = parse_reply(ask_claude(prompt, jpg))
     return to_choice(answer, len(boxes))
 
 

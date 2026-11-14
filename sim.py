@@ -39,9 +39,9 @@ TOP_CAMERA = {"pos": (0.25, 0.0, 0.50), "fovy": 45.0}  # looks straight down; im
 
 # the taught grid, in metres on the table: x is away from the arm, y is to its left
 # Pointing straight down, this model reaches about 12 to 30 cm from its base and lifts about 5 cm.
-FAR, NEAR, LEFT, RIGHT = 0.245, 0.14, 0.115, -0.115
+FAR, NEAR, LEFT, RIGHT = 0.235, 0.125, 0.145, -0.145  # the far right corner is out of reach beyond this
 GRASP_Z, CLEAR_Z = 0.010, 0.050  # gripper tip height when closing on a brick, and when carrying
-GRID_N = 7           # taught points per side. On the first, smaller grid: 3 was 7 mm off between points and
+GRID_N = 9           # taught points per side. On the first, smaller grid: 3 was 7 mm off between points and
                      # grasps failed, 5 was under 2 mm. This grid is wider, so it uses 7.
 GRIP_OFFSET = 0.004  # the model's reference point is one jaw's tip; the brick sits this far toward the other.
                      # Measured here: a 32 mm brick is carried at 0 to 8 mm and dropped at -10 or +16.
@@ -56,16 +56,17 @@ CREAM, LIME, BLACK = "0.93 0.89 0.82 1", "0.68 0.78 0.13 1", "0.06 0.06 0.06 1"
 GRIP = 'friction="2 0.1 0.01" condim="6"'
 
 # The Duplo set from photos/duplo_a.jpg: name, shape, colour, x, y, turn in degrees.
+# Pieces sit about 10 cm apart: at 6 cm the open jaws knocked the neighbours on the way down.
 # Long pieces lie across the arm's reach so the jaws close on their 32 mm width. The chassis and the
 # car body sit beyond the taught grid: the camera sees them and fetch should refuse them.
 PIECES = [
-    ("red_square_left", "2x2", RED, 0.165, 0.090, 0),
-    ("blue_square", "2x2", BLUE, 0.165, 0.030, 10),
-    ("purple_square", "2x2", PURPLE, 0.165, -0.030, 45),
-    ("red_square_right", "2x2", RED, 0.165, -0.090, 30),
-    ("white_flat", "plate", CREAM, 0.228, 0.085, 90),
-    ("red_triangle", "roof", RED, 0.228, 0.0, 90),
-    ("green_curved", "boat", LIME, 0.228, -0.085, 90),
+    ("red_square_left", "2x2", RED, 0.140, 0.135, 0),
+    ("blue_square", "2x2", BLUE, 0.140, 0.045, 10),
+    ("purple_square", "2x2", PURPLE, 0.140, -0.045, 45),
+    ("red_square_right", "2x2", RED, 0.140, -0.135, 30),
+    ("white_flat", "plate", CREAM, 0.220, 0.100, 90),
+    ("red_triangle", "roof", RED, 0.220, 0.0, 90),
+    ("green_curved", "boat", LIME, 0.220, -0.100, 90),
     ("car_chassis", "chassis", BLACK, 0.350, 0.100, 20),
     ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]

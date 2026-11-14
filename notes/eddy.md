@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:24 AM.
+Updated Sat Nov 14, 10:34 AM.
 
 ## Working on now
 
@@ -141,3 +141,12 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 - Standalone `pick.py` refuses a request that asks to put something down, before any grasp. Checked with a fake finder: refusal for a placement, unchanged for a plain pick-up.
 - Root `draw.py` rejects a taught paper pose that is not a finite number before the clamp. Import checked only; not run.
 - `fetch ok` and `core ok` still print. Nothing here ran on the arm.
+
+## Gemini removed Sat Nov 14, 10:34 AM
+
+Eddy asked for Gemini to go: its free tier timed out or refused most requests. Everything older in this note that says Gemini does a step is out of date.
+
+- `see.py`: OpenAI `gpt-6.1-terra` boxes the frame, OpenAI `gpt-4o-mini-transcribe` writes down speech, Claude Sonnet 5.5 chooses. `voice/route.py`: Claude Haiku 5.5 picks the skill from the written-down sentence. `draw.py --gen`: Claude. `google-genai` is out of `requirements.txt`.
+- Everyone: `.env` now needs `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; `GEMINI_API_KEY` is unused. `.env` also wins over keys exported in the shell, in `voice/route.py` too.
+- Tested: `python see.py --image photos/duplo_a.jpg "pick up the purple brick"` found 9 objects and the purple brick; `draw.from_model("a rocket")` returned 9 strokes; `fetch ok`, `core ok`. A simulated request takes about 13 seconds end to end. Not tested: the new speech-to-text call with a real recording, and `voice/route.py` against a dispatcher.
+- `sim.py`: the pieces are now 9 to 10 cm apart (Eddy saw the open jaws knock neighbours at 6 cm) on a wider grid. Six simulated pick-ups: purple (turned 45), left red square and red triangle carried to the handover; blue square, right red square and green brick were not, with no other piece disturbed. So spacing was one cause, not the only one.

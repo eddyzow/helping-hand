@@ -3,9 +3,9 @@
     python voice/route.py "wave at me"     # typed
     python voice/route.py                  # speak: Enter, talk, Enter
 
-With GEMINI_API_KEY (in .env) Gemini picks the skill from each skill's description, and hears the
-audio directly. Without a key, typed text is matched on the skill's name. Gemini only chooses the
-skill; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
+With ANTHROPIC_API_KEY (in .env) Claude picks the skill from each skill's description; speech is
+written down first by OpenAI (OPENAI_API_KEY). Without a key, typed text is matched on the skill's
+name. The model only chooses the skill; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
 
 Fetch ("bring me the red brick") also needs the camera, which this script owns because the
 dispatcher runs in WSL and has none. Run this script where the camera and microphone are
@@ -47,20 +47,13 @@ def by_keyword(text: str, skills: list[dict]) -> dict:
     return {"skill": None}
 
 
-def by_gemini(text: str | None, audio_path: str | None, skills: list[dict]) -> dict:
-    from google import genai
-    from google.genai import types
+def by_model(text: str, skills: list[dict]) -> dict:
+    import see
 
-    client = genai.Client(http_options=types.HttpOptions(timeout=20000))
-    parts = []
-    if audio_path:
-        parts.append(types.Part.from_bytes(data=Path(audio_path).read_bytes(), mime_type="audio/wav"))
-    request = f'The person said: "{text}"' if text else "The person's spoken request is in the audio."
-    parts.append(PROMPT.format(request=request, skills=json.dumps(skills)))
-    reply = client.models.generate_content(
-        model=os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite"), contents=parts,
-        config=types.GenerateContentConfig(response_mime_type="application/json"))
-    return json.loads(reply.text or "null") or {"skill": None}
+    reply = see.ask_claude(PROMPT.format(request=f'The person said: "{text}"', skills=json.dumps(skills)),
+                           model=os.environ.get("ROUTER_MODEL", "claude-haiku-5-5"), max_tokens=500)
+    answer = see.parse_reply(reply)
+    return answer if isinstance(answer, dict) else {"skill": None}
 
 
 def speak(text: str) -> None:
@@ -106,18 +99,16 @@ def main() -> None:
         for line in env.read_text().splitlines():
             key, sep, value = line.partition("=")
             if sep and not key.strip().startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip())
-    if "GEMINI_API_KEY" in os.environ:
-        if text:
-            choice = by_gemini(text, None, skills)
-        else:
-            import see  # the recorder lives there; needs the repo requirements installed
+                os.environ[key.strip()] = value.strip()  # .env wins over a stale key in the shell
+    if not text:
+        import see  # the recorder lives there; needs the repo requirements installed
 
-            choice = by_gemini(None, see.record_wav(), skills)
-    elif text:
-        choice = by_keyword(text, skills)
-    else:
-        sys.exit("Speaking needs GEMINI_API_KEY in .env. Type the request instead.")
+        text = see.transcribe(see.record_wav())
+        if not text:
+            speak("I didn't hear anything.")
+            return
+        print(f"Heard: {text}")
+    choice = by_model(text, skills) if "ANTHROPIC_API_KEY" in os.environ else by_keyword(text, skills)
     name, params = choice.get("skill"), choice.get("params") or {}
     if name == "stop":
         print(send("stop"))
