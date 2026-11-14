@@ -96,6 +96,7 @@ def shutdown(confirm=input, server=None) -> None:
         except (EOFError, KeyboardInterrupt):
             print("No confirmation, so the motors stay ON and holding. Hold the arm and cut the 12 V power, "
                   "or start the dispatcher again.", flush=True)
+            _arm.close(release=False)
             return
     _arm.close()
 

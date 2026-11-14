@@ -79,8 +79,8 @@ def test_core():
             calls.append("write")
             super()._write(joints)
 
-        def close(self):
-            calls.append("close")
+        def close(self, release=True):
+            calls.append(("close", release))
 
     spy = Spy()
     dispatcher.load(spy)
@@ -98,7 +98,7 @@ def test_core():
 
     asked = []
     dispatcher.shutdown(confirm=confirm)
-    assert spy.halt.is_set() and calls == ["close"], calls  # no move between stop and motors off
+    assert spy.halt.is_set() and calls == [("close", True)], calls  # no move between stop and motors off
     assert len(asked) == 1                                   # the operator is asked to hold the arm first
 
     # no confirmation (closed input, Ctrl+C): the motors stay on, nothing is released
@@ -108,7 +108,23 @@ def test_core():
     dispatcher.load(spy)
     calls.clear()
     dispatcher.shutdown(confirm=no_answer)
-    assert calls == [], calls
+    assert calls == [("close", False)], calls
+
+    # the real Arm.close(release=False) tells LeRobot not to cut torque, on this and any later disconnect
+    from types import SimpleNamespace
+
+    class FakeRobot:
+        config = SimpleNamespace(disable_torque_on_disconnect=True)
+        log = []
+
+        def disconnect(self):
+            self.log.append(self.config.disable_torque_on_disconnect)
+
+    real = core.arm.Arm.__new__(core.arm.Arm)
+    real._robot = FakeRobot()
+    real.close(release=False)
+    real._robot.disconnect()  # what LeRobot's destructor does later
+    assert FakeRobot.log == [False, False], FakeRobot.log
 
     dispatcher.load(arm)
     assert dispatcher.handle("home")["ok"] is True           # homing is its own operator command

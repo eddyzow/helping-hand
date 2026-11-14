@@ -109,7 +109,7 @@ class MockArm:
         """Hold position now: moves stop sending, the motors keep holding the last target."""
         self.halt.set()
 
-    def close(self) -> None:
+    def close(self, release: bool = True) -> None:
         pass
 
 
@@ -132,8 +132,12 @@ class Arm(MockArm):
     def _write(self, joints: list[float]) -> None:
         self._robot.send_action({f"{j}.pos": v for j, v in zip(JOINTS, joints)})
 
-    def close(self) -> None:
-        """Switch the motors off. Never moves: the arm drops unless it is resting or held."""
+    def close(self, release: bool = True) -> None:
+        """Close the serial port. Never moves. release=True switches the motors off, so the arm
+        drops unless it is resting or held; release=False leaves them on and holding.
+        The flag is set on the robot itself because LeRobot also disconnects when the object is
+        garbage collected, and that path must not release the motors either."""
+        self._robot.config.disable_torque_on_disconnect = release
         self._robot.disconnect()
 
 
