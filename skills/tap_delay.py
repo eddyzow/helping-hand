@@ -18,7 +18,7 @@ STOPPED = {"ok": False, "reason": "stopped"}
 
 
 def run(arm, params, stop):
-    from core import key_down
+    from core import key_down, real_now
 
     times = params.get("times", 10)
     if type(times) is not int or not 3 <= times <= 50:
@@ -30,24 +30,24 @@ def run(arm, params, stop):
         """Milliseconds from `start` until the key reads as wanted, or None after half a second or on stop.
         Pass the time taken just BEFORE the command: sending it to the motors takes time too, and the
         replay needs the whole delay from deciding to press until the key changes."""
-        start = time.perf_counter() if start is None else start
+        start = real_now() if start is None else start
         while key_down.is_set() != pressed:
-            if stop.is_set() or time.perf_counter() - start > 0.5:
+            if stop.is_set() or real_now() - start > 0.5:
                 return None
             time.sleep(0.0005)
-        return (time.perf_counter() - start) * 1000
+        return (real_now() - start) * 1000
 
     press_ms, release_ms = [], []
     for _ in range(times):
         if stop.wait(0.3) or until(False) is None:
             break
-        sent = time.perf_counter()
+        sent = real_now()
         if not arm.press():
             break
         down = until(True, sent)
         if down is None or stop.wait(0.15):
             break
-        sent = time.perf_counter()
+        sent = real_now()
         if not arm.release():
             break
         up = until(False, sent)
