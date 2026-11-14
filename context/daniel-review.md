@@ -38,6 +38,16 @@ Reviewed the complete new skill and the called root text/resample path. The insp
 
 Validate PEN_SPEED as finite and supported as well. Until this is fixed, drawing remains mock-only in demo claims; it is not ready for physical operation. WSL's missing dependency is an environment gap, while the Windows `draw ok` result is a completed check.
 
+### Candidate 485ab71: waiting client reports another job's result
+
+The new `core.send` accepts a start reply, polls global `status.busy`, then returns the global last result without correlating it to the accepted invocation. A deterministic fake-transport check used actual `dispatcher.handle` and `send.main`: first job returns failure, then another client starts/completes a second successful job before the first status poll. The waiting client prints the second job's result and exits 0. No socket or real dispatcher was contacted.
+
+Correlate the accepted invocation to its result, including same-skill consecutive runs. If that result is no longer available, fail clearly instead of returning another invocation's success; no result-history feature is needed to avoid false success. Leave this interleaving as a small regression. The candidate remains unmerged.
+
+### Calibration latest draft 94439328: residual cases verified fixed
+
+Snapshot `9443932844b5dc020b14cd44d46b84ccc5accafecdaf3165aff054c5991b023c` passed independent fake checks: final saved/test endpoint stays at 8 for contact at max_travel=8, the approach-end stop emits zero creep writes, and a sticky key rejects after one verification press while preserving both previous valid calibration JSON files and the previous runtime settings. All files were confined to a temporary directory. Full candidate suite remains pending; the current sticky-key regression hardcodes lift=3 even though a prior calibration changes lift to about 1.15, so it should assert restoration to a captured pre-test value.
+
 ### Calibration 52392f2: partial fixes verified, sticky-key false success
 
 The inspected expanded WSL mock suite passed `core ok` under an external 120-second timeout, with bytecode disabled. It exercises rejection of obsolete/unknown options, bounded creep, zero writes after an approach-end stop, and preservation on invalid measured lift. The separate-instance test setup is corrected in this commit.
