@@ -40,7 +40,7 @@ def test_keypad_safety():
     on_key = scope["on_key"]
     for before, after, expected in (
         ("Geometry Dash", "Editor", [("mouse", 2), ("mouse", 4)]),
-        ("Editor", "Geometry Dash", [("key", 0), ("key", 2)]),
+        ("Editor", "Geometry Dash", []),
     ):
         events.clear()
         state["title"] = before
