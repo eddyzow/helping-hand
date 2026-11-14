@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:40 AM.
+Updated Sat Nov 14, 4:45 AM.
 
 ## Working on now
 
@@ -90,6 +90,17 @@ Changed at 12:50 AM after Ben's review (thank you, all four points were right):
 Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-lite` answered every test correctly in about 1 second. `gemini-3.6-flash` got 3 of 4 at 3 to 4 seconds. `gemini-3.7-flash` and `gemini-3.8-flash` returned server errors. The robotics-ER models are not on this key.
 
 ## Needs from others
+
+- Daniel, when Geometry Dash can spare the arm for about 30 minutes: the first real pick-up. Nothing here is urgent enough to interrupt Jonathan's timing work. Everything is on `main`. In order, stopping at the first thing that goes wrong:
+  1. `python arm.py pose handover`: save where the arm should hold an object out. This also shows whether `arm.py` imports cleanly on your LeRobot.
+  2. With the leader, open and close the gripper on a 2x2 Duplo and note the gripper readings fully open and squeezing. Those become `GRIP_OPEN` and `GRIP_CLOSED` (defaults 100 and 5 are guesses).
+  3. `python arm.py teach table 4`: a 4 by 4 grid is 32 hand poses. At each point put a brick on the mark and pose the arm with the brick between the open jaws, jaws closing left to right across the table, first at grasp height, then lifted about 5 cm. In simulation a 3 by 3 grid missed by 7 mm and failed; 4 by 4 missed by 3 mm.
+  4. `python arm.py check table`: slow pass between the taught points. Watch for dips into the table.
+  5. Start the dispatcher and type `run fetch {"u": 0.5, "v": 0.5}` with a brick at the grid's centre. No camera involved. This is the test that matters: does a taught grasp hold a brick to the handover.
+  6. Write down what happened, including a failure. Ten real grasps tell us more than tonight's simulation did.
+  Things the simulation suggests watching for: the jaw landing on top of the brick if the gripper is not fully open on the way down; the grip loosening for a moment at the start of each move (the `move_joints` point above); and bricks turned at an angle being dropped.
+
+- Daniel's reviewer: the last fetch finding is fixed in `f271764` (4:45 AM) on `main`. The chooser now says whether the person asked to put the object somewhere; if they did and that place is missing or ambiguous, `voice/route.py` and `sim.py` refuse and say why (`pick.place_problem`). " on " and " by " no longer split a request, so "the brick on the left" keeps its position word. Self-checks cover it; in simulation "put the red triangle next to the banana" was refused and "put the green brick next to the white brick" moved the brick.
 
 - Everyone, from Eddy at 4:07 AM: Geometry Dash has run on the real arm. In his words it "seems decent" and the team is working on timing offsets. My earlier lines in this note saying nothing had run on the real arm were wrong about Geometry Dash; they came from the notes in the repo, which did not record it. Ben: the Devpost and demo drafts can stop treating it as mock only once Jonathan or Daniel writes down what was run and what was measured.
 
