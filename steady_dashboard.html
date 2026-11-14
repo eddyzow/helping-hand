@@ -16,6 +16,14 @@
   button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 14px; border-radius:10px; cursor:pointer; }
   button.on { background:var(--plum); border-color:var(--plum); color:#fff; }
   button:hover { border-color:var(--plum); }
+  button:disabled { opacity:.55; cursor:default; border-color:var(--line); }
+  button:focus-visible, input:focus-visible { outline:2px solid var(--plum); outline-offset:2px; }
+  #test { width:100%; margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; margin-top:10px; }
+  th, td { text-align:right; padding:5px 4px; border-top:1px solid var(--line); }
+  td { white-space:nowrap; }
+  th { font-weight:600; color:var(--soft); border-top:0; vertical-align:bottom; }
+  th:first-child, td:first-child { text-align:left; }
   .grid { display:grid; grid-template-columns:repeat(12, 1fr); gap:12px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
   .card h2 { font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--soft); margin:0 0 6px; }
@@ -64,6 +72,26 @@
     <section class="card c4"><h2>Grip effort</h2><div class="row"><span>share of the claw motor's maximum</span><b id="gripv">0%</b></div><div class="bar"><i id="grip"></i></div><div class="note">The motor's own load reading: an estimate, not a measured force.</div></section>
     <section class="card c4"><h2>Arm load</h2><div class="row"><span>hardest-working joint</span><b id="loadv">0%</b></div><div class="bar"><i id="load"></i></div><div class="note" id="speed">claw speed 0 mm/s</div></section>
     <section class="card c4"><h2>Filter</h2><div class="row"><span>lets through movement slower than</span><b id="cutv">2.0 Hz</b></div><input id="cut" type="range" min="0.5" max="6" step="0.1" value="2"><div class="note">Lower is steadier but follows the hand a little later.</div></section>
+
+    <section class="card c4">
+      <h2>Hold-still test</h2>
+      <div class="big" id="testbig" hidden>0<span></span></div>
+      <div class="note" id="testnote">Not run yet. It measures how much the hand shakes while holding the leader arm still for 10 seconds.</div>
+      <div class="note" id="testscale" hidden>100 means no shake. The score is a simple display scale, not a clinical measure.</div>
+      <button id="test">Start 10-second hold-still test</button>
+    </section>
+    <section class="card c8">
+      <h2>Past sessions</h2>
+      <div class="note" id="nosessions">No sessions recorded yet.</div>
+      <div id="sessions" hidden>
+        <canvas id="sessionchart" height="150"></canvas>
+        <div class="legend"><span><b style="background:var(--raw)"></b>hand shake (mean)</span><span><b style="background:var(--plum)"></b>arm shake (mean)</span></div>
+        <table>
+          <thead><tr><th>Started</th><th>Length</th><th>Hand shake (mm)</th><th>Arm shake (mm)</th><th>Removed</th><th>Best test</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
   <footer>Prototype. Tested only with a person shaking the leader arm on purpose, not with patients. The arm holds light objects.</footer>
 </main>
@@ -76,6 +104,7 @@ $('steady').onclick = () => send('steady ' + (steady ? 'off' : 'on'));
 $('hold').onclick = () => send('hold ' + (hold ? 'off' : 'on'));
 $('cut').oninput = e => { dragging = true; $('cutv').textContent = (+e.target.value).toFixed(1) + ' Hz'; };
 $('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; };
+$('test').onclick = () => send('test');
 
 function fit(canvas) {  // sharp lines on high-density screens
   const ratio = window.devicePixelRatio || 1, w = canvas.clientWidth, h = +canvas.getAttribute('height');
@@ -113,6 +142,52 @@ function arms(raw, out) {
   }
   ctx.globalAlpha = 1;
 }
+function holdTest(t) {  // t is missing when the server has no test: shows "not run yet"
+  const running = !!(t && t.running), done = !!(t && !running && t.score != null), big = $('testbig');
+  $('test').disabled = running;
+  big.hidden = !(running || done); $('testscale').hidden = !done;
+  if (running) {
+    big.firstChild.textContent = Math.max(0, Math.ceil(t.seconds_left)); big.lastChild.textContent = 'seconds left';
+    $('testnote').textContent = 'Hold the leader arm as still as you can.';
+  } else if (done) {
+    big.firstChild.textContent = t.score; big.lastChild.textContent = 'out of 100';
+    $('testnote').textContent = t.tremor_mm != null ? 'Hand shake during the test: ' + t.tremor_mm.toFixed(1) + ' mm' : '';
+  } else $('testnote').textContent = 'Not run yet. It measures how much the hand shakes while holding the leader arm still for 10 seconds.';
+}
+function sessionChart(list) {
+  const [ctx, w, h] = fit($('sessionchart'));
+  const hi = Math.max(1, ...list.flatMap(s => [s.mean_tremor_mm, s.mean_arm_mm])) * 1.15;
+  const left = 46, top = 10, bottom = h - 20;
+  const x = i => list.length < 2 ? (left + w) / 2 : left + 6 + i / (list.length - 1) * (w - left - 12), y = v => bottom - v / hi * (bottom - top);
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  for (const v of [top, bottom]) { ctx.beginPath(); ctx.moveTo(left, v); ctx.lineTo(w, v); ctx.stroke(); }
+  for (const [key, colour] of [['mean_tremor_mm', css('--raw')], ['mean_arm_mm', css('--plum')]]) {
+    ctx.strokeStyle = ctx.fillStyle = colour; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    list.forEach((s, i) => i ? ctx.lineTo(x(i), y(s[key])) : ctx.moveTo(x(i), y(s[key]))); ctx.stroke();
+    list.forEach((s, i) => { ctx.beginPath(); ctx.arc(x(i), y(s[key]), 3, 0, 7); ctx.fill(); });  // one mark per session
+  }
+  ctx.fillStyle = css('--soft'); ctx.font = '12px Segoe UI, sans-serif';
+  ctx.fillText(hi.toFixed(1) + ' mm', 0, top + 4); ctx.fillText('0 mm', 0, bottom + 4);
+  ctx.fillText('oldest', left, h - 2); ctx.textAlign = 'right'; ctx.fillText('newest', w, h - 2); ctx.textAlign = 'left';
+}
+function sessionRow(s) {
+  const tr = document.createElement('tr'), best = Math.max(-1, ...(s.tests || []).map(t => t.score));
+  const when = new Date(s.start), length = s.duration_s < 60 ? Math.round(s.duration_s) + ' s' : Math.round(s.duration_s / 60) + ' min';
+  tr.title = when.toLocaleString();
+  for (const text of [when.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}), length, s.mean_tremor_mm.toFixed(1),
+                      s.mean_arm_mm.toFixed(1), Math.round(s.removed_pct) + '%', best < 0 ? '–' : best])
+    tr.insertCell().textContent = text;
+  return tr;
+}
+async function loadSessions() {  // an error or an older server (which answers with the page) counts as no sessions
+  let list = [];
+  try { const r = await fetch('/sessions', {cache: 'no-store'}); if (r.ok) list = await r.json(); } catch (e) {}
+  if (!Array.isArray(list)) list = [];
+  $('nosessions').hidden = list.length > 0; $('sessions').hidden = !list.length;
+  if (!list.length) return;
+  sessionChart(list);
+  $('rows').replaceChildren(...list.slice(-5).reverse().map(sessionRow));
+}
 async function tick() {
   try {
     const s = await (await fetch('/state', {cache: 'no-store'})).json();
@@ -128,10 +203,11 @@ async function tick() {
     $('load').style.width = Math.min(100, s.arm_load) + '%'; $('loadv').textContent = Math.round(s.arm_load) + '%';
     $('speed').textContent = 'claw speed ' + s.speed_mm_s + ' mm/s';
     if (!dragging) { $('cut').value = s.cutoff; $('cutv').textContent = s.cutoff.toFixed(1) + ' Hz'; }
-    chart(s.history); arms(s.raw_chain, s.out_chain);
+    chart(s.history); arms(s.raw_chain, s.out_chain); holdTest(s.test);
   } catch (e) { if (++misses > 5) $('lost').style.display = 'block'; }
 }
 setInterval(tick, 100); tick();
+setInterval(loadSessions, 5000); loadSessions();
 </script>
 </body>
 </html>
