@@ -107,6 +107,7 @@ def run(arm, params, stop):
 
     (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
     (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": 0.0}))
+    arm._poses.pop("tap_key", None)  # read the new pose from the file next time
     if not arm.from_key():
         return STOPPED
     return {"ok": True, "reason": f"key registers at {pressed_at:.2f}, releases at {released_at:.2f}, "

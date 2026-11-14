@@ -26,6 +26,7 @@ _worker = None
 _lock = threading.Lock()
 _closing = False  # set by shutdown(): no new skill may start after it
 _last = {}        # the last finished skill and its result, for `status`
+_job = 0          # counts accepted runs, so a waiting client can tell its own result from a later one
 
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it
@@ -51,7 +52,7 @@ def list_skills() -> list[dict]:
 
 def dispatch(skill_name: str, params: dict | None = None) -> dict:
     """Start a skill in the background. Refuses if one is already running."""
-    global _worker
+    global _worker, _job
     skill = _Home if skill_name == "home" else SKILLS.get(skill_name)
     if params is not None and not isinstance(params, dict):
         return {"ok": False, "reason": "params must be a JSON object"}
@@ -65,18 +66,20 @@ def dispatch(skill_name: str, params: dict | None = None) -> dict:
         if unknown := sorted(set(params or {}) - set(skill.PARAMS)):
             return {"ok": False, "reason": f"{skill_name} has no option {unknown}; it takes {sorted(skill.PARAMS)}"}
         _arm.halt.clear()
-        _worker = threading.Thread(target=_run, args=(skill, params or {}), daemon=True)
+        _job += 1
+        job = _job
+        _worker = threading.Thread(target=_run, args=(skill, params or {}, job), daemon=True)
         _worker.start()
-    return {"ok": True, "reason": "started"}
+    return {"ok": True, "reason": "started", "job": job}
 
 
-def _run(skill, params: dict) -> None:
+def _run(skill, params: dict, job: int) -> None:
     try:
         result = skill.run(_arm, params, _arm.halt)
     except Exception as err:  # a broken skill must not kill the dispatcher; the arm holds where it is
         result = {"ok": False, "reason": f"{type(err).__name__}: {err}"}
     global _last
-    _last = {"skill": skill.NAME, **result}
+    _last = {"job": job, "skill": skill.NAME, **result}
     print(f"[{skill.NAME}] {result}", flush=True)
 
 

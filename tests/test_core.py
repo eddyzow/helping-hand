@@ -16,6 +16,7 @@ def close(a, b):
 
 def test_core():
     # the same made-up poses on every machine, whatever is taught in the real poses/ folder
+    core.arm.TAP_JOINT = 2                                     # these tests tap with the elbow (index 2)
     core.arm.POSES = Path(tempfile.mkdtemp())
     for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80],
                          "tap_key": [10, -20, 40, 70, 0, 30]}.items():
@@ -322,6 +323,32 @@ def test_core():
     assert by_keyword("make me a sandwich", skills) == {"skill": None}
 
 
+def test_send_waits_for_its_own_result():
+    """A failed run must not be reported as ok because a later run by someone else succeeded."""
+    from core import send
+
+    core.arm.POSES = Path(tempfile.mkdtemp())      # no poses: the mock uses zeros, everything is instant
+    dispatcher.load(get_arm(mock=True))
+    real_argv, real_ask, polls = send.sys.argv, send.ask, []
+
+    def fake_transport(line):
+        if line == "status" and not polls:         # before the first poll, another client runs a good job
+            polls.append(1)
+            dispatcher._worker.join(5)
+            assert dispatcher.handle("home")["ok"] is True
+            dispatcher._worker.join(10)
+        return dispatcher.handle(line)
+
+    try:
+        send.ask = fake_transport
+        send.sys.argv = ["send", "run", "gd_tap", '{"times": 0}']   # refused inside the skill: ok False
+        assert send.main() == 1
+        send.sys.argv = ["send", "home"]
+        assert send.main() == 0
+    finally:
+        send.sys.argv, send.ask = real_argv, real_ask
+
+
 def test_cli_cue():
     """Started the real way (python -m core.dispatcher), the cue typed or sent must reach the skill."""
     import os
@@ -364,5 +391,6 @@ def test_cli_cue():
 
 if __name__ == "__main__":
     test_core()
+    test_send_waits_for_its_own_result()
     test_cli_cue()
     print("core ok")

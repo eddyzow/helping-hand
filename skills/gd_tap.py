@@ -1,7 +1,8 @@
 """Tap the key under the fingertip. The seed of the Geometry Dash skill: timings come later.
 
 Set up once:
-    python arm.py pose tap_key     gripper closed, tip pointing down, about 1 cm ABOVE the jump key
+    python arm.py pose tap_key     fixed claw underneath, angled down, its tip about 1 cm ABOVE the
+                                   jump key (see outputs/sim_tap_pose.png); moving claw on top
     run tap_calibrate              the arm finds the key by itself and saves the exact press
 After that the tip waits just above the key and each tap comes down only as far as the key needs.
 Fine tuning, if ever needed: run gd_tap {"press": -0.2} (lighter) or {"lift": 1.5} (lift higher).

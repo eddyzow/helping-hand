@@ -22,8 +22,9 @@ TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap hol
 # You only teach a rough pose with the tip about 1 cm ABOVE the key. `run tap_calibrate` then lowers
 # the tip slowly until the keypad itself reports the key, and saves the exact pose and lift, so the
 # press is as light as the key allows. Until it has run, a tap stops in the air at the rough pose.
-# ponytail: units are TAP_JOINT's (elbow degrees, about 3 mm at the tip each), not millimetres.
-TAP_JOINT = JOINTS.index(os.environ.get("TAP_JOINT", "elbow_flex"))  # the joint that lowers the tip
+# ponytail: units are TAP_JOINT's (wrist degrees, under 2 mm at the tip each), not millimetres.
+# The wrist, as in Jonathan's simulation: it is light, and a bigger wrist angle bends the tip down.
+TAP_JOINT = JOINTS.index(os.environ.get("TAP_JOINT", "wrist_flex"))  # the joint that lowers the tip
 LIFT = float(os.environ.get("TAP_LIFT", "3.0"))
 PRESS = float(os.environ.get("TAP_PRESS", "0.0"))
 ELBOW = 2              # index in JOINTS. A bigger elbow angle lowers the forearm.
@@ -45,6 +46,7 @@ class MockArm:
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
+        self._poses = {}  # poses read once: a file read inside press() cost up to 0.3 s on /mnt/c
         self.lift, self.press_extra = 3.0, 0.0
         self.set_tap(LIFT, PRESS)  # environment defaults pass the same check as live changes
         tune = POSES / "tap_tune.json"  # written by tap_calibrate
@@ -59,13 +61,15 @@ class MockArm:
         self._joints = list(joints)
 
     def load_pose(self, name: str) -> list[float]:
-        path = POSES / f"{name}.json"
-        if not path.exists():
-            if not self.REAL:
-                return [0.0] * 6
-            raise FileNotFoundError(f"No pose '{name}'. Teach it: python arm.py pose {name}")
-        pose = json.loads(path.read_text())
-        return _checked(pose[f"{j}.pos"] for j in JOINTS)
+        if name not in self._poses:
+            path = POSES / f"{name}.json"
+            if not path.exists():
+                if not self.REAL:
+                    return [0.0] * 6
+                raise FileNotFoundError(f"No pose '{name}'. Teach it: python arm.py pose {name}")
+            pose = json.loads(path.read_text())
+            self._poses[name] = _checked(pose[f"{j}.pos"] for j in JOINTS)
+        return list(self._poses[name])
 
     def get_joints(self) -> list[float]:
         return self._read()
@@ -84,8 +88,8 @@ class MockArm:
             self.halt.wait(1 / HZ)
         return not self.halt.is_set()
 
-    def home(self) -> bool:
-        return self.move_joints(self.load_pose("home"), 2.0)
+    def home(self, duration_s: float = 2.0) -> bool:
+        return self.move_joints(self.load_pose("home"), duration_s)
 
     def move_to(self, x_mm, y_mm, z_mm, duration_s):
         raise NotImplementedError("phase 2: needs inverse kinematics")
@@ -118,13 +122,15 @@ class MockArm:
         """From anywhere: home, arrive well above the key, then come straight down to the hover."""
         above = self.hover_pose()
         above[ELBOW] -= APPROACH_DEG
-        return self.home() and self.move_joints(above, 1.5) and self.move_joints(self.hover_pose(), 1.0)
+        at_home = all(abs(a - b) < 3 for a, b in zip(self._read(), self.load_pose("home")))
+        return ((at_home or self.home(1.2))  # no pause at home when it is already there
+                and self.move_joints(above, 0.9) and self.move_joints(self.hover_pose(), 0.4))
 
     def from_key(self) -> bool:
         """Lift straight up off the key, then go home."""
         above = self.hover_pose()
         above[ELBOW] -= APPROACH_DEG
-        return self.move_joints(above, 1.0) and self.home()
+        return self.move_joints(above, 0.4) and self.home(1.2)
 
     def press(self) -> bool:
         """Come down onto the key. One command, for tight timing."""
