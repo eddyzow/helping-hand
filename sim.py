@@ -96,23 +96,16 @@ def _shape(kind: str, rgba: str) -> str:
             for x in (-0.022, 0.022) for y in (-0.021, 0.021))
         return box(0.032, 0.0159, 0.004, 0.014, 0.02) + _studs(2, 4, 0.018, rgba) + wheels
     if kind == "carbody":   # an open-top car shell: hollow, wheel arches on both sides, studs and a hitch at the back
+        # What you see is the sculpted mesh (sim_assets/make_car_body.py). What the physics touches is a
+        # few invisible boxes in the same places, because MuJoCo would otherwise fill the hollow shell in.
         part = lambda sx, sy, sz, x, y, z: (f'<geom type="box" size="{sx} {sy} {sz}" pos="{x} {y} {z}" '
-                                            f'rgba="{rgba}" mass="0.002" {GRIP}/>')
-        stud = lambda x, y, top: (f'<geom type="cylinder" size="0.0047 0.0023" pos="{x} {y} {top + 0.0023}" '
-                                  f'rgba="{rgba}" contype="0" conaffinity="0" density="0"/>')
-        shell = part(0.014, 0.026, 0.009, 0.036, 0, 0.023)             # bonnet
-        shell += part(0.004, 0.022, 0.006, 0.020, 0, 0.034)            # windscreen
-        shell += part(0.012, 0.018, 0.012, -0.038, 0, 0.026)           # rear deck
-        shell += part(0.003, 0.013, 0.008, -0.022, 0, 0.022)           # seat back
-        shell += part(0.003, 0.003, 0.004, -0.053, 0, 0.012)           # hitch arm
-        shell += (f'<geom type="cylinder" size="0.004 0.008" pos="-0.058 0 0.012" rgba="{rgba}" mass="0.001" {GRIP}/>')
+                                            f'rgba="0 0 0 0" mass="0.002" {GRIP}/>')
+        shell = part(0.014, 0.026, 0.009, 0.036, 0, 0.018) + part(0.010, 0.017, 0.011, -0.039, 0, 0.026)
         for side in (-1, 1):
-            shell += part(0.036, 0.004, 0.005, 0.0, side * 0.022, 0.031)   # rail along the cockpit
-            for x in (-0.024, 0.024):
-                shell += part(0.019, 0.004, 0.004, x, side * 0.026, 0.023)  # top of a wheel arch
+            shell += part(0.036, 0.004, 0.005, 0.0, side * 0.023, 0.024)
             for x in (-0.046, 0.0, 0.046):
-                shell += part(0.005, 0.004, 0.0115, x, side * 0.026, 0.0115)  # legs between the arches
-        return shell + stud(-0.038, -0.008, 0.038) + stud(-0.038, 0.008, 0.038) + stud(-0.026, 0.026, 0.027)
+                shell += part(0.005, 0.004, 0.0115, x, side * 0.025, 0.0115)
+        return shell + f'<geom type="mesh" mesh="car_body" rgba="{rgba}" contype="0" conaffinity="0" density="0"/>'
     raise ValueError(kind)
 
 
@@ -141,6 +134,7 @@ def scene_xml() -> str:
   <asset>
     <mesh name="roof" vertex="{_hull(roof)}"/>
     <mesh name="boat" vertex="{_hull(boat)}"/>
+    <mesh name="car_body" file="{HERE / 'sim_assets' / 'car_body.stl'}" smoothnormal="true"/>
   </asset>
   <worldbody>
     <light pos="0.2 0 1" dir="0 0 -1" directional="true" diffuse="0.3 0.3 0.3" specular="0 0 0"/>
@@ -196,6 +190,10 @@ class SimArm(MockArm):
             from mujoco import viewer
 
             self.window = viewer.launch_passive(self.model, self.data)
+            self.window.cam.lookat[:] = [0.24, 0.0, 0.02]  # start close on the pieces
+            self.window.cam.distance, self.window.cam.azimuth, self.window.cam.elevation = 0.55, 150, -28
+            print("Window controls: scroll (two fingers on a trackpad) zooms, left-drag turns the view, "
+                  "right-drag slides it, double-click a piece to centre on it.", flush=True)
         self.settle(0.3)
 
     def _read(self) -> list[float]:
