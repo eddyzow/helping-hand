@@ -1,7 +1,7 @@
 """Tap the key under the fingertip. The seed of the Geometry Dash skill: timings come later.
 
-Teach the pose once by hand, fingertip a millimetre or two above the key: python arm.py pose tap_up
-Tune the tap with TAP_DEG_PER_MM and TAP_SECONDS (see core/arm.py).
+Teach two poses by hand: python arm.py pose tap_up (fingertip a millimetre or two above the key)
+and python arm.py pose tap_down (fingertip holding the key down).
 """
 NAME = "gd_tap"
 DESCRIPTION = "Tap the jump key for Geometry Dash"

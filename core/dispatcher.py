@@ -4,7 +4,7 @@
     python -m core.dispatcher            # real follower: its motors switch on
 
 Type a command, or send it as one line to TCP port 8765 (the keypad and voice scripts do this):
-    run <skill> [json params]   |   stop   |   home   |   list
+    run <skill> [json params]   |   stop   |   home   |   cue   |   ready   |   list
 To quit: type home, wait for it to finish, then Ctrl+C. Quitting never moves the arm: it stops,
 then asks you to hold the arm before the motors switch off.
 """
@@ -24,6 +24,8 @@ _arm = None
 _worker = None
 _lock = threading.Lock()
 _closing = False  # set by shutdown(): no new skill may start after it
+cue = threading.Event()      # 'start now' from outside, such as the game's restart key
+waiting = threading.Event()  # set while a skill is waiting for that cue
 
 
 class _Home:  # the operator's own "go home", run like a skill so busy and stop apply to it
@@ -109,6 +111,11 @@ def handle(line: str):
         return list_skills()
     if command == "home":
         return dispatch("home")
+    if command == "cue":
+        cue.set()
+        return {"ok": True, "reason": "cue"}
+    if command == "ready":
+        return {"ok": waiting.is_set(), "reason": "a skill is waiting for the cue" if waiting.is_set() else ""}
     if command == "run":
         name, _, raw = rest.strip().partition(" ")
         try:

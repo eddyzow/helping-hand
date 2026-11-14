@@ -16,10 +16,7 @@ from pathlib import Path
 JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
 HZ = 30
 POSES = Path(__file__).parent.parent / "poses"
-# ponytail: a tap is a wrist_flex nudge, not a real depth. Tune on the real key (negative flips the
-# direction); inverse kinematics replaces it in phase 2.
-TAP_DEG_PER_MM = float(os.environ.get("TAP_DEG_PER_MM", "1.0"))
-TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))
+TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap holds the key down
 
 
 def _checked(joints) -> list[float]:
@@ -82,11 +79,23 @@ class MockArm:
         joints[5] = 100 * min(max(open_fraction, 0.0), 1.0)
         return self.move_joints(joints, 0.4)
 
+    def press(self) -> bool:
+        """Jump straight to the taught tap_down pose (key pressed). One command, for tight timing."""
+        return self._jump("tap_down")
+
+    def release(self) -> bool:
+        """Jump straight back to the taught tap_up pose (fingertip just above the key)."""
+        return self._jump("tap_up")
+
+    def _jump(self, pose: str) -> bool:
+        if self.halt.is_set():
+            return False
+        self._write(self.load_pose(pose))
+        return True
+
     def tap(self, depth_mm: float = 3.0) -> bool:
-        up = self._read()
-        down = list(up)
-        down[3] += depth_mm * TAP_DEG_PER_MM
-        return self.move_joints(down, TAP_SECONDS) and self.move_joints(up, TAP_SECONDS)
+        # ponytail: depth_mm is ignored. The depth is the taught tap_down pose until there is IK.
+        return self.press() and not self.halt.wait(TAP_SECONDS) and self.release()
 
     def play(self, trajectory) -> bool:
         """trajectory: list of (time_s, joints_deg), times rising. Returns False if stopped.
