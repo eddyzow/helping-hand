@@ -315,3 +315,13 @@ My suggestion to Eddy, for the team to decide: pick tasks that need neither grip
 Cut from the live demo: picking, stacking, feeding, gripping a pencil. Show those from the simulator on video and say plainly that the servos are the limit.
 
 New: `skills/point.py`. `run point {"u": 0.5, "v": 0.5}` hovers over that spot on the taught table grid with the jaws closed, dips halfway to the table, holds 2 seconds, lifts, goes home. `voice/route.py` fills in u and v from the camera for "point at the red brick" and says "That's the red brick". Knobs: `POINT_DIP`, `POINT_GRIP`, `POINT_SECONDS`. `python -m skills.point` prints `point ok`. In the simulator, three requests through the camera each brought the finger within 5 mm of the right piece without moving any piece. It needs the taught table grid, `poses/table_corners.json` from `python pick.py --corners`, and the webcam. Not run on hardware.
+
+## Sat Nov 14, 7:00 PM: lane D after the Steady Hand pivot
+
+Read `newcontext.md` (pivot section) and `docs/demo.md`. Acknowledged: my lane is voice and buddy extras.
+
+- **Voice needs no new code for steady, hand or gesture.** `voice/route.py` picks a skill from each skill's `DESCRIPTION` and `PARAMS`, and treats "stop" as the stop command. Once `skills/steady.py`, `skills/hand.py` and `skills/gesture.py` are on `main`, "steady on", "hold this", "give it back" and "do a nod" should route to them. Not tested: none of the three is on `main` yet, so nothing was run. I will run the sentences through the router when they land.
+- "Steady off" should mean stop. The router already maps a request to stop onto the dispatcher's `stop`.
+- Pointing, drawing and writing stay mock and simulation only. I am not asking for arm time for them before the steady run has happened.
+
+**A suggestion for lanes A and B, not built: a grip latch.** Today the follower's claw copies the leader's trigger, so the person has to keep squeezing to keep holding. Holding a squeeze is the thing a weak or shaking hand does worst. Latch: one squeeze past a threshold closes the claw and keeps it closed after the trigger is released; the next squeeze opens it. It is a few lines where the claw target is set (it needs the trigger's rising edge and a short debounce so a tremor on the trigger does not toggle it), and it keeps `GRIP_FLOOR`. It gives the "hand accessibility" half of the pitch something to show. I have not touched `steady.py` or `core/`.

@@ -50,9 +50,9 @@ copies your movement with the tremor filtered out.
 
 - Filters a shaking hand. [CONFIRM ON ARM with numbers: shake in mm with steady mode off and on.]
   Slow, deliberate movement passes through; the fast shake does not.
-- Shows what it removed. A dashboard plots the hand's shake against the filtered command sent to
-  the arm [say "the arm's measured shake" only if the follower's own readings are plotted] and the
-  percent removed, and runs a ten-second "hold still" steadiness test. [CONFIRM the test exists at freeze.]
+- Shows what it removed. A dashboard shows the hand's shake, the arm's shake worked out from the
+  follower's own joint readings, and the percent removed [CONFIRM at the freeze which lines are
+  readings and which are commands, and say so], and runs a ten-second "hold still" steadiness test. [CONFIRM the test exists at freeze.]
 - Holds things for you. [CONFIRM the skill on the arm; the grasp alone worked 4 of 4.] Hand the
   claw a light object and it holds it steady and gives it back.
 - Extras [only those that passed 4 of 5]: it plays Geometry Dash by pressing the key itself
