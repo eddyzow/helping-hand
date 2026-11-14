@@ -57,6 +57,7 @@ def run(arm, params, stop):
     if not arm.to_key():
         return STOPPED
     cue.clear()
+    feels_key = False
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)
     try:
         while True:
@@ -72,6 +73,7 @@ def run(arm, params, stop):
                         return _finish(arm, "the entering press did not register; run tap_calibrate")
                     time.sleep(0.0005)
                 start = time.perf_counter() + enter_delay_ms / 1000
+                feels_key = True  # the keypad listener is reporting the jump key to us
                 if stop.wait(0.08) or not arm.release():
                     return STOPPED
             else:
@@ -91,7 +93,20 @@ def run(arm, params, stop):
                 if cue.is_set():            # the level was restarted: let go and start the clock again
                     arm.release()
                     break
-                (arm.press if event.down else arm.release)()
+                if event.down:
+                    arm.press()
+                    continue
+                # A short tap's release can come due before the press has even registered (the press
+                # takes 110 to 164 ms on this arm), and lifting then cancels the jump. When the keypad
+                # reports its key to us, hold the press until it registers, at most 0.2 s longer.
+                limit = time.perf_counter() + 0.2
+                while feels_key and not key_down.is_set() and time.perf_counter() < limit:
+                    if stop.is_set():
+                        return STOPPED
+                    if cue.is_set():
+                        break
+                    time.sleep(0.0005)
+                arm.release()
             else:
                 return _finish(arm, "")
     finally:
