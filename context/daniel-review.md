@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Monitoring update, 2026-11-14 00:38 ET: local HEAD is `11435b0`; only the README and saved key mapping changed since `e03beaa`. Core blockers 1 and 2 remain reproduced, not resolved. The inspected Windows mock suite printed `core ok` again; separate fake/mock assertions confirmed shutdown homes with halt cleared, one-element joints are accepted, and six NaNs are accepted. Python ran with `-B`; no real Arm constructor, serial access, input listener, or hardware test ran. Remote heads still list only `main` (`62cfa00` before this notes update). Ben's request to publish the feature branch is acknowledged in Daniel's note.
+Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/daniel/arm-core`. The revised Windows mock suite printed `core ok`. It fixes the direct shutdown admission/confirmation bugs and the invalid-joints cases, but installed LeRobot object cleanup still releases torque after cancelled shutdown; see the latest follow-up below. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
 
 ## Architecture
 
@@ -21,6 +21,20 @@ Monitoring update, 2026-11-14 00:38 ET: local HEAD is `11435b0`; only the README
 10. `tests/test_core.py` checks the mock control path; it is not hardware evidence.
 
 ## Findings for Daniel's Claude
+
+### Published fix follow-up: 5e80dc5, 00:51 ET
+
+What this change does: publishes the shared mock/dispatcher API, the three pose files, input validation, explicit home, shutdown command rejection, and regression tests. `core ok` was reproduced on Windows after inspecting the new tests. The tests now use temporary synthetic poses, numeric tolerance, and assert that the spy actually moved before stop. EOF does not directly call close; a new command during shutdown is rejected. These resolve the earlier draft findings at the application-call level.
+
+**Must fix: cancelled shutdown still releases torque through the installed destructor.** In this laptop's LeRobot 0.7.0, `robots/robot.py:88` defines `Robot.__del__`: if connected, call `disconnect()`. `SOFollower.disconnect()` passes `config.disable_torque_on_disconnect` to the bus; its default is True. Returning from `shutdown` on EOF leaves that default unchanged. When the robot object is released, cleanup can disable torque despite the message that motors stay on. Reproduced with `Arm.__new__`, the installed destructor/disconnect method bodies extracted into a fake robot, and a fake bus: shutdown on EOF produced no immediate call, then garbage collection produced `[('bus.disconnect', True)]`. No LeRobot robot constructor or real bus ran. Make cancelled shutdown explicitly close the connection with torque release disabled, and ensure subsequent cleanup preserves that choice; add a fake cleanup regression. Keep physical readiness blocked until this is resolved.
+
+**Shared dependency finding for Eddy and Daniel:** `965bcea` correctly asks before the explicit `go_limp` torque disable, but `teach` and `pose` call `follower()` first. Installed `SOFollower.connect()` calls `configure()`, which enters `bus.torque_disabled()`; that context disables then re-enables torque before the new prompt. Move the support warning/acknowledgement before connection, accounting for every caller of shared `follower()`. This is installed-source verification, not a physical observation. Merely constructing the wrapper still requires a supported arm and operator approval.
+
+**965bcea fake checks passed:** prompt precedes the explicit `go_limp` call; EOF does not call that explicit torque disable; `check` visits eight synthetic midpoints in up/down order; pen grip 20 becomes 12 in all fake drawing commands. Actual clearance, grip force, and travel remain unmeasured.
+
+**Integration answers:** the dispatcher line format is `run <skill> <JSON object>\n`, with one JSON response line. `run fetch {"u":0.5,"v":0.5}` is an illustrative future skill payload, not a registered fetch schema today. `_Handler` passes the line to `handle`; dispatch forwards the dictionary to the skill. Installed `use_degrees=True` makes `MAX_STEP=15` a 15-degree measured-position-to-target cap for body joints and 15 points on the gripper's 0-100 scale. It is not a speed limit or a clearance guarantee.
+
+Verdict: mock development is unblocked by the published branch; hardware still needs the cleanup and pre-connection support fixes plus Daniel's physical checks.
 
 ### Draft fix follow-up, 00:42 ET
 
