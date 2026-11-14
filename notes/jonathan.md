@@ -1,6 +1,6 @@
 # Jonathan
 
-Updated Sat Nov 14, 6:15 PM by Jonathan's agent (Claude).
+Updated Sat Nov 14, 6:45 PM by Jonathan's agent (Claude).
 
 ## Working on now
 
@@ -12,6 +12,16 @@ Updated Sat Nov 14, 6:15 PM by Jonathan's agent (Claude).
 - `skills/steady.py` has never run on the real leader or the real follower. What it does: reads the leader's six joints each tick, low-pass filters them (two one-pole stages, 1.5 Hz by default), holds the output still inside a 0.3 degree band, limits speed to 120 degrees a second, and sends the result with `arm.move_joints(target, 0)`. It starts from home, glides to wherever the leader is at 40 degrees a second, catches up at that same speed, follows for `seconds`, then goes home. Stop holds the arm and never moves it.
 - `python -m skills.steady` prints `steady ok` on a fake arm, a fake leader and a fake clock. It checks: a 5 Hz, 3 degree shake comes out under 0.35 degrees while a slow 20 degree reach keeps over 95% of its size and trails by 0.1 to 0.3 s, at even and uneven time steps; a hand trembling in place leaves the output still; no step is ever larger than the speed limit; the gripper stays 0 to 100; 18 bad settings are refused before the leader is opened or anything moves; a leader that cannot be opened or reads badly at the start moves nothing; a leader that fails part-way, and a stop part-way, send nothing further and do not go home; the leader is disconnected on every path. Each of 13 deliberate faults put into the skill made that check fail.
 - Through `python -m core.dispatcher --mock` in real time: listed with the other skills, a bad setting refused, a 6 second run finished at 30 ticks a second with its report, `run wave` during it got "busy", and stop ended an unfiltered run. `tests.test_core`, `tests.test_fetch`, `tests.test_keypad_safety`, `tests.test_arm_boundaries`, `tests.test_dispatcher_exit` and `skills.personality` still pass with the new file present.
+- Simulation, 6:45 PM: `python sim_steady.py --compare` (new file on the same branch) runs the unchanged skill on two SO-101 arms in MuJoCo. A scripted hand moves the leader through a pick-up of a 2x2 brick with a 5 Hz tremor added; the follower, its jaws and the brick are physics. Six pick-ups per row, each starting at a different moment of the tremor:
+
+  | Tremor at the wrist | Hand tip shake | Filter off: placed, follower tip shake | Filter on: placed, follower tip shake |
+  |---|---|---|---|
+  | none | 0.4 mm | 6 of 6, 0.8 mm | 6 of 6, 0.7 mm |
+  | 1.5 degrees | 4.6 mm | 6 of 6, 4.4 mm | 6 of 6, 0.8 mm |
+  | 3 degrees | 9.2 mm | 1 of 6, 9.1 mm | 6 of 6, 0.9 mm |
+  | 4.5 degrees | 13.8 mm | 0 of 6, 13.7 mm | 6 of 6, 1.1 mm |
+
+  With the filter the follower trailed the hand by 0.23 s, against 0.03 s without. The same held at 8 Hz and with the trigger finger's tremor taken out. This is a simulation: the scripted hand does not wait for the follower as a person would, the model's servos are stronger and more exact than the real ones, and both simulated arms are the follower model. It says nothing about the real arm's grip.
 - Not known: whether `get_action()` on the installed LeRobot returns the same joint names and units the follower takes (it relies on the same calls as `arm.py record`); the real loop rate with two serial buses; whether the follower can hold anything under teleoperation, given Eddy's 5:04 PM report on grip strength.
 - The desktop recording has 74 presses and releases. The simulated O3C reproduced all 148 events within 1.4 ms after timing compensation.
 - The browser recording has 73 presses and releases. The simulated O3C reproduced all 146 events within 0.9 ms. One replay reached Level Complete in RobTop's browser demo with a 12 ms offset from the soundtrack cue. The browser tooling cancels failed attempts and resets to the start on retry.
