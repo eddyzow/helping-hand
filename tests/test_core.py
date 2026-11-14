@@ -211,7 +211,7 @@ def test_core():
     tune = json.loads((core.arm.POSES / "tap_tune.json").read_text())
     assert abs(saved["elbow_flex.pos"] - 41.15) < 0.11, saved      # just past the first registration
     assert saved["shoulder_pan.pos"] == 10 and saved["gripper.pos"] == 30   # nothing else changed
-    assert abs(tune["lift"] - 1.15) < 0.25 and arm.lift == tune["lift"], tune   # hovers just above the release
+    assert abs(tune["lift"] - 3.15) < 0.25 and arm.lift == tune["lift"], tune   # hovers just above the release
     assert get_arm(mock=True).lift == tune["lift"]                 # the next start loads it
     (core.arm.POSES / "tap_tune.json").unlink()
 

@@ -20,7 +20,7 @@ PARAMS = {"max_travel": "float, how far it may lower before giving up"}
 STEP = 0.1        # TAP_JOINT units per step (0.1 degree of elbow is about 0.3 mm at the tip)
 STEP_S = 0.05     # so about 6 mm a second
 PAST = 0.15       # press this much past the first registration, so every tap registers
-CLEAR = 0.5       # wait this much above the point where the key let go
+CLEAR = 2.5       # wait this much above the point where the key let go; 0.5 left the key reading as held
 STOPPED = {"ok": False, "reason": "stopped"}
 
 
