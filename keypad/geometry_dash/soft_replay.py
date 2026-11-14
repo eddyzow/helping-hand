@@ -10,6 +10,7 @@ It stops at once if the game stops being the front window.
 """
 import argparse
 import ctypes
+import math
 import sys
 import time
 from pathlib import Path
@@ -33,9 +34,14 @@ def main() -> int:
     events = read_pattern(Path(__file__).parent / args.pattern)
     if args.first_taps:
         events = events[:2 * args.first_taps]
+    if not math.isfinite(args.offset_ms) or events[0].at + args.offset_ms / 1000 < 0:
+        return print("The offset must be a number that keeps the first press after the restart.") or 1
     game = user32.FindWindowW(None, args.window)
     if not game:
         return print(f"No window titled {args.window!r}") or 1
+
+    def in_front() -> bool:  # asked right before every key or click, so input never lands in another window
+        return user32.GetForegroundWindow() == game
 
     print("Bring the game to the front (level running)...", flush=True)
     while user32.GetForegroundWindow() != game:
@@ -43,6 +49,8 @@ def main() -> int:
     for run in range(1, args.runs + 1):
         time.sleep(1.5)
         key = ord(args.restart_key.upper())
+        if not in_front():
+            return print("The game is no longer in front: stopped.") or 1
         user32.keybd_event(key, 0, 0, 0)
         start = time.perf_counter() + args.offset_ms / 1000
         user32.keybd_event(key, 0, KEY_UP, 0)
@@ -51,9 +59,11 @@ def main() -> int:
         try:
             for event in events:
                 while (left := event.at - (time.perf_counter() - start)) > 0:
-                    if user32.GetForegroundWindow() != game:
+                    if not in_front():
                         return print("The game is no longer in front: stopped.") or 1
                     time.sleep(min(left, 0.002) if left > 0.003 else 0)  # spin for the last few ms
+                if not in_front():  # also when the event was already due and the wait above did not run
+                    return print("The game is no longer in front: stopped.") or 1
                 user32.mouse_event(LEFT_DOWN if event.down else LEFT_UP, 0, 0, 0, 0)
                 down = event.down
         finally:
