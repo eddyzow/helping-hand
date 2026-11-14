@@ -1,13 +1,14 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-14 01:01 ET. Snapshot, not a live hardware reservation.
+Updated 2026-11-14 01:05 ET. Snapshot, not a live hardware reservation.
 
 ## Working on now
 
 - Daniel's Claude owns the existing arm-core implementation on `daniel/arm-core` (implementation commit `9d5081e`). Codex owns this note and `context/daniel-review.md`, independent mock checks, and integration review. Do not edit Claude's implementation concurrently.
-- Claude published cleanup fix `bbdfac5` after `40419ff`, and merged Jonathan's replay branch locally (`07d3977` observed). MockArm and the dispatcher are available to teammates; a merge to main has not yet been observed. Local work continues beyond the published cleanup fix.
+- Claude published Geometry Dash integration `2393df7`, now at `f1553cf` after merging main. It includes Jonathan's replay code, cue/ready commands, taught press/release poses, and wave roll parameters. MockArm and dispatcher are available on the feature branch; a merge to main has not yet been observed.
 - Codex is monitoring local commits, main, and team notes continuously until stopped. Only this note and `context/daniel-review.md` are in its edit lane; the implementation checkout and learner remain untouched.
 - Read [the latest review](../context/daniel-review.md). `bbdfac5` resolves the cleanup issue: both EOF and Ctrl+C fake checks preserve torque on immediate disconnect and installed-destructor cleanup; new home requests during shutdown are rejected. Windows core suite passes. The remaining source-level issue is installed connect toggling torque before Eddy's support prompt. Hardware remains unverified.
+- New integration findings at `2393df7` / `f1553cf`: CLI launch and skill have separate cue events; holding Z on a laptop keyboard suppresses Sayo Z stop in the new callback; excessive timing leads produce commands before the cue but still reach motion. All three were reproduced with fake objects/module execution, without network, keyboard hooks, or hardware. See the latest review before relying on replay.
 - Main's latest role update `ffdbda8` assigns Eddy=P1, Daniel=P2, Jonathan=P3, Ben=P4 (swapping the prior Ben/Jonathan assignment). Ownership changes in `newcontext.md` supersede earlier temporary reservations. Claude has now committed all three pose files; Codex has not independently verified physical pose safety or real keypad behavior.
 - No hardware slot is claimed by Codex. No serial connection, torque, calibration, or motion was initiated by this review.
 
@@ -28,6 +29,7 @@ Updated 2026-11-14 01:01 ET. Snapshot, not a live hardware reservation.
 ## Needs from others
 
 - Daniel's Claude: cleanup fix `bbdfac5` and its regression are independently verified with the installed method bodies. Coordinate the remaining pre-connect support warning with Eddy, then obtain Daniel's physical setup/slot confirmation. Codex has not run the standalone Geometry Dash controller or any hardware path.
+- Daniel's Claude: fix the three new replay integration cases in the review: one cue state for CLI/imported launch, held keys tracked per device, and reject negative compensated event times before any motion. Preserve Jonathan's held presses and the working cleanup behavior.
 - Eddy: `965bcea` passed the focused fake checks. However, installed LeRobot connect already toggles torque before `go_limp` asks for support. Move the support acknowledgement before connection, tracing every caller of shared `follower()`; coordinate wrapper startup with Daniel.
 - Eddy: keep ownership of root `see.py`, `pick.py`, `draw.py`, `grid.py`, and `arm.py` for now; Daniel's API wraps `arm.py`. Coordinate changes to that wrapper dependency first. Reuse your grid/vision work; no duplicate YOLO/IK implementation is needed for the first demo.
 - Eddy / all agents: per the updated role plan, Daniel keeps core and `keypad/listen.py`; Eddy takes over voice after integrating the existing implementation. Coordinate the handoff rather than replacing parallel work.
@@ -42,6 +44,7 @@ Updated 2026-11-14 01:01 ET. Snapshot, not a live hardware reservation.
 - Ben / Eddy: MockArm and the dispatcher are now published at `origin/daniel/arm-core` (`5e80dc5`), not yet observed merged to main. The skill contract remains module constants plus `run(arm, params, stop)`; no `core/skill.py` is needed.
 - Ben: all three pose files are now committed. For demo block 2, wave is X, stop is Z, and home is an explicit typed dispatcher command, not a mapped keypad key. Keep state as mock-only from Codex's evidence. If stop fails, use the designated physical cutoff/support procedure; do not immediately home and retry an unexplained failure. Joint offsets and fist-bump clearance need Daniel's physical validation. I have left your demo file untouched.
 - Ben: verified your `6d492e9` correction to block 2 and failure handling; acknowledgement received. Block 5 now correctly labels the standalone Geometry Dash script and pending dispatcher integration. No new demo changes requested in this pass.
+- Ben / Eddy: your new `79ac6aa` personality and `f652789` fetch notes are read and publication acknowledged. Their reported mock results are not yet independently repeated by Codex. Current review priority is the newly reproduced dispatcher/keypad integration failures. No hardware slot is claimed in response to the pose/test requests.
 - Eddy: parameters are one JSON object on the same line, e.g. `run fetch {"u":0.5,"v":0.5}` followed by newline once you register fetch and define that schema. The server returns one JSON response line. The dictionary is forwarded to `run`; no camera belongs in the arm process for that design.
 - Eddy: freshly checked installed LeRobot 0.7.0 source confirms body joints use degrees and gripper uses 0-100. `MAX_STEP=15` caps goal minus measured position by 15 degrees for body joints, 15 normalized points for gripper. It is not a speed limit. No robot was instantiated for this source check.
 - Eddy: keep the current root paths; moving them now adds overlap without enabling the first demo. The wrapper already reuses `arm.py`.

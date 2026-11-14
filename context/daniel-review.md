@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Latest verification, 2026-11-14 01:01 ET: published fix `bbdfac5` resolves the cancelled-shutdown cleanup path in fake checks using the installed LeRobot methods. The Windows mock suite printed `core ok`. Earlier shutdown and invalid-input reproductions are now resolved in this checked code; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
+Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in published `f1553cf`) introduces reproduced CLI cue, stop-key filtering, and negative-schedule issues below. The earlier shutdown cleanup fix `bbdfac5` remains verified; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
 
 ## Architecture
 
@@ -21,6 +21,20 @@ Latest verification, 2026-11-14 01:01 ET: published fix `bbdfac5` resolves the c
 10. `tests/test_core.py` checks the mock control path; it is not hardware evidence.
 
 ## Findings for Daniel's Claude
+
+### Geometry Dash integration: 2393df7 / f1553cf, 01:05 ET
+
+What this change does: adds dispatcher cue/ready events, a Geometry Dash skill using Jonathan's CSV and held presses, taught press/release poses, and automatic game-restart logic in the Windows listener. Reproduction file hashes remained unchanged across the checks: skill `3f15242`, listener `4d61012`, dispatcher `ee45427`. These began as a working-tree review and are now committed.
+
+The inspected expanded Windows `tests.test_core` printed `core ok`, including its imported-module replay test. That test does not cover the CLI module identity or keyboard callback cases reproduced separately below.
+
+**Must fix:**
+
+1. **CLI and skill use different cue events.** `python -m core.dispatcher` executes dispatcher state as `__main__`; the new skill imports `cue` and `waiting` from `core.dispatcher`, creating another module/state instance. Reproduced without sockets by executing the CLI module under a separate runpy name, starting the skill on a fake arm, then calling its CLI handlers: the skill's waiting flag is set but CLI `ready` is False; CLI `cue` sets only its own event. Use one shared event instance in both launch modes and leave a CLI-entry regression. Otherwise the advertised launch never receives the skill's ready/start handshake, although import-based tests can pass.
+2. **A laptop key can suppress the Sayo stop key.** The new `wndproc` adds every keyboard's VKey to one `held` set before checking device identity. Reproduced with the exact callback AST and fake Windows APIs: laptop Z-down followed by Sayo Z-down produces no `on_key` call; Sayo Z-down alone does. Key repeat tracking must include device identity or filter Sayo events before its held-key bookkeeping. Otherwise the physical stop press is ignored while the same key is held on another keyboard. No actual keyboard API or listener ran in this check.
+3. **Timing compensation can create commands before the cue.** With `demo_taps.csv`, `first_taps=1`, and both leads at 1000 ms, the first commands are negative but the skill reaches `home()` instead of rejecting the schedule. A fake home recorded that attempt. Unlike the standalone CLI, the new skill does not reject `commands[0].at < 0`; past-due events will collapse into immediate press/release commands. Reject impossible compensated schedules before motion and add the boundary case.
+
+Verdict: fix these integration cases before relying on the new replay/stop flow. Automatic restart, game focus, raw-input behavior, and physical timing have not been tested by Codex. The per-device suppression finding is a deterministic callback check, not a physical keypad test.
 
 ### Cleanup fix verified: bbdfac5, 01:01 ET
 
