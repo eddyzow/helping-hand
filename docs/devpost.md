@@ -50,14 +50,16 @@ copies your movement with the tremor filtered out.
 
 - Filters a shaking hand. [CONFIRM ON ARM with numbers: shake in mm with steady mode off and on.]
   Slow, deliberate movement passes through; the fast shake does not.
-- Shows what it removed. A dashboard plots the hand's shake, the arm's shake and the percent
-  removed, and runs a ten-second "hold still" steadiness test. [CONFIRM the test exists at freeze.]
+- Shows what it removed. A dashboard plots the hand's shake against the filtered command sent to
+  the arm [say "the arm's measured shake" only if the follower's own readings are plotted] and the
+  percent removed, and runs a ten-second "hold still" steadiness test. [CONFIRM the test exists at freeze.]
 - Holds things for you. [CONFIRM the skill on the arm; the grasp alone worked 4 of 4.] Hand the
   claw a light object and it holds it steady and gives it back.
 - Extras [only those that passed 4 of 5]: it plays Geometry Dash by pressing the key itself
   [so far: one full clear of Stereo Madness in three counted attempts], gestures, voice commands.
 
-What it is not: it has been tested by us shaking our own hands on purpose, not with patients. It
+What it is not: [ONLY ONCE TRUE: it has been tested by us shaking our own hands on purpose;] it
+has not been tested with patients. It
 lifts light things only. It does not treat tremor; it measures and tracks steadiness.
 
 ## How we built it
@@ -92,7 +94,8 @@ lifts light things only. It does not treat tremor; it measures and tracks steadi
   observation is the project we ended up with.
 - One arm pair, four people: everyone wrote against a mock arm and took turns on the real one.
 - Stopping safely is harder than moving. Early shutdown code moved the arm after a stop, and the
-  motor library's own cleanup could switch the motors off and drop it. Both were caught in review
+  motor library's own cleanup would have asked the motors to switch off, which can drop an
+  unsupported arm. Both were caught in review
   on fake hardware.
 
 ## Accomplishments that we're proud of

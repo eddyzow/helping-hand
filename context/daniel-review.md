@@ -7,7 +7,24 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
-## Standalone Steady Hand: f865171 held
+## Standalone follow-up: c92d6bd held
+
+QA b0afdd3 combines c92d6bd with the earlier integration and Jonathan candidate. `python -B -m tests.test_standalone_steady_safety` now passes the original five cases and normal finite control, but fails four additional cases:
+
+- An initial NaN in follower shoulder_pan becomes a NaN target sent to the fake driver. Only saved offsets and leader readings are validated. Validate follower observations and final commands before any send; preserve safe fault cleanup.
+- While hold is active, the gripper clamp still changes target 4->14 when observed grip becomes 20. This is an opening command under hold, not observed object loss. Retain the complete last safe target, including the claw, and explicitly coordinate any load-relief behavior with the stop contract.
+- `--shake 6 2` raises `NameError: name 'math' is not defined` after connecting the fake devices. The refactor moved the math import into core/tremor but root still references math.pi.
+- With 50 samples at 25 Hz, a 6 Hz input reports 12 Hz. The timestamp-rate branch begins only after len(stamps)>HZ. The full 205-sample case now correctly reports 6 Hz. Use actual timestamps throughout or mark insufficient data; uneven-IO accuracy remains unverified.
+
+`python -B -m tests.test_steady` prints `steady ok`, covering shared filter/meter, hold-still display scale and temporary session persistence. The actual-main fixture redirects read_sessions/save_sessions explicitly because their default paths are bound at definition time. All executions use fake devices, servers, threads, clock and kinematics; no ports, native listeners, MuJoCo or physical motion run. The torque-preservation result is a config/cleanup observation, not proof of physical holding.
+
+Source review: out_tip/out_mm now use observed follower joints through model FK, superseding the prior command-only RMS finding. Dashboard follower/out_chain still use sent targets. Calibration, actual mechanical motion, uneven sampling and stop latency remain unmeasured. core/tremor is shared with root steady.py; skills/steady.py has not adopted it. Jonathan startup-speed and same-port findings, speech threshold issue, and older arm holds remain open. Both implementations remain outside main.
+
+Changed: extended the existing fake regression and integrated the candidate on QA only. Why: the first five fixes did not cover initial follower data, held grip clamping, shake execution or meter warm-up. Verify with the two modules above; expected current result is four regression failures and `steady ok`.
+
+Interview questions: Why must final commands be validated after combining readings and offsets? Why can a safety clamp violate a hold contract? Why does using nominal sample rate double the measured frequency here?
+
+## Standalone Steady Hand: f865171 historical findings
 
 **Further QA fe5840b:** `tests/test_rubby_threshold.ps1` executes only the listener AST's confidence assignment/rejection expression. PowerShell $sure/$Sure aliasing overwrites the configured threshold: 0.9 at 0.8 passes its control, but 0.2 at 0.8 is accepted and 0.755 at 0.7 is rejected. Preserve the threshold; use a separate display variable. No recognizer, microphone, speech output or TCP call ran.
 

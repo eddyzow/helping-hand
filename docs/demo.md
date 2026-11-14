@@ -18,8 +18,8 @@ within millimetres. Here the person does the aiming.
 | Piece | Evidence so far | Passed 4 of 5 on the arm? |
 |---|---|---|
 | Plain leader-to-follower teleoperation (`teleop_sync.py`) | Ran on both real arms | Not counted |
-| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Both versions are held in review at 6:31 PM. The dispatcher skill can exceed its speed cap during the start-up move. The standalone `steady.py` has four findings on fakes: a stop that arrives during a leader read is missed for one more move; "hold" still drifts during start-up; a leader read failure switches the follower's motors off with no warning, so the arm drops; and a bad saved offset reaches the motors unchecked | No |
-| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed | No |
+| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests with nominal timing: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Both versions are held in review at 6:38 PM, on findings reproduced with fake devices, not observed on the arm. Dispatcher skill: the start-up move can request more than the speed cap; the leader can be opened on the follower's port. Standalone `steady.py`: a stop arriving during a leader read is missed for one more command; "hold" still changes its target during start-up; after a leader read error the cleanup requests torque-off with no confirmation, which could drop an unsupported arm; a NaN in the saved offset reaches the (fake) send call unchecked. A hardware run does not close these | No |
+| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Two limits found in review: the "arm" line and the percent removed are computed from the commands sent to the follower, not from the follower's observed motion; and the shake frequency is wrong when samples do not arrive at the assumed rate (a 6 Hz test read as 12 Hz) | No |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
 | Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
 | Gestures, offline voice phrases | Mock-tested; voice started once | No |
@@ -35,8 +35,10 @@ be stopped. Daniel's lane publishes the counted numbers.
 
 ## What we may and may not say (from `newcontext.md`; these bind the pitch and the Devpost text)
 
-- Say: a prototype that removes a simulated tremor from a teleoperated arm, with measured numbers.
-- Say: tested with us shaking the leader on purpose. Not tested with patients.
+- May say, once it is true: a prototype that removes a simulated tremor from a teleoperated arm,
+  with numbers. Say which numbers are computed from commands and which are measured.
+- May say, once it is true: tested with us shaking the leader on purpose. At 6:45 PM the filter has
+  not been run with a person, so this cannot be said yet. Never: tested with patients.
 - Do not say it makes anyone stronger. The arm lifts light things only.
 - Do not say it measures force or torque. Load readings are the motors' own estimates.
 - Do not say it treats or improves tremor, and do not call the tests therapy. Say "steadiness
@@ -61,7 +63,7 @@ be stopped. Daniel's lane publishes the counted numbers.
 1. "Millions of people have hands that shake, from essential tremor or Parkinson's. Writing, or
    holding a cup, gets hard." [Check any number before saying one. None is sourced yet.]
 2. "You move this small arm. The big arm copies you, with the shake filtered out."
-3. "It is a weekend prototype. We tested it by shaking our own hands on purpose, not with
+3. [ONLY ONCE A FILTERED RUN WITH A PERSON HAS HAPPENED] "It is a weekend prototype. We tested it by shaking our own hands on purpose, not with
    patients, and it only handles light things."
 
 ## Table script (the judge is the demo)
@@ -70,7 +72,7 @@ be stopped. Daniel's lane publishes the counted numbers.
 |---|---|---|---|
 | 1 | Teammate | The three pitch sentences | |
 | 2 | Teammate | Steady mode OFF. Holds the leader and shakes it on purpose; the follower shakes too. The dashboard shows both lines moving | Skip to 3 |
-| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake, the arm's shake and the percent removed | Stop key, one retry, then show the recorded clip |
+| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the shake in what we send the arm", not "the arm's measured shake", unless the follower's own readings are plotted by then | Stop key, one retry, then show the recorded clip |
 | 4 | Judge | Takes the leader, shakes it, and watches the arm hold still. Then makes a slow deliberate move, and the arm follows | Teammate takes over |
 | 5 | Teammate | "Hold this": hands the claw a marker or a Duplo brick; it holds it steady and gives it back | Skip |
 | 6 | Teammate | Extras, only those that passed: Geometry Dash as proof of precise timing, a gesture, a voice command | Skip |
@@ -82,9 +84,10 @@ Notes:
   to back every time. If only one thing is filmed tonight, film these two.
 - Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the
   follower's speed cap and the stop key have to be tested with someone who is trying to break it.
-  Do not put a judge on the leader while the review findings above are open: a missed stop and a
-  follower that goes limp on a read error are exactly what a stranger will trigger. Until they are
-  fixed and tried, a teammate holds the leader and the judge watches.
+  Do not put a judge on the leader while the review findings above are open: a missed stop, and a
+  cleanup that asks the motors to switch off after a read error, are what a stranger is most
+  likely to trigger. Putting a teammate on the leader instead does not close those findings or
+  make a hardware run safe; they need fixing first. That call is Daniel's and his reviewer's.
 - An idea, untested, that makes the result visible without a screen: tape a marker to the follower
   and have the person trace a line or sign a card through the leader, once with steady mode off
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
@@ -128,7 +131,7 @@ explain. If a block fails twice, move on. The backup video stays open in a brows
 | Sat 8:50 PM | Feature freeze. Track and name decided. Script cut to what passed the rule | Everyone |
 | Sat by 11:00 PM | Initial Devpost submission (due 11:59 PM): title, one track, draft text, public repo link under "Try it out" | Ben |
 | Sat night | Backup video: the same shake with steady mode off and on, filmed during the hacking period; under 3 minutes if uploaded | Ben |
-| Sun by 8:00 AM | Final Devpost text with the measured numbers, open source list, all four listed as contributors | Ben |
+| Sun by 8:00 AM | Final Devpost text with the real numbers, each labelled measured or computed, open source list, all four listed as contributors | Ben |
 | Sun 9:00 AM to 12:30 PM | Table set up, script rehearsed out loud with a timer, three times, once with an outsider on the leader | Everyone |
 
 Still to confirm with an organizer: whether the final deadline is 9:00 AM or 10:00 AM, and how long
