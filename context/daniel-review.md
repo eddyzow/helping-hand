@@ -26,6 +26,14 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
 
+### Candidate ad02ccf / 00fe57f: legacy tuning ignored
+
+The new jaw-tap flow changes `set_tap` and skill parameters from elbow degrees (`lift_deg`, `press_deg`) to gripper units (`lift`, `press`), adds approach/retreat helpers, and changes both tap/replay callers. The ignore-file cleanup is part of this same unmerged ancestry; it is not the only delta.
+
+**Must fix before merge:** `gd_tap.run` only reads the new names, so previously valid inputs are silently ignored. With the candidate's actual MockArm and skill, a fake `to_key` logger recorded `(8.0, 0.0)` for both `{"press_deg": -2}` and `{"lift_deg": 0}`. The former operator request for a lighter press now starts motion with the default full taught press. Reject obsolete/unknown tuning keys before any movement and add a no-motion regression. Do not alias values across the changed units. No real connection or motion ran in this reproduction.
+
+The inspected candidate WSL `tests.test_core` suite passed (`core ok`) under the external 60-second timeout, including the mock CLI cue path. It lacks the legacy-input case above. Caller trace: the dispatcher checks only that params is a dictionary and forwards it; voice forwards the selected JSON params; the new skill advertises only `lift` and `press`. Neither upstream path rejects the obsolete keys. README still gives the generic fingertip pose instruction; the new jaw orientation must be taught and verified physically rather than inferred from the old pose file.
+
 ### Software integration 183db5e: tap and replay, 01:24 ET
 
 Merged `e8b3da1` and its reviewed unmerged ancestry, including Jonathan's replay assets and the CLI cue/per-device key/negative-time fixes. This makes the dispatcher replay available on main and closes the press-default merge blocker. Defaults now use `set_tap`; `_jump` checks the adjusted six-joint vector before output. `tap_key` replaces `tap_up`: a default press returns to the taught key pose, and release raises the elbow by 3 degrees. No physical force or clearance follows from those commanded offsets.
