@@ -170,6 +170,25 @@ def test_core():
     assert dispatcher.handle("home")["ok"] is True           # homing is its own operator command
     dispatcher._worker.join(5)
 
+    # a bad tap default from the environment is refused when the arm is created, not at the first press
+    for name, bad in (("PRESS_DEG", float("nan")), ("PRESS_DEG", 50.0), ("LIFT_DEG", float("nan")), ("LIFT_DEG", 0.0)):
+        good = getattr(core.arm, name)
+        setattr(core.arm, name, bad)
+        try:
+            get_arm(mock=True)
+            raise AssertionError(f"accepted {name}={bad}")
+        except ValueError:
+            pass
+        finally:
+            setattr(core.arm, name, good)
+    odd = get_arm(mock=True)
+    odd.press_deg = float("nan")                               # even set behind the setter's back
+    try:
+        odd.press()
+        raise AssertionError("pressed with a NaN depth")
+    except ValueError:
+        assert odd.get_joints() == [0.0] * 6
+
     skills = dispatcher.list_skills()
     assert by_keyword("please wave at me", skills) == {"skill": "wave"}
     assert by_keyword("STOP now", skills) == {"skill": "stop"}

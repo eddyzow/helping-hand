@@ -41,7 +41,8 @@ class MockArm:
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
-        self.lift_deg, self.press_deg = LIFT_DEG, PRESS_DEG
+        self.lift_deg, self.press_deg = 3.0, 0.0
+        self.set_tap(LIFT_DEG, PRESS_DEG)  # environment defaults pass the same check as live changes
         self._joints = [0.0] * 6
 
     def _read(self) -> list[float]:
@@ -91,7 +92,7 @@ class MockArm:
         """Change how high the tip hovers and how far a press goes. Raises before changing anything."""
         lift = self.lift_deg if lift_deg is None else lift_deg
         press = self.press_deg if press_deg is None else press_deg
-        if type(lift) not in (int, float) or not 0.5 <= lift <= 20:
+        if type(lift) not in (int, float) or not 0.5 <= lift <= 20:  # NaN fails both comparisons
             raise ValueError("lift_deg must be 0.5 to 20 degrees")
         if type(press) not in (int, float) or not -5 <= press <= 5:
             raise ValueError("press_deg must be -5 to 5 degrees")
@@ -117,7 +118,7 @@ class MockArm:
     def _jump(self, lower_deg: float) -> bool:
         if self.halt.is_set():
             return False
-        self._write(self.key_pose(lower_deg))
+        self._write(_checked(self.key_pose(lower_deg)))
         return True
 
     def tap(self, depth_mm: float = 3.0) -> bool:
