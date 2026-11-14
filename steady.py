@@ -25,6 +25,7 @@ own load readings, an estimate, not a measured force. The follower's speed is ca
 """
 import collections
 import json
+import math
 import os
 import socketserver
 import sys
@@ -52,7 +53,6 @@ WINDOW_S = 4.0           # how much history the tremor measurement looks at
 GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than this (0 to 100). Its jaws meet at
                          # about 5.3 (measured closing on nothing), so anything lower pushes them together at full
                          # effort for as long as the leader's claw is shut: 98 % load in the first three real runs.
-GRIP_SQUEEZE = 6.0       # nor more than this far past where the jaws really are: that bounds the grip effort
 ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
@@ -213,6 +213,8 @@ def main() -> None:
 
         observation = follower.get_observation()
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
+        if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
+            raise ValueError(f"the follower sent a reading that is not a number: {sent}")
         smooth = LowPass(read_leader())
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
@@ -241,25 +243,20 @@ def main() -> None:
                     want = ease_start + (want - ease_start) * share
                 step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
                 moved = sent + step
+                # never drive the claw hard into its closed stop (see GRIP_FLOOR), and never ask the
+                # elbow for more than it can do (see ELBOW_MAX)
+                moved[5] = min(100.0, max(GRIP_FLOOR, moved[5]))
+                if moved[2] > ELBOW_MAX:
+                    moved[2] = ELBOW_MAX
+                    if not elbow_told:
+                        elbow_told = True
+                        print(f"  note: the follower's elbow is at its limit ({ELBOW_MAX:.0f} degrees); it cannot bend as far as the leader")
                 with lock:   # a stop that arrived while this was being worked out still wins
                     hold = state["hold"]
-                if not hold:
+                if not hold and np.all(np.isfinite(moved)):   # a target that is not a number is never sent
                     sent = moved
             was_hold = hold
-            # never drive the claw hard into its closed stop: at 0 it pressed at 98 % load the whole
-            # time the leader's claw was shut (first real run), which only heats the motor
-            # Second real run: with a floor of 4 the claw still pressed at 98 %, because the jaws meet
-            # a little above 4. So the squeeze itself is capped: the claw is never told to be more
-            # than GRIP_SQUEEZE tighter than where it really is, whatever it is closing on.
-            sent[5] = min(100.0, max(GRIP_FLOOR, float(observation["gripper.pos"]) - GRIP_SQUEEZE, sent[5]))
-            # the follower's elbow stops at about +65 (its calibration range is stored in the motor as
-            # a limit). Asking for more does nothing but lag and a warning on every tick.
-            if sent[2] > ELBOW_MAX:
-                sent[2] = ELBOW_MAX
-                if not elbow_told:
-                    elbow_told = True
-                    print(f"  note: the follower's elbow is at its limit ({ELBOW_MAX:.0f} degrees); it cannot bend as far as the leader")
-            follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
+            follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})   # while held: the same target, all six joints
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not
             # from what it was told: the honest number, since a motor also smooths what it is sent
@@ -273,9 +270,13 @@ def main() -> None:
             if tick_n % 5 == 0:   # ten times a second: measure, publish, log
                 # the real sample rate, from the clock: two serial buses may not keep up with HZ, and
                 # a wrong rate would put the tremor at the wrong frequency
-                rate = (len(stamps) - 1) / (stamps[-1] - stamps[0]) if len(stamps) > HZ else HZ
-                tremor_mm, tremor_hz = band_rms_and_peak(raw_tips, rate)
-                out_mm, _ = band_rms_and_peak(out_tips, rate)
+                span = stamps[-1] - stamps[0]
+                if span >= 1.0:   # under a second of data says nothing about a 4 Hz shake: report none, not a guess
+                    rate = (len(stamps) - 1) / span
+                    tremor_mm, tremor_hz = band_rms_and_peak(raw_tips, rate)
+                    out_mm, _ = band_rms_and_peak(out_tips, rate)
+                else:
+                    tremor_mm = tremor_hz = out_mm = 0.0
                 removed = 0.0 if tremor_mm < 0.15 else max(0.0, min(100.0, 100.0 * (1.0 - out_mm / tremor_mm)))
                 loads = follower.bus.sync_read("Present_Load", normalize=False)
                 effort = {name: (int(v) & 0x3FF) / 10.0 for name, v in loads.items()}   # percent of the motor's maximum
@@ -284,9 +285,9 @@ def main() -> None:
                     shared.update(t=round(now - began, 2), tremor_mm=round(tremor_mm, 2), tremor_hz=round(tremor_hz, 1),
                                   out_mm=round(out_mm, 2), removed_pct=round(removed), grip_effort=effort.get("gripper", 0.0),
                                   arm_load=round(max(effort.get(j, 0.0) for j in JOINTS[1:4]), 1), speed_mm_s=round(speed),
-                                  leader=[round(float(v), 1) for v in raw], follower=[round(float(v), 1) for v in sent],
+                                  leader=[round(float(v), 1) for v in raw], follower=[round(float(v), 1) for v in seen],
                                   raw_tip=[round(float(v), 1) for v in raw_tip], smooth_tip=[round(float(v), 1) for v in out_tip],
-                                  raw_chain=tip.chain(raw), out_chain=tip.chain(sent))
+                                  raw_chain=tip.chain(raw), out_chain=tip.chain(seen))   # the follower as MEASURED, not as told
                     shared["history"] = (shared["history"] + [[round(now - began, 2), round(float(raw_tip[2]), 1),
                                                                round(float(out_tip[2]), 1)]])[-300:]
                     done = hold_test.feed(now, tremor_mm)

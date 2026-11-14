@@ -60,14 +60,15 @@ while ($true) {
     $heard = $ears.Recognize([TimeSpan]::FromSeconds(4))
     if ($null -eq $heard) { continue }
     $text = ($heard.Text -replace '^Rubby\s+', '')
-    $sure = [math]::Round($heard.Confidence, 2)
+    # not "$sure": PowerShell names ignore case, so that would overwrite the -Sure threshold itself
+    $shown = [math]::Round($heard.Confidence, 2)
     if ($heard.Confidence -lt $Sure -or -not $commands.Contains($text)) {
-        Write-Host "  (ignored: '$($heard.Text)' at $sure)"
+        Write-Host "  (ignored: '$($heard.Text)' at $shown)"
         continue
     }
     $line, $say = $commands[$text]
     $reply = Send-Line $line
-    Write-Host "heard '$($heard.Text)' ($sure) -> $line -> $reply"
+    Write-Host "heard '$($heard.Text)' ($shown) -> $line -> $reply"
     if ($reply -match '"busy"') { $say = 'One moment.' }
     elseif ($reply -match 'no dispatcher') { $say = 'My arm is not switched on.' }
     $voice.Speak($say)   # blocks, so Rubby does not hear its own voice as a command
