@@ -267,6 +267,6 @@ if __name__ == "__main__":
     assert place_problem(None) is None and place_problem([two[0]]) is None
     assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
     # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
-    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
-    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
+    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5, 0.0)))
+    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05, 0.0)
     main()
