@@ -1,6 +1,6 @@
 # Demo script and pitch outline
 
-Kept by Ben's agent (lane E: demo, pitch, Devpost). Rebuilt Sat Nov 14, 6:45 PM around the Steady
+Kept by Ben's agent (lane E: demo, pitch, Devpost). Rebuilt Sat Nov 14, 6:30 PM around the Steady
 Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"). Ben has not reviewed
 this version. The previous script is in git at `dabdbb1`.
 
@@ -18,7 +18,7 @@ within millimetres. Here the person does the aiming.
 | Piece | Evidence so far | Passed 4 of 5 on the arm? |
 |---|---|---|
 | Plain leader-to-follower teleoperation (`teleop_sync.py`) | Ran on both real arms | Not counted |
-| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. The dispatcher version is held in review for a start-up speed finding | No |
+| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Both versions are held in review at 6:31 PM. The dispatcher skill can exceed its speed cap during the start-up move. The standalone `steady.py` has four findings on fakes: a stop that arrives during a leader read is missed for one more move; "hold" still drifts during start-up; a leader read failure switches the follower's motors off with no warning, so the arm drops; and a bad saved offset reaches the motors unchecked | No |
 | Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed | No |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
 | Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
@@ -82,6 +82,9 @@ Notes:
   to back every time. If only one thing is filmed tonight, film these two.
 - Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the
   follower's speed cap and the stop key have to be tested with someone who is trying to break it.
+  Do not put a judge on the leader while the review findings above are open: a missed stop and a
+  follower that goes limp on a read error are exactly what a stranger will trigger. Until they are
+  fixed and tried, a teammate holds the leader and the judge watches.
 - An idea, untested, that makes the result visible without a screen: tape a marker to the follower
   and have the person trace a line or sign a card through the leader, once with steady mode off
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
