@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Macro recording 4bdb75f: save failure suppresses stop
+Read the complete new recording delta. Stop-key handling writes the CSV before calling send(stop). Exact extracted on_key with a completed fake recording and fake Path.write_text raising OSError("fake disk full") raised that error with zero dispatcher calls. This is an independently reproduced stop-path regression; no real file, socket, or input event was used. Send stop before fallible recording persistence, handle the save failure visibly without losing the recorded events, and leave one fake regression. The commit adds no tests. The previously reported focus-change input pairing is still unchanged and also affects which recording edges are retained.
 ### Tap-delay timing fix ae796f9 verified
 
 Exact committed source now starts timing before each command. The same deterministic fake that advances 20 ms during press and 30 ms during release now reports press_ms=20/release_ms=30. A blocking-write regression is committed too. This closes the timing-underestimate finding; input press/release pairing and a combined candidate suite remain before integration.
