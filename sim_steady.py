@@ -281,6 +281,7 @@ def main() -> None:
     parser.add_argument("--tries", type=int, default=6, help="pick-ups per row of the --compare table")
     parser.add_argument("--view", action="store_true", help="live window, no video")
     parser.add_argument("--film-every", type=int, default=1, help="film every Nth tick; 2 halves the rendering time")
+    parser.add_argument("--no-video", action="store_true", help="with --compare: the table only")
     args = parser.parse_args()
     if not (sim.MODEL / "so101.xml").exists():
         raise SystemExit("No arm model. Run: python keypad/geometry_dash/fetch_so101_model.py")
@@ -316,6 +317,9 @@ def main() -> None:
             print(f"{shake_deg:>6.1f}°  {'on' if use_filter else 'off':>7} {placed:>5} of {len(runs)} {mean('hand_shake_mm'):>12.1f} mm "
                   f"{mean('tip_shake_mm'):>16.1f} mm {mean('lag_s'):>8.2f} s", flush=True)
     (sim.OUT / "sim_steady.json").write_text(json.dumps({"hz": args.hz, "rows": rows}, indent=1))
+    if args.no_video:
+        print("Table:", sim.OUT / "sim_steady.json")
+        return
     off = trial(model, args.shake, args.hz, False, args.seed, args.film_every)
     on = trial(model, args.shake, args.hz, True, args.seed, args.film_every)
     save_video(sim.OUT / "sim_steady.mp4", [(f"No filter: {args.shake:g} deg tremor", off["frames"]),

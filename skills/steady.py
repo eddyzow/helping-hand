@@ -9,14 +9,23 @@ is taken out on the way. For someone with a tremor: the hand shakes, the arm doe
 How it works. A tremor is fast (about 4 to 12 back-and-forths a second); reaching for something is
 slow (under 2). Each joint of the leader goes through a low-pass filter that keeps the slow part.
 Then a small hold band keeps the follower perfectly still while the hand only trembles in place,
-and a speed limit stops the follower from ever lunging. The gripper is filtered the same way.
+and a speed limit caps how fast any joint is asked to move while following. The moves before and
+after (to home, and the glide out to the leader) are asked for at 40 degrees a second or max_dps,
+whichever is lower. These are the speeds commanded, not speeds measured on an arm. The gripper is
+filtered the same way.
 What it costs: the follower trails the hand by about 2 / (6.28 * cutoff_hz) seconds, 0.2 s at the
 default. A lower cutoff_hz removes more shake and trails more.
 
 The leader's motors stay switched off so a hand can move it. Nothing steadies the person's own
 hand: the shake is removed from what the follower does.
 
-NEVER RUN ON HARDWARE. Written on the mock arm. Before the first real run, with Daniel:
+The two real arms do not share a zero: poses/teleop_offset.json holds follower minus leader for each
+joint (written by `steady.py --measure` on daniel/arm-core) and is added to every leader reading. On
+the real arm the skill refuses to start without it.
+
+NEVER RUN ON HARDWARE. Written on the mock arm. Not in here yet, and needed on the real follower
+(both are in Daniel's standalone steady.py): its elbow stops at about 64 degrees, and its claw
+overheats if it is told to squeeze far past where the jaws meet. Before the first real run, with Daniel:
   - the leader on its 5 V supply and its own USB port (LEADER_PORT, default /dev/ttyACM0), attached
     to the machine the dispatcher runs on. This skill opens the leader; the dispatcher keeps the follower.
   - hold the leader up in a clear pose before starting: the follower leaves home and glides to
@@ -27,9 +36,11 @@ It trusts root arm.py's leader() and the leader's get_action(), the same calls `
 """
 import json
 import math
+import os
 import time
 from pathlib import Path
 
+import core.arm
 from core.arm import HZ, JOINTS
 
 NAME = "steady"
@@ -47,7 +58,8 @@ DEFAULTS = {"seconds": 60.0, "filter": True, "cutoff_hz": 1.5, "hold_deg": 0.3, 
 LIMITS = {"seconds": (1, 600), "cutoff_hz": (0.3, 5), "hold_deg": (0, 3), "max_dps": (10, 240),
           "shake_hz": (2, 12), "shake_deg": (0, 5)}
 GRIPPER = JOINTS.index("gripper")
-GLIDE_DPS = 40.0   # speed of the first glide from home to the leader, and of catching up with it afterwards
+GLIDE_DPS = 40.0   # speed asked for on the way home, on the glide out to the leader, and while catching up with it
+LONGEST_MOVE_S = 30.0  # the arm API's own limit on one move
 STOPPED = {"ok": False, "reason": "stopped"}
 TRACE = Path(__file__).parent.parent / "outputs" / "steady_last.json"
 # the pretend tremor is not the same size or in step on every joint, as a real one is not
@@ -108,20 +120,47 @@ def options(params: dict) -> dict:
     return opts
 
 
+def offsets(arm) -> list[float]:
+    """Follower minus leader for each joint, from poses/teleop_offset.json. Raises ValueError before
+    anything is opened or moved. The mock arm needs no file; the real arm must have one."""
+    path = core.arm.POSES / "teleop_offset.json"
+    if not path.exists():
+        if arm.REAL:
+            raise ValueError(f"no {path.name} in poses/: the two arms' zero points differ, so measure the offset first")
+        return [0.0] * 6
+    try:
+        saved = json.loads(path.read_text())
+        values = [_number(saved[f"{name}.pos"]) for name in JOINTS]
+    except (OSError, ValueError, KeyError, TypeError) as err:
+        raise ValueError(f"{path.name} is not six finite numbers, one per joint ({type(err).__name__}: {err})") from None
+    if any(abs(v) > 180 for v in values):
+        raise ValueError(f"{path.name} holds an offset over 180; measure it again")
+    return values
+
+
+def _same_device(a: str, b: str) -> bool:
+    """COM3 and com3, or two names for one /dev entry, are the same port."""
+    return os.path.realpath(a).casefold() == os.path.realpath(b).casefold() or a.strip().casefold() == b.strip().casefold()
+
+
 def open_leader(arm):
     """The real leader arm, or a pretend one beside the mock arm. Opening it moves nothing: the
-    leader's motors stay off so a hand can move it."""
+    leader's motors stay off so a hand can move it. That is also why the port must not be the
+    follower's: setting up a leader switches the motors on that port off."""
     if not arm.REAL:
         return PretendLeader(arm.load_pose("home"))
     import arm as root_arm  # the root arm.py
 
+    if _same_device(root_arm.LEADER_PORT, root_arm.FOLLOWER_PORT):
+        raise ValueError(f"LEADER_PORT and FOLLOWER_PORT are both {root_arm.FOLLOWER_PORT}; the leader needs its own port")
     return root_arm.leader()
 
 
-def read(teleop) -> list[float]:
-    """The leader's six joints in JOINTS order. Raises if any is missing or not a finite number."""
+def read(teleop, offset=(0.0,) * 6) -> list[float]:
+    """The leader's six joints in the follower's terms, in JOINTS order. Raises if any is missing or
+    not a finite number."""
     action = teleop.get_action()
-    return [_number(action[f"{name}.pos"]) for name in JOINTS]
+    return [_number(action[f"{name}.pos"]) + shift for name, shift in zip(JOINTS, offset)]
 
 
 def _number(value) -> float:
@@ -137,6 +176,7 @@ def _number(value) -> float:
 def run(arm, params, stop):
     try:
         opts = options(params)
+        opts["offset"] = offsets(arm)
     except ValueError as err:
         return {"ok": False, "reason": str(err)}
     try:
@@ -156,22 +196,43 @@ def _follow(arm, teleop, opts, stop):
     def leader_now():
         """A reading, or None after saying why. A leader that stops answering must not move the arm."""
         try:
-            return read(teleop)
+            return read(teleop, opts["offset"])
         except Exception as err:
             print(f"[steady] leader arm: {type(err).__name__}: {err}", flush=True)
             return None
 
     lost = {"ok": False, "reason": "the leader arm stopped giving good readings; the arm is holding where it is"}
-    if leader_now() is None:  # before any motion
+    gentle = min(GLIDE_DPS, opts["max_dps"])  # the speed asked for on every move that is not following
+
+    def seconds_for(target: list[float], least: float):
+        """How long a move from where the arm is to `target` must take to stay under `gentle`, or
+        None if that is longer than one move may last."""
+        far = max(abs(a - b) for a, b in zip(target, arm.get_joints()))
+        if far / gentle > LONGEST_MOVE_S:
+            return None
+        # a move is made of whole ticks, and the arm rounds its count down: round up here, or a move
+        # of 112.5 ticks would be made in 112 and come out a little faster than asked
+        return min(LONGEST_MOVE_S, (math.ceil(max(least, far / gentle) * HZ) + 0.5) / HZ)
+
+    first = leader_now()
+    if first is None:  # before any motion
         return {"ok": False, "reason": "the leader arm gave no good reading; nothing moved"}
-    if not arm.home():
+    home = arm.load_pose("home")
+    to_home = seconds_for(home, 2.0)
+    out = max(abs(a - b) for a, b in zip(first, home)) / gentle
+    if to_home is None or out > LONGEST_MOVE_S:  # refuse before moving, not half-way
+        return {"ok": False, "reason": f"too far to move at {gentle:g} degrees a second in {LONGEST_MOVE_S:g} s; "
+                                       "bring the leader nearer the home pose or raise max_dps. Nothing moved"}
+    if not arm.move_joints(home, to_home):
         return STOPPED
     sent = leader_now()  # where the hand is now: glide there, slowly, before following it
     if sent is None:
         return lost
     sent[GRIPPER] = min(max(sent[GRIPPER], 0.0), 100.0)
-    far = max(abs(a - b) for a, b in zip(sent[:GRIPPER], arm.get_joints()[:GRIPPER]))
-    if not arm.move_joints(sent, min(4.0, max(1.0, far / GLIDE_DPS))):
+    glide = seconds_for(sent, 1.0)
+    if glide is None:
+        return {"ok": False, "reason": "the leader moved too far from home to glide there; the arm is at home"}
+    if not arm.move_joints(sent, glide):
         return STOPPED
 
     raw = leader_now()
@@ -194,6 +255,7 @@ def _follow(arm, teleop, opts, stop):
         last = now
         raw = leader_now()
         if raw is None:
+            _save(trace)  # this run's trace, so the file never describes an earlier run
             return {**lost, "report": report()}
         if opts["shake_deg"]:
             for joint, (share, phase) in enumerate(SHAKE):
@@ -222,7 +284,10 @@ def _follow(arm, teleop, opts, stop):
             return {**STOPPED, "report": report()}
     _save(trace)
     summary = report()
-    return {"ok": True, "reason": "", "report": summary} if arm.home() else {**STOPPED, "report": summary}
+    back = seconds_for(home, 2.0)
+    if back is None:
+        return {"ok": False, "reason": "too far from home to go back at this speed; the arm is holding", "report": summary}
+    return {"ok": True, "reason": "", "report": summary} if arm.move_joints(home, back) else {**STOPPED, "report": summary}
 
 
 def _report(hand, arm_path, swings, seconds) -> str:
@@ -271,12 +336,17 @@ class PretendLeader:
 def _selfcheck() -> None:
     """No hardware. A fake clock drives everything, so 60 seconds of following takes milliseconds."""
     import random
+    import shutil
     import sys
+    import tempfile
 
     from core.arm import MockArm
 
     module = sys.modules[__name__]
-    real_clock, real_open = module.clock, module.open_leader
+    real_clock, real_open, real_poses, real_root = module.clock, module.open_leader, core.arm.POSES, sys.modules.get("arm")
+    poses = Path(tempfile.mkdtemp())  # a poses folder of its own: only home, and whatever offset a check writes
+    shutil.copy(real_poses / "home.json", poses / "home.json")
+    core.arm.POSES = poses
 
     class Time:  # the fake clock; waiting on the stop flag is what makes it advance
         now = 100.0
@@ -471,6 +541,8 @@ def _selfcheck() -> None:
             arm, leader, result = go({"seconds": 20}, Script(shaky, bad={150: fault}))
             assert not result["ok"] and "holding" in result["reason"] and leader.disconnected == 1, (fault, result)
             assert away(arm) and leader.reads == 150 and arm.writes[-1][1] == arm._joints
+            rows = json.loads(TRACE.read_text())["rows"]
+            assert len(rows) == 146 and rows[-1][2] == [round(v, 3) for v in arm._joints], "the trace is not this run's"
 
         # 10. stop part-way: nothing is sent after it, the arm is not sent home, the leader is let go
         arm, at_stop = Spy(), []
@@ -486,13 +558,80 @@ def _selfcheck() -> None:
         assert result["reason"] == "stopped" and not result["ok"] and leader.disconnected == 1
         assert away(arm) and leader.reads == 150 and len(arm.writes) == at_stop[0], "something was sent after stop"
 
-        # 11. the pretend leader beside the mock arm runs end to end
+        # 11. every move is asked for gently, not only the following: the trip home, the glide out, the trip back
+        def biggest_step(arm):
+            return max(max(abs(a - b) for a, b in zip(arm.writes[i][1], arm.writes[i - 1][1])) for i in range(1, len(arm.writes)))
+
+        far_hand = Script(lambda t: [home[0] + 150] + ready[1:5] + [30])
+        arm = Spy()
+        arm._joints[1] += 80  # the arm does not start at home either
+        arm.writes.append((Time.now, list(arm._joints)))
+        module.open_leader = lambda _arm: far_hand
+        result = run(arm, {"seconds": 5, "max_dps": 10}, arm.halt)
+        assert result["ok"] and biggest_step(arm) <= 10 / HZ + 1e-6, (result, biggest_step(arm) * HZ)
+        arm, leader, result = go({"seconds": 5}, Script(lambda t: [home[0] + 150] + ready[1:5] + [30]))
+        assert result["ok"] and biggest_step(arm) <= GLIDE_DPS / HZ + 1e-6, biggest_step(arm) * HZ
+        # a move that cannot be made that gently in one go is refused before anything moves
+        arm, leader, result = go({"max_dps": 10}, Script(lambda t: [home[0] + 400] + ready[1:5] + [30]))
+        assert not result["ok"] and not arm.writes and "Nothing moved" in result["reason"], result
+
+        # 12. the offset between the two arms' zero points is added to every leader reading
+        shift = [10.0, -20.0, 5.0, 0.0, 30.0, 2.0]
+        (poses / "teleop_offset.json").write_text(json.dumps({f"{n}.pos": v for n, v in zip(JOINTS, shift)}))
+        steady_hand = [h + d for h, d in zip(home, (20, 20, -20, 10, 0, 40))]
+        arm, leader, result = go({"seconds": 4}, Script(lambda t: list(steady_hand)))
+        rows = json.loads(TRACE.read_text())["rows"]
+        assert result["ok"] and all(abs(r - (h + o)) < 1e-3 for r, h, o in zip(rows[-1][1], steady_hand, shift)), rows[-1][1]
+        assert all(abs(c - (h + o)) < 0.31 for c, h, o in zip(rows[-1][2], steady_hand, shift)), rows[-1][2]
+        for bad in ({**{f"{n}.pos": 0.0 for n in JOINTS}, "elbow_flex.pos": float("nan")},
+                    {f"{n}.pos": 0.0 for n in JOINTS[:5]}, {**{f"{n}.pos": 0.0 for n in JOINTS}, "gripper.pos": "2"},
+                    {**{f"{n}.pos": 0.0 for n in JOINTS}, "shoulder_pan.pos": 500.0}, [0.0] * 6, "not json"):
+            (poses / "teleop_offset.json").write_text(bad if type(bad) is str else json.dumps(bad))
+            opened = []
+            arm, leader, result = go({}, opener=lambda _arm: opened.append(1))
+            assert not result["ok"] and not arm.writes and not opened and "teleop_offset" in result["reason"], (bad, result)
+        (poses / "teleop_offset.json").unlink()
+
+        # 13. on the real arm: no offset file, or a leader on the follower's own port, and nothing is opened or moved
+        class RealSpy(Spy):
+            REAL = True
+
+        class Root:  # stands in for the root arm.py
+            FOLLOWER_PORT, LEADER_PORT, opened = "COM3", "COM4", 0
+
+            @classmethod
+            def leader(cls):
+                cls.opened += 1
+                return Script(shaky)
+
+        sys.modules["arm"] = Root
+        module.open_leader = real_open
+        arm = RealSpy()
+        result = run(arm, {"seconds": 3}, arm.halt)
+        assert not result["ok"] and not arm.writes and not Root.opened and "offset" in result["reason"], result
+        (poses / "teleop_offset.json").write_text(json.dumps({f"{n}.pos": 0.0 for n in JOINTS}))
+        for follower_port, leader_port in (("COM3", "COM3"), ("COM3", "com3 "), ("/dev/ttyACM1", "/dev/./ttyACM1")):
+            Root.FOLLOWER_PORT, Root.LEADER_PORT = follower_port, leader_port
+            arm = RealSpy()
+            result = run(arm, {"seconds": 3}, arm.halt)
+            assert not result["ok"] and not arm.writes and not Root.opened and "own port" in result["reason"], result
+        Root.FOLLOWER_PORT, Root.LEADER_PORT = "COM3", "COM4"
+        arm = RealSpy()
+        result = run(arm, {"seconds": 3}, arm.halt)
+        assert result["ok"] and Root.opened == 1, result
+        (poses / "teleop_offset.json").unlink()
+
+        # 14. the pretend leader beside the mock arm runs end to end
         module.open_leader = real_open
         arm = Spy()
         result = run(arm, {"seconds": 5}, arm.halt)
         assert result["ok"] and "5.5 times a second" in result["report"], result
     finally:
-        module.clock, module.open_leader = real_clock, real_open
+        module.clock, module.open_leader, core.arm.POSES = real_clock, real_open, real_poses
+        sys.modules.pop("arm", None)
+        if real_root is not None:
+            sys.modules["arm"] = real_root
+        shutil.rmtree(poses, ignore_errors=True)
     print("steady ok")
 
 
