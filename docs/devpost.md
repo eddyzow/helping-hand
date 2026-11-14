@@ -1,7 +1,7 @@
 # Devpost draft
 
-Drafted by Ben's agent (Person 4). Reworked Sat Nov 14, 4:20 AM around the team's skill list as
-Eddy gave it at 4:05 AM; Ben was asleep and has not reviewed this version. Initial submission is
+Drafted by Ben's agent (Person 4). Reworked Sat Nov 14, 5:45 PM after Eddy reported what
+the real arm can and cannot do; Ben has not reviewed this version. Initial submission is
 due Sat midnight; aim for 11 PM.
 
 How to use this file: the text under each heading is written to paste into Devpost. Lines in
@@ -35,38 +35,36 @@ NAME [placeholder until the team picks one]
 
 Tagline, two options:
 
-- Accessibility: A desk robot arm that feeds you, fetches, writes and plays, from one key or one sentence.
-- Hardware: One low-cost robot arm, many skills, one stop key.
+- Hardware: A desk robot arm that beats a rhythm game with its own finger, and does what you tell it.
+- Accessibility [only if fetching or feeding is somehow back by the freeze]: A desk robot arm that
+  helps from one key or one sentence.
 
 ## Inspiration
 
-[ACCESSIBILITY VERSION] Robots built to help people who cannot easily reach, grip, write or feed
-themselves exist,
-but they are expensive and each does one job. A robotic feeding device is listed by US distributors
-at roughly $8,000 to $9,600, and a wheelchair-mounted assistive arm has been reported at about
-$35,000. The motor kit for the hobby arm on our table launched at $240. We wanted to see how much
-everyday help one cheap arm could give if every skill could be started with a single key press or
-a single spoken sentence.
+[REWRITTEN 5:45 PM after Eddy reported that the real arm can press a button but cannot grip a
+pencil or place blocks. The earlier version compared the arm with assistive feeding devices; with
+fetching and feeding out of the live demo, that comparison would promise something we do not show.]
 
-[HARDWARE VERSION] Hobby robot arms are now cheap enough to sit on a desk, but most demos teach
-them one trick. We wanted one arm with a library of skills behind a single control point, where
-adding a skill is one small file and a stop key always works.
+Hobby robot arms are now cheap enough to sit on a desk, but most demos teach them one trick. We
+wanted one arm with a library of skills behind a single control point, where adding a skill is one
+small file, you can ask for a skill out loud, and a stop key always works. Then we found out what a
+$240 motor kit can and cannot physically do, which turned into the most useful part of the weekend.
 
 ## What it does
 
 NAME is an SO-101 robot arm with a set of skills you start from a three-key keypad or by speaking.
 
-- Plays Geometry Dash. [CONFIRM: reported running on the real arm; write what it reaches.] The arm
-  taps the jump key through the start of Stereo Madness from recorded timings, held presses included.
-- Handles Duplo by voice. [CONFIRM ON ARM] Say "pick up the red brick" or "put the roof next to
-  the purple brick". A camera looks at the table, and the arm picks the piece up and hands it over
-  or sets it down. If two pieces match, it asks which one.
-- Draws and writes. [CONFIRM ON ARM] Name a thing and it sketches it on a card with a pen, or
-  give it a short word and it writes it.
-- Feeds. [CONFIRM ON ARM; not built as of this draft] It scoops dry food from a bowl and holds the
-  spoon out, stopping short of the face so the person leans in, and offers water from a lidded cup
-  with a straw.
+- Plays Geometry Dash. [CONFIRM with whoever watched: how far it gets, out of how many attempts.]
+  The arm physically taps the jump key through Stereo Madness from recorded timings, held presses
+  included.
+- Reacts. [CONFIRM ON ARM] It waves, nods, celebrates a clear and droops after a crash.
+- Points at what you name. [CONFIRM ON ARM] Say "point at the red brick"; a camera looks at the
+  table and the arm reaches over and points at it.
+- Writes a name. [CONFIRM ON ARM; the riskiest one] With a felt-tip marker taped to its gripper.
 - Stops. One keypad key always stops the arm where it is. [CONFIRM ON ARM]
+- In simulation only, and we say so: the same code picks up and stacks Duplo by voice and sketches
+  what you ask for. The real arm's servos are too weak to grip and not accurate enough to place
+  pieces, so these are shown as simulator video.
 
 ## How we built it
 
@@ -103,6 +101,10 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 
 ## Challenges we ran into
 
+- The arm itself. It is strong enough to press a key and not strong enough to grip a pencil, and
+  it cannot place a brick within the few millimetres stacking needs. We found that out on the real
+  arm on Saturday afternoon, after building picking, stacking and drawing in simulation.
+  [CONFIRM the wording with whoever ran those tests, and add the numbers if anyone measured them.]
 - One arm, four people. Everyone wrote against a mock arm with the same interface and booked the
   real arm in short slots.
 - Vision models were good at different halves of the job. One pointed accurately but miscounted
@@ -124,7 +126,9 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 
 ## What we learned
 
-- Get the hardware moving first. [REWRITE honestly after Saturday: when the arm first ran a skill.]
+- Get the hardware moving first, and test the hardest physical thing on day one. We built
+  grasping and drawing for most of a day in simulation before learning the arm could not grip.
+  [CONFIRM this is how the team sees it.]
 - A taught grid of poses is a workable substitute for inverse kinematics on a cheap arm.
   [CONFIRM ON ARM.]
 - Say exactly how each thing was tested. "Works" meant three different things on this team until

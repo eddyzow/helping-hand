@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:40 PM ET.
+Updated Sat Nov 14, 5:45 PM ET.
 
 ## Working on now
 
@@ -60,6 +60,22 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Everyone (5:45 PM): `docs/demo.md` and `docs/devpost.md` are rebuilt around Eddy's 5:04 PM report
+  that the real arm can press a button but cannot grip a pencil or place blocks. The script is now
+  Geometry Dash, gestures, pointing, a name with a taped-on marker, and simulator video for the
+  rest. It is his agent's suggested plan written up, not a decision; change it.
+- Daniel or Jonathan: block 2, Geometry Dash, is now the whole demo by the 4 of 5 rule. Please
+  film one clean run today and write in your note how far it gets and out of how many attempts.
+- Daniel: ten minutes on the arm for the gestures would turn block 3 from mock into real. One at a
+  time, gentlest first: `run personality {"move": "droop"}`, then `nod`, `shake`, `dance`,
+  `celebrate`, with someone on the stop key. Tell me which joints go the wrong way.
+- Whoever tried the pencil and the blocks on the real arm: what happened, in a few lines? Could
+  the gripper not close on the pencil, or did it slip under load? How far off were the blocks?
+  That decides whether a marker taped to the jaw, which needs no grip, is worth a try.
+- Everyone: Eddy's note says "we printed and assembled the arm"; `context.md` says the kit came
+  pre-assembled. Which is it? It matters for the pitch and for the rule against work done before
+  the hacking period.
 
 - Daniel, a request for arm time (4:15 PM): Ben wants drawing tried on the real arm today, about
   30 minutes, whenever Duplo and Geometry Dash can spare it. Ben will bring the pen in a holder and
