@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/daniel/arm-core`. The revised Windows mock suite printed `core ok`. It fixes the direct shutdown admission/confirmation bugs and the invalid-joints cases, but installed LeRobot object cleanup still releases torque after cancelled shutdown; see the latest follow-up below. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
+Latest verification, 2026-11-14 01:01 ET: published fix `bbdfac5` resolves the cancelled-shutdown cleanup path in fake checks using the installed LeRobot methods. The Windows mock suite printed `core ok`. Earlier shutdown and invalid-input reproductions are now resolved in this checked code; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
 
 ## Architecture
 
@@ -21,6 +21,16 @@ Latest verification, 2026-11-14 00:51 ET: `5e80dc5` is published on `origin/dani
 10. `tests/test_core.py` checks the mock control path; it is not hardware evidence.
 
 ## Findings for Daniel's Claude
+
+### Cleanup fix verified: bbdfac5, 01:01 ET
+
+What this change does: `Arm.close(release=False)` sets LeRobot's disconnect policy before closing the port; cancelled shutdown uses this path. The normal operator-confirmed path retains torque release. All close callers were checked and tests were inspected before execution.
+
+The Windows core suite passed. Independent fake checks using the installed `Robot.__del__` and `SOFollower.disconnect` method bodies passed for both EOF and KeyboardInterrupt: direct close and later cleanup both sent `False` to the fake bus, and a home request during confirmation was rejected as `shutting down`. The installed bus implementation at `motors/motors_bus.py:440` checks this flag before torque disable and always closes its port. No real bus or robot constructor ran.
+
+The lifecycle finding under `5e80dc5` below is resolved by this commit. Its text is retained as reproduction history. The shared pre-connection support-warning finding remains open; physical holding, cutoff, clearance, and timing still need Daniel's validation.
+
+Wave follow-up `40419ff`: published branch repairs merge markers and changes wave to four cycles at +/-45 degrees, 0.35 seconds per sweep. Core suite passed again; a full fake sequence and interruption check passed. Core shutdown code is unchanged, so the lifecycle finding below remains open. The larger/faster commanded motion has no new physical verification from Codex.
 
 ### Published fix follow-up: 5e80dc5, 00:51 ET
 

@@ -1,16 +1,23 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 12:50 AM.
+Updated Sat Nov 14, 1:05 AM.
 
 ## Working on now
 
 Person 1: voice, object finding, fetch by camera. Owns `voice/`, `learning/` and the root files `see.py`, `pick.py`, `grid.py`, `draw.py`, `arm.py`.
 
-Next, in order:
+Branch `eddy/fetch` (commit `f652789`), built on `daniel/arm-core` with `main` merged in:
 
-1. Real photos and a live microphone through `see.py`, then the `pick.py` dry run with the camera mounted. Blocked on a person: this agent's terminal has no camera or microphone permission, and no external camera is connected anywhere yet.
-2. `skills/fetch.py`, a thin skill around `pick.py`, so "bring me the X" runs through the dispatcher and the stop key. Blocked on `daniel/arm-core` reaching GitHub.
-3. Spoken replies and passing the object name as a parameter in `voice/route.py`. Also blocked on `daniel/arm-core`.
+- `skills/fetch.py`: takes a grid position (`u`, `v`), checks it before any move, then home, hover, lower, close, lift, hand over, hold, release, home. Stops cleanly at every step.
+- `voice/route.py`: for fetch it now grabs a camera frame, finds the object with `see.py`, converts the pixel to a grid position with `pick.py`, and sends `run fetch {"object", "u", "v"}`. It also speaks short replies with the computer's own voice ("Getting red brick", "I can't see the banana", "I'm busy").
+- `tests/test_fetch.py`: `python -m tests.test_fetch` prints `fetch ok`. `tests.test_core` still prints `core ok`.
+
+Tested on the mock arm only: a mock dispatcher on a spare port, typed requests through `voice/route.py`, a synthetic test image in place of the camera. "bring me the red brick" started fetch at the right grid position, "grab the banana" was refused as not visible, a fetch sent during a wave got "busy". Never run on the real arm, a real camera or a live microphone.
+
+Next:
+
+1. Real photos and a live microphone. Waiting on Eddy for photos of the objects.
+2. First real fetch, in an arm slot with Daniel, after the poses below are taught.
 
 ## Done and how it was tested
 
@@ -35,10 +42,11 @@ Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-
 
 ## Needs from others
 
-- Daniel: please push `daniel/arm-core`. Items 2 and 3 above start the moment `core/arm.py` and `core/dispatcher.py` are visible. I will not touch `core/`, `voice/route.py` or `keypad/listen.py` until then, and will build on them, not replace them.
-- Daniel: proposal for the camera, since WSL has none. The camera and microphone run in a small script on Windows, the same way `keypad/listen.py` does. It finds the object, converts it to a grid position, and sends the dispatcher `run fetch` with the position as parameters over localhost port 8765. The skill then needs no camera. Does the dispatcher accept parameters over that port, and in what format?
-- Daniel: when you wrap `arm.py`, note that `follower()` sets `max_relative_target` to 15 per command (`MAX_STEP`). On your LeRobot 0.7.0, please confirm that is degrees for body joints.
-- Whoever has a camera: mount it over the table and push three or four photos of the real objects (mouse, lanyard, Duplo) to `outputs/` or send them to Eddy. That unblocks item 1 without the arm.
+- Daniel: `eddy/fetch` is ready for review and for merging with `daniel/arm-core`. It adds `skills/fetch.py` and `tests/test_fetch.py` and changes only `voice/route.py`. It does not touch `core/`.
+- Daniel: `voice/route.py` has to run where the camera and microphone are, which is Windows on your laptop, the same as `keypad/listen.py`. It needs the repo requirements installed there and `.env` with the Gemini key.
+- Daniel: for the first real fetch, in an arm slot, teach `handover` (`python arm.py pose handover`), then `python arm.py teach table`, then run `python arm.py check table` and watch for dips. Then `python pick.py --corners` on the camera machine. Try `run fetch {"u": 0.5, "v": 0.5}` from the dispatcher before involving the camera.
+- Daniel: the camera looks while the arm is at `home`. If the camera is on the wrist, `home` has to point it at the table; if it is a separate camera, `home` has to keep the arm out of its view. Which camera are we using?
+- Daniel: `arm.py follower()` sets `max_relative_target` to 15 per command (`MAX_STEP`). On LeRobot 0.7.0, please confirm that is degrees for body joints.
 - Ben: `draw.py` is yours to wrap as `skills/draw.py`. `from_text`, `from_quickdraw`, `from_gemini` return strokes; `preview` writes the image; `draw` moves the arm. Generated drawings take about 20 seconds, so make them ahead of time.
 - Everyone: the Gemini key is not in the repo. Ask Eddy or make a free one at aistudio.google.com/apikey and put it in `.env`.
 
