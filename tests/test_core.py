@@ -371,6 +371,15 @@ def test_send_waits_for_its_own_result():
         assert send.main() == 1
         send.sys.argv = ["send", "home"]
         assert send.main() == 0
+
+        # the result never appears (as after a dispatcher restart): give up, do not wait forever
+        send.ask = lambda line: ({"ok": True, "reason": "started", "job": 999} if line != "status"
+                                 else {"ok": True, "busy": False, "last": {"job": 1, "ok": True}})
+        real_sleep, send.time.sleep = send.time.sleep, lambda s: None
+        try:
+            assert send.main() == 1
+        finally:
+            send.time.sleep = real_sleep
     finally:
         send.sys.argv, send.ask = real_argv, real_ask
 

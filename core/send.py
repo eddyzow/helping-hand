@@ -27,7 +27,7 @@ def main() -> int:
     print(reply, flush=True)
     if not (command.startswith(("run ", "home")) and isinstance(reply, dict) and reply.get("ok")):
         return 0 if not isinstance(reply, dict) or reply.get("ok", True) else 1
-    job = reply["job"]
+    job, idle = reply["job"], 0
     while True:  # wait for the result of THIS run, not whatever finished last
         status = ask("status")
         last = status["last"]
@@ -36,6 +36,10 @@ def main() -> int:
             return 0 if last.get("ok") else 1
         if last.get("job", 0) > job:
             print(f"run {job} finished, but a later run has replaced its result; check the dispatcher's output")
+            return 1
+        idle = 0 if status["busy"] else idle + 1
+        if idle > 10:  # nothing running for 2 seconds and still no result for this run
+            print(f"run {job} is not running and left no result (was the dispatcher restarted?)")
             return 1
         time.sleep(0.2)
 
