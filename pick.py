@@ -84,6 +84,7 @@ def locate(frame, command=None, audio=None):
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label))
+    targets = narrow(targets, said)
     near = []
     for x, y, label in beside:
         cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
@@ -91,6 +92,27 @@ def locate(frame, command=None, audio=None):
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     return targets, said, near
+
+
+# Words that settle "which one?" by position. The model does not know where the arm is, so code does it.
+# Each maps a target (u, v, label) to a score; the lowest wins. Left and right are the arm's own.
+TIEBREAKS = {
+    ("closest", "nearest", "closer", "nearer"): lambda t: (-t[1], abs(t[0] - 0.5)),
+    ("farthest", "furthest", "farther", "further"): lambda t: (t[1], abs(t[0] - 0.5)),
+    ("leftmost", "left"): lambda t: (t[0],),
+    ("rightmost", "right"): lambda t: (-t[0],),
+    ("any", "either", "one of"): lambda t: (-t[1], abs(t[0] - 0.5)),
+}
+
+
+def narrow(targets: list, command: str | None) -> list:
+    """Several matches and a position word in the request ("the closest red brick"): keep one.
+    A dead heat goes to the first in the list. No such word: all are returned, and the caller asks."""
+    words = f" {(command or '').lower()} "
+    for names, score in TIEBREAKS.items():
+        if len(targets) > 1 and any(f" {name} " in words for name in names):
+            return [min(targets, key=score)]
+    return targets
 
 
 def drop_spot(picked: tuple, near: tuple) -> tuple[float, float]:
@@ -164,6 +186,10 @@ if __name__ == "__main__":
         assert all(abs(a - b) < 1e-4 for a, b in zip(to_uv(*pixel, quad), uv)), pixel
     # a square-on view: the middle pixel is the middle of the grid
     assert all(abs(a - 0.5) < 1e-4 for a in to_uv(300, 250, [[100, 50], [500, 50], [500, 450], [100, 450]]))
+    two = [(0.12, 0.79, "left red"), (0.88, 0.60, "right red")]
+    assert narrow(two, "pick up the closest red brick") == [two[0]] and narrow(two, "the right one") == [two[1]]
+    assert narrow(two, "the farthest red brick") == [two[1]] and narrow(two, "pick up the red brick") == two
+    assert narrow(two[:1], "the closest") == two[:1] and narrow([], "the closest") == []
     # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
     assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
     assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
