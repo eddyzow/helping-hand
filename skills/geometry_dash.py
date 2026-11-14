@@ -11,6 +11,8 @@ Jonathan's: keypad/geometry_dash/.
 import json
 import sys
 import time
+
+import core
 from pathlib import Path
 
 GD = Path(__file__).parent.parent / "keypad" / "geometry_dash"
@@ -192,11 +194,14 @@ def _record(events, seen, sent, repairs=()) -> None:
     when each command was handed to the motor [before the write, after it, press?], and what the
     keypad saw."""
     (GD / "outputs").mkdir(exist_ok=True)
-    (GD / "outputs" / "last_replay.json").write_text(json.dumps({
+    text = json.dumps({
         "wanted": [[round(e.at, 4), e.down] for e in events],
         "seen": [[round(t, 4), down] for t, down in seen],
         "sent": sent,
-        "repairs": list(repairs)}))  # [at s, what, press setting after, lift setting after]
+        "repairs": list(repairs),  # [at s, what, press setting after, lift setting after]
+        "clock": {"rate": round(core.clock_rate(), 5), "longest_tick_gap_s": round(core.max_tick_gap[0], 3)}})
+    (GD / "outputs" / "last_replay.json").write_text(text)
+    (GD / "outputs" / f"replay_{time.strftime('%H%M%S')}.json").write_text(text)  # one per run, to compare
 
 
 def _timing(seen, events) -> str:
