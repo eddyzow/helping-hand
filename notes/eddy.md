@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:10 AM.
+Updated Sat Nov 14, 3:00 AM.
 
 ## Working on now
 
@@ -54,7 +54,7 @@ Update 2:45 AM: the simulated table now holds the Duplo set from `photos/duplo_a
 
 Update 2:55 AM: Eddy sent close-ups showing three simulated pieces were the wrong shape, and they are remodelled. The red "triangle" is a 2x4 ridge roof (two slopes meeting at a ridge, about 38 mm tall, no studs). The green piece is a 2x4 brick with studs on top and an underside that curves up at both ends. The car body is a hollow open-top shell with wheel arches, three studs and a hitch at the back. The roof and the green brick were each still carried to the handover in simulation. Their sizes are estimated from photos, not measured.
 
-Update 3:10 AM: the simulated car body is now a sculpted curved mesh (`sim_assets/car_body.stl`, built by `sim_assets/make_car_body.py`), not boxes. Blender was not reachable and no downloadable model of the real part turned up, so it is shaped by hand from Eddy's photos. The live window now starts zoomed in on the pieces and prints its mouse controls.
+Update 3:00 AM: the simulated car body is now a sculpted curved mesh (`sim_assets/car_body.stl`, built by `sim_assets/make_car_body.py`), not boxes. Blender was not reachable and no downloadable model of the real part turned up, so it is shaped by hand from Eddy's photos. The live window now starts zoomed in on the pieces and prints its mouse controls.
 
 ## Done and how it was tested
 
