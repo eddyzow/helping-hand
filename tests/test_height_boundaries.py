@@ -21,7 +21,7 @@ def test_height_conversion():
     functions("pick.py", {"locate"}, scope)
     scope["LAYER_GAP_MM"] = 40.
     targets, _, place, problem, lift = scope["locate"](None, "stack roof")
-    assert targets and problem is None and place == (.4, .6, .25)
+    assert targets and problem is None and place == (.4, .6, .25, 0.)
     assert math.isclose(lift, .475)
     pick_height[0] = 41.
     assert scope["locate"](None, "stack roof")[3]

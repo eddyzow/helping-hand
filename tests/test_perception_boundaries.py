@@ -73,7 +73,7 @@ def test_contradictory_place():
     failures = []
     for value in ("0.4", float("nan"), float("inf"), True):
         reply = {"matches": [1], "put_down": False, "pick_height_mm": 0,
-                 "place": {"u": value, "v": .6, "height_mm": 19}}
+                 "place": {"u": value, "v": .6, "height_mm": 19, "onto": None}}
         picked, placing, place, _ = scope["to_choice"](reply, 1)
         if picked and not placing:
             failures.append((value, picked, placing, place))
