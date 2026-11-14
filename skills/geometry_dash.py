@@ -18,7 +18,8 @@ sys.path.insert(0, str(GD))
 NAME = "geometry_dash"
 DESCRIPTION = "Play the start of Geometry Dash (Stereo Madness) by tapping the jump key"
 PARAMS = {"first_taps": "int", "press_lead_ms": "float", "release_lead_ms": "float", "pattern": "str",
-          "enter": "bool: the arm's own first press starts the level", "enter_delay_ms": "float"}
+          "enter": "bool: the arm's own first press starts the level", "enter_delay_ms": "float",
+          "then_restart_ms": "float: after entering, wait this long, restart, and play from the restart"}
 
 STOPPED = {"ok": False, "reason": "stopped"}
 CUE_WAIT_S = 120
@@ -36,6 +37,11 @@ def run(arm, params, stop):
         return {"ok": False, "reason": "enter must be true or false"}
     if type(enter_delay_ms) not in (int, float) or not 0 <= enter_delay_ms <= 10000:
         return {"ok": False, "reason": "enter_delay_ms must be 0 to 10000"}
+    # "then_restart_ms": after the arm's click on Play, wait this long for the level to load, then
+    # restart it (R) and play from that restart. Use it with a macro recorded from the restart key.
+    then_restart_ms = params.get("then_restart_ms")
+    if then_restart_ms is not None and (type(then_restart_ms) not in (int, float) or not 0 <= then_restart_ms <= 20000):
+        return {"ok": False, "reason": "then_restart_ms must be 0 to 20000"}
 
     # everything is read and checked before the arm moves
     first = params.get("first_taps")
@@ -76,16 +82,26 @@ def run(arm, params, stop):
                 feels_key = True  # the keypad listener is reporting the jump key to us
                 if stop.wait(0.08) or not arm.release():
                     return STOPPED
+                if then_restart_ms is not None:
+                    # The click on Play has started the level. Let it load, then take the clock from a
+                    # restart, which begins the level at once and is where a restart-recorded macro starts.
+                    if stop.wait(then_restart_ms / 1000):
+                        return STOPPED
+                    cue.clear()
+                    start = None
             else:
+                start = None
+            if start is None:
+                began = time.perf_counter()
                 waiting.set()
                 while not cue.wait(0.05):
                     if stop.is_set():
                         return STOPPED
                     if time.perf_counter() - began > CUE_WAIT_S:
                         return _finish(arm, "no restart key within 2 minutes")
+                start = time.perf_counter()
                 waiting.clear()
                 cue.clear()
-                start = time.perf_counter()
             seen, last = [], [key_down.is_set()]  # what the keypad really did, to report after the run
 
             def watch():
