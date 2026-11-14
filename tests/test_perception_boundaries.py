@@ -3,6 +3,7 @@ import ast
 import contextlib
 import io
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -25,18 +26,18 @@ def test_chooser_flag():
     scope = {
         "numbered": lambda *args: frame, "CHOOSER_LONG_EDGE": 100, "CHOOSE": "{command}",
         "cv2": SimpleNamespace(imencode=lambda *args: (True, SimpleNamespace(tobytes=lambda: b""))),
-        "os": SimpleNamespace(environ={}), "sys": sys, "detect": lambda frame: boxes}
-    functions("see.py", {"to_matches", "to_choice", "choose", "find_all"}, scope)
+        "json": json, "re": re, "detect": lambda frame: boxes}
+    functions("see.py", {"parse_reply", "to_matches", "to_choice", "choose", "find_all"}, scope)
     malformed = [{"matches": [1], "near": []}]
     malformed += [{"matches": [1], "near": [], "put_down": value}
                   for value in (None, "true", 0, 1, [], {})]
     for answer in malformed:
-        scope["_gemini"] = lambda *args: answer
+        scope["ask_claude"] = lambda *args: json.dumps(answer)
         with contextlib.redirect_stderr(io.StringIO()):
             hits, _, _, near = scope["find_all"](frame, "put roof next to purple")
         assert hits == [] and near is None, (answer, hits, near)
     for placing, destinations in ((False, []), (True, []), (True, [2])):
-        scope["_gemini"] = lambda *args: {"matches": [1], "put_down": placing, "near": destinations}
+        scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "put_down": placing, "near": destinations})
         with contextlib.redirect_stderr(io.StringIO()):
             hits, _, _, near = scope["find_all"](frame, "request")
         assert len(hits) == 1
