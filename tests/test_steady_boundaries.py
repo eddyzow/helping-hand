@@ -109,6 +109,7 @@ def test_port_identity():
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as temporary, patch.object(core.arm, "POSES", Path(temporary)), \
             patch.object(steady, "TRACE", Path(temporary) / "trace.json"):
+        (Path(temporary) / "home.json").write_text(json.dumps({name + ".pos": 0.0 for name in JOINTS}))
         steady._selfcheck()
         test_zero_duration()
         test_slow_io()
@@ -117,6 +118,7 @@ if __name__ == "__main__":
         for test in (test_glide_limit, test_slow_glide, test_port_identity):
             try:
                 test()
+                print("PASS", test.__name__)
             except AssertionError as error:
                 failures.append((test.__name__, str(error)))
                 print("FAIL", test.__name__, error)
