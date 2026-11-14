@@ -61,8 +61,8 @@ def run(arm, params, stop):
         commands = command_times(events, params.get("press_lead_ms", 0), params.get("release_lead_ms", 0))
     except (OSError, ValueError, TypeError) as err:
         return {"ok": False, "reason": str(err)}
-    if commands[0].at < 0:
-        return {"ok": False, "reason": "the timing lead is longer than the wait before the first press"}
+    if commands[0].at + offset_ms / 1000 < 0:  # leads and offset together must not ask for a press before time zero
+        return {"ok": False, "reason": "the timing lead and offset put the first press before the start"}
 
     if not arm.to_key():
         return STOPPED

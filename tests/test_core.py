@@ -88,6 +88,11 @@ def test_core():
     assert dispatcher.handle(f"run geometry_dash {late}")["ok"] is True
     dispatcher._worker.join(2)                                 # a press before the cue is refused, no motion
     assert not dispatcher._worker.is_alive() and arm.get_joints() == before_gd
+    # the same refusal when it is the offset that pushes the first press (at 0.3 s) before the start
+    assert dispatcher.handle('run geometry_dash {"pattern": "demo_taps.csv", "offset_ms": -1000}')["ok"] is True
+    dispatcher._worker.join(2)
+    assert not dispatcher._worker.is_alive() and arm.get_joints() == before_gd
+    assert "before the start" in dispatcher.handle("status")["last"]["reason"]
     # enter mode: the arm's own first press starts the level and the clock; no restart cue is needed
     from core import key_down as jump_key
     seen = []
