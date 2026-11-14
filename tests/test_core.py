@@ -323,6 +323,32 @@ def test_core():
     assert by_keyword("make me a sandwich", skills) == {"skill": None}
 
 
+def test_tap_delay():
+    """A pretend key that follows the tap joint 20 ms late: the measured delays come out near 20 ms."""
+    import threading
+
+    import skills.tap_delay as delay
+    from core import key_down
+
+    core.arm.POSES = Path(tempfile.mkdtemp())
+    arm = get_arm(mock=True)
+    wrist = core.arm.TAP_JOINT
+    real_write = arm._write
+
+    def late_key(joints):
+        real_write(joints)
+        pressed = joints[wrist] >= -0.01                      # the mock's tap_key pose is all zeros
+        threading.Timer(0.02, key_down.set if pressed else key_down.clear).start()
+
+    arm._write = late_key
+    key_down.clear()
+    result = delay.run(arm, {"times": 5}, arm.halt)
+    assert result["ok"] is True, result
+    assert 15 <= result["press_ms"] <= 45 and 15 <= result["release_ms"] <= 45, result
+    assert delay.run(arm, {"times": 1}, arm.halt)["ok"] is False   # refused before moving
+    key_down.clear()
+
+
 def test_send_waits_for_its_own_result():
     """A failed run must not be reported as ok because a later run by someone else succeeded."""
     from core import send
@@ -391,6 +417,7 @@ def test_cli_cue():
 
 if __name__ == "__main__":
     test_core()
+    test_tap_delay()
     test_send_waits_for_its_own_result()
     test_cli_cue()
     print("core ok")
