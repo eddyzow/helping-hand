@@ -4,8 +4,7 @@
     python voice/route.py                  # speak: Enter, talk, Enter
 
 With ANTHROPIC_API_KEY (in .env) Claude picks the skill from each skill's description; speech is
-written down first by OpenAI (OPENAI_API_KEY). Without a key, typed text is matched on the skill's
-name. The model only chooses the skill; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
+written down first by OpenAI (OPENAI_API_KEY). The model only chooses the skill and its settings; the motion is the taught skill, so a slow or wrong answer cannot move the arm in a new way.
 
 Fetch ("bring me the red brick") also needs the camera, which this script owns because the
 dispatcher runs in WSL and has none. Run this script where the camera and microphone are
@@ -36,16 +35,6 @@ def send(command: str):
     with socket.create_connection(("127.0.0.1", PORT), timeout=3) as s:
         s.sendall((command + "\n").encode())
         return json.loads(s.makefile().readline())
-
-
-def by_keyword(text: str, skills: list[dict]) -> dict:
-    text = text.lower()
-    if "stop" in text:
-        return {"skill": "stop"}
-    for skill in skills:
-        if skill["name"].replace("_", " ") in text or skill["name"].split("_")[0] in text.split():
-            return {"skill": skill["name"]}
-    return {"skill": None}
 
 
 def by_model(text: str, skills: list[dict]) -> dict:
@@ -83,13 +72,12 @@ def locate(thing: str) -> tuple[list[dict], str | None]:
 
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
-    targets, _, near = pick.locate(frame, command=thing)
+    targets, _, spot, problem = pick.locate(frame, command=thing)
     found = [{"object": label, "u": round(u, 3), "v": round(v, 3), "turn": round(turn, 1)}
              for u, v, label, turn in targets]
-    if len(found) == 1 and near and len(near) == 1:  # "put it next to the car": add where to put it down
-        to_u, to_v, lift = pick.drop_spot(targets[0], near[0], thing)
-        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3), to_lift=lift)
-    return found, pick.place_problem(near)
+    if len(found) == 1 and spot:  # "put it on the green brick": add where to put it down
+        found[0].update(to_u=round(spot[0], 3), to_v=round(spot[1], 3), to_lift=spot[2])
+    return found, problem
 
 
 def main() -> None:
@@ -109,7 +97,7 @@ def main() -> None:
             speak("I didn't hear anything.")
             return
         print(f"Heard: {text}")
-    choice = by_model(text, skills) if "ANTHROPIC_API_KEY" in os.environ else by_keyword(text, skills)
+    choice = by_model(text, skills)  # no keyword matching: the model reads the sentence
     name, params = choice.get("skill"), choice.get("params") or {}
     if name == "stop":
         print(send("stop"))

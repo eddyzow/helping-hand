@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:54 AM.
+Updated Sat Nov 14, 11:08 AM.
 
 ## Working on now
 
@@ -159,3 +159,15 @@ Eddy asked for Gemini to go: its free tier timed out or refused most requests. E
 - Simulated: purple stacked on a red square (resting 19 mm up, twice); red triangle put left of the green brick; a red square put behind the purple brick landed on the edge of the red triangle and slid off, because the drop spot still does not check for other pieces.
 - The chooser prompt now tells Claude to ignore position words and list every object of the kind; the code picks by position. Before that, "the left red square brick" came back with no match in two of three runs.
 - Not done: car body onto the chassis. It needs both in reach, a taught grip on the body, the body's direction matched to the chassis, and pressing it on.
+
+## No keyword matching any more, Sat Nov 14, 11:08 AM
+
+Eddy: "your system looks like it uses hardcoded keywords. that wont work if we are having an llm parse". This replaces the section above about `pick.drop_spot`.
+
+- The chooser (Claude Sonnet 5.5) now gets every box's position on the taught grid as text (centre and span in u, v) and returns `{"matches", "put_down", "place": {"u", "v", "on_top"}}`. It settles left, right, closest, "a/any", and works out the exact drop point: on top of a piece, a named end of a piece, a side of a piece, between two pieces, a corner of the table.
+- Removed from `pick.py`: `PLACE_WORDS`, `split_request`, `TIEBREAKS`, `narrow`, `drop_spot`, `place_problem`. `pick.locate` returns `(targets, said, place, problem)`; `place` is `(u, v, lift)` or None; a `problem` must be refused, never handed over. Removed from `voice/route.py`: `by_keyword`, so routing needs `ANTHROPIC_API_KEY`.
+- I edited two shared tests to match: `tests/test_core.py` no longer imports or checks `by_keyword`; `tests/test_model_adapters.py` loads `by_model` and `main` only. `core ok`, `model adapters ok`, `fetch ok`.
+- Simulated, one run each: purple onto the white plate (resting on it); a square brick onto the far right end of the green 2x4 (landed there); the left red square behind the purple brick; the triangle to the front right corner (it chose the corner, which was occupied, and landed on that brick; the prompt now says to use the nearest free spot); green between the two red squares; "the closest red brick". "stack the blue one on the red square on my right" was parsed correctly but the blue square is still not lifted in this layout.
+- Known: a box at the robot's own base was once picked as "the triangle brick"; the prompt now says boxes at v above 1 are the robot.
+
+- For Daniel's reviewer: I changed four of your tests to follow this rewrite. `tests/test_placement_options.py`: the two `drop_spot` checks are gone with the function; the fetch `to_lift` and `hold` checks are kept. `tests/test_perception_boundaries.py`: the chooser check now covers `put_down` plus `place`, and the standalone check covers a place, a problem, and a plain handover. All ten modules in `tests/` print ok.

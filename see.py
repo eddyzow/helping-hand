@@ -41,18 +41,38 @@ Coordinates are normalized to 0-1000."""
 
 # ponytail: the hint names our Duplo set. Edit it when the objects on the table change.
 CHOOSE = """A robot arm picks objects off a table. Each object in the image has a green box and a
-numbered badge. The detector's own guesses (may be wrong; trust the image): {labels}
+numbered badge. The objects (the detector's guess at what each is may be wrong; trust the image):
+{labels}
+Positions are on the robot's table grid. u runs from the robot's left (0) to its right (1). v runs from
+the far edge (0) to the edge nearest the robot (1); the robot sits beyond v = 1. So "behind" an object
+means smaller v, "in front of" it means larger v, "left" smaller u, "right" larger u. One unit of u is
+{aspect} times as long on the table as one unit of v. Anything outside 0 to 1 is beyond the robot's reach,
+and boxes at v above 1 are usually parts of the robot itself: never pick those or put things there.
 The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showing its hollow
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
 three round holes in a row. One box may hold two touching pieces.
 The person said: "{command}"
-Which numbered objects are what the person asked to pick up? Include every one that fits; a
-different kind of object does not fit. Ignore words about position (left, right, closest, farthest):
-you cannot tell where the robot is, so list every object of the kind named and the robot will work
-out which one is meant. The same goes for the object it should be put by. If the person also said where to put it, such as next to or
-near another object, set "put_down" to true and list that other object under "near".
-Return only JSON: {{"matches": [numbers], "put_down": true or false, "near": [numbers]}}.
-Use [] where nothing fits; "near" stays [] if the place they named is not on the table."""
+
+"matches": the numbered objects they asked to pick up. Use the positions to settle words such as left,
+right, closest, farthest, middle. A different kind of object does not fit. If several fit equally and
+the words do not settle it, list them all; but if they ask for "a" or "any" such object, choose one.
+
+If they also said where to put it, "put_down" is true and "place" is where the CENTRE of the picked
+object should end up:
+- On another object ("on", "onto", "on top of"): "on_top" is true, and u, v lie inside that object's
+  span. A named part of it, such as "the far right end of the green brick", means against that end,
+  moved in by half the picked object's own size so it does not hang over the edge.
+- Beside another object ("next to", "left of", "behind", ...): "on_top" is false; go to the side they
+  named, or with no side named the side the picked object is on now. Leave a gap of about half the
+  picked object's size between the two, and do not overlap any other object's span.
+- A spot on the table ("the front left corner", "the middle"): those coordinates, "on_top" false.
+Unless "on_top" is true, the picked object's span at the new place must not overlap any other
+object's span: if the spot they named is taken, use the nearest free spot to it.
+Keep u and v between 0.05 and 0.95. If the place they named is not there, or you cannot tell which
+object they mean, "place" is null.
+
+Return only JSON: {{"matches": [numbers], "put_down": true or false,
+"place": {{"u": number, "v": number, "on_top": true or false}} or null}}. Use [] when nothing fits."""
 
 
 def load_env():
@@ -190,28 +210,32 @@ def numbered(frame, boxes):
     return out
 
 
-def choose(frame, boxes, command):
-    """Which boxes match the request, and which box it should be put near?
-    Returns (indexes to pick up, indexes to put it near). The second is None when the person did
-    not ask to put it anywhere, and an empty list when they did but the place is not in view."""
+def choose(frame, boxes, command, describe=None, aspect=1.0):
+    """Which boxes match the request, and where should the object be put?
+    describe(box) gives the box's position on the table as text, so the model can work with it.
+    Returns (indexes to pick up, placing, place): placing says whether the person asked to put it
+    somewhere; place is {"u", "v", "on_top"} or None when that could not be worked out."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
         image = cv2.resize(image, None, fx=shrink, fy=shrink)
     jpg = cv2.imencode(".jpg", image)[1].tobytes()
-    prompt = CHOOSE.format(labels=", ".join(f"{i}: {b['label']}" for i, b in enumerate(boxes, 1)),
-                           command=command)
-    answer = parse_reply(ask_claude(prompt, jpg))
-    return to_choice(answer, len(boxes))
+    labels = "\n".join(f"{i}: {b['label']}" + (f" - {describe(b)}" if describe else "") for i, b in enumerate(boxes, 1))
+    prompt = CHOOSE.format(labels=labels, command=command, aspect=round(aspect, 2))
+    return to_choice(parse_reply(ask_claude(prompt, jpg)), len(boxes))
 
 
 def to_choice(answer, count):
-    """The chooser's reply -> (picked indexes, near indexes or None when no placement was asked).
-    A reply without a true/false "put_down" is malformed: nothing is picked, so nothing moves."""
+    """The chooser's reply -> (picked indexes, placing, place). A reply without a true/false
+    "put_down" is malformed: nothing is picked, so nothing moves. A place that is not two finite
+    numbers and a true/false comes back as None, which the caller must refuse, never hand over."""
     if not (isinstance(answer, dict) and isinstance(answer.get("put_down"), bool)):
-        return [], None
-    asked_to_place = answer["put_down"] or bool(answer.get("near"))
-    return to_matches(answer, count), to_matches(answer, count, "near") if asked_to_place else None
+        return [], False, None
+    place = answer.get("place")
+    if not (isinstance(place, dict) and _number(place.get("u")) and _number(place.get("v"))
+            and isinstance(place.get("on_top"), bool)):
+        place = None
+    return to_matches(answer, count), answer["put_down"] or place is not None, place
 
 
 def long_axis(frame, box):
@@ -243,11 +267,10 @@ def long_axis(frame, box):
     return (angle if rw >= rh else angle + 90.0) % 180.0, max(rw, rh) / min(rw, rh)
 
 
-def find_all(frame, command=None, audio_path=None):
-    """Every object that matches the request. Returns (hits, said, boxes, near): hits are
-    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; near is the
-    same for any object the person asked to have it put next to: None if they did not ask to put
-    it anywhere, an empty list if they did and that object is not in view."""
+def find_all(frame, command=None, audio_path=None, describe=None, aspect=1.0):
+    """Every object that matches the request. Returns (hits, said, boxes, placing, place): hits are
+    (x_px, y_px, label, box) at the centre of each matching box; said is what was asked; placing and
+    place are as in choose()."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -255,11 +278,11 @@ def find_all(frame, command=None, audio_path=None):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes, None
+        return [], command, boxes, False, None
     centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
                         boxes[i]["label"], boxes[i])
-    picked, near = choose(frame, boxes, command)
-    return [centre(i) for i in picked], command, boxes, None if near is None else [centre(i) for i in near]
+    picked, placing, place = choose(frame, boxes, command, describe, aspect)
+    return [centre(i) for i in picked], command, boxes, placing, place
 
 
 def find(frame, command=None, audio_path=None):
@@ -280,7 +303,7 @@ def main():
     frame = cv2.imread(image) if image else grab_frame()
     if frame is None:
         sys.exit(f"Could not read {image}")
-    hits, said, boxes, _ = find_all(frame, command, audio)
+    hits, said, boxes, *_ = find_all(frame, command, audio)
     out = numbered(frame, boxes)
     for x, y, *_ in hits:
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
@@ -304,10 +327,13 @@ if __name__ == "__main__":
     assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
     for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
         assert to_matches(bad, 3) == [], bad
-    assert to_choice({"matches": [1], "put_down": False, "near": []}, 3) == ([0], None)
-    assert to_choice({"matches": [1], "put_down": True, "near": []}, 3) == ([0], [])
-    assert to_choice({"matches": [1], "put_down": True, "near": [2]}, 3) == ([0], [1])
-    for bad in [{"matches": [1], "near": []}, {"matches": [1], "put_down": "true", "near": []}, [1], None]:
-        assert to_choice(bad, 3) == ([], None), bad  # a missing or non-boolean flag never becomes a handover
-    assert to_matches({"matches": [1], "near": [3]}, 3, "near") == [2]
+    spot = {"u": 0.4, "v": 0.6, "on_top": True}
+    assert to_choice({"matches": [1], "put_down": False, "place": None}, 3) == ([0], False, None)
+    assert to_choice({"matches": [1], "put_down": True, "place": spot}, 3) == ([0], True, spot)
+    assert to_choice({"matches": [1], "put_down": True, "place": None}, 3) == ([0], True, None)
+    for bad in [{"u": "0.4", "v": 0.6, "on_top": True}, {"u": 0.4, "v": float("nan"), "on_top": True},
+                {"u": 0.4, "v": 0.6, "on_top": 1}, [0.4, 0.6]]:
+        assert to_choice({"matches": [1], "put_down": True, "place": bad}, 3) == ([0], True, None), bad
+    for bad in [{"matches": [1]}, {"matches": [1], "put_down": "true"}, [1], None]:
+        assert to_choice(bad, 3) == ([], False, None), bad  # a missing or non-boolean flag never becomes a handover
     main()

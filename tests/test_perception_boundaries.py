@@ -27,21 +27,24 @@ def test_chooser_flag():
         "numbered": lambda *args: frame, "CHOOSER_LONG_EDGE": 100, "CHOOSE": "{command}",
         "cv2": SimpleNamespace(imencode=lambda *args: (True, SimpleNamespace(tobytes=lambda: b""))),
         "json": json, "re": re, "detect": lambda frame: boxes}
-    functions("see.py", {"parse_reply", "to_matches", "to_choice", "choose", "find_all"}, scope)
-    malformed = [{"matches": [1], "near": []}]
-    malformed += [{"matches": [1], "near": [], "put_down": value}
+    functions("see.py", {"parse_reply", "_number", "to_matches", "to_choice", "choose", "find_all"}, scope)
+    scope["math"] = __import__("math")
+    spot = {"u": .4, "v": .6, "on_top": True}
+    malformed = [{"matches": [1], "place": spot}]
+    malformed += [{"matches": [1], "place": spot, "put_down": value}
                   for value in (None, "true", 0, 1, [], {})]
-    for answer in malformed:
+    for answer in malformed:  # no true/false flag: nothing is picked, so nothing can be handed over
         scope["ask_claude"] = lambda *args: json.dumps(answer)
         with contextlib.redirect_stderr(io.StringIO()):
-            hits, _, _, near = scope["find_all"](frame, "put roof next to purple")
-        assert hits == [] and near is None, (answer, hits, near)
-    for placing, destinations in ((False, []), (True, []), (True, [2])):
-        scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "put_down": placing, "near": destinations})
+            hits, _, _, placing, place = scope["find_all"](frame, "put roof next to purple")
+        assert hits == [] and not placing and place is None, (answer, hits, placing, place)
+    bad_place = {"u": "0.4", "v": .6, "on_top": True}
+    for flag, given, placing_expected, place_expected in (
+            (False, None, False, None), (True, None, True, None), (True, bad_place, True, None), (True, spot, True, spot)):
+        scope["ask_claude"] = lambda *args: json.dumps({"matches": [1], "put_down": flag, "place": given})
         with contextlib.redirect_stderr(io.StringIO()):
-            hits, _, _, near = scope["find_all"](frame, "request")
-        assert len(hits) == 1
-        assert (near is None) if not placing else len(near) == len(destinations)
+            hits, _, _, placing, place = scope["find_all"](frame, "request")
+        assert len(hits) == 1 and placing is placing_expected and place == place_expected, (flag, given, placing, place)
 
 
 def test_standalone_placement():
@@ -52,15 +55,15 @@ def test_standalone_placement():
     scope = {"sys": sys, "see": SimpleNamespace(load_env=lambda: None, grab_frame=lambda: None),
              "load": lambda name: {}, "grasp": lambda *args: calls.append("grasp"), "EDGE": .05}
     functions("pick.py", {"main"}, scope)
-    for near in ([], [target], [target, target], None):
+    for spot, problem in ((None, "I can't work out where to put it."), ((.5, .5, 0.), None), (None, None)):
         calls.clear()
-        scope["locate"] = lambda *args: ([target], "request", near)
-        command = "fetch roof" if near is None else "put roof next to purple"
+        scope["locate"] = lambda *args: ([target], "request", spot, problem)
+        handover = spot is None and problem is None
         with patch.dict(sys.modules, {"arm": arm}), \
-                patch.object(sys, "argv", ["pick.py", "--go", command]), \
+                patch.object(sys, "argv", ["pick.py", "--go", "request"]), \
                 contextlib.redirect_stdout(io.StringIO()):
             scope["main"]()
-        assert calls.count("grasp") == (1 if near is None else 0), (near, calls)
+        assert calls.count("grasp") == (1 if handover else 0), (spot, problem, calls)
         assert calls[-1] == "disconnect", calls
 
 

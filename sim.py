@@ -325,19 +325,19 @@ def request(arm, args: list[str]) -> None:
             see.load_env()
             pick.CORNERS = SIM_POSES / "table_corners.json"
             pick.GRID_ASPECT = (LEFT - RIGHT) / (FAR - NEAR)
-            targets, said, near = pick.locate(arm.top_view(), command=" ".join(args))
+            pick.STACK_LIFT = 0.0192 / (CLEAR_Z - GRASP_Z)  # one Duplo brick high
+            targets, said, spot, problem = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2), f"turn {turn:.0f}") for u, v, label, turn in targets])
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
                 return
-            if pick.place_problem(near):
-                print(f"Not moving: {pick.place_problem(near)}")
+            if problem:
+                print(f"Not moving: {problem}")
                 return
             params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
-            if near:
-                pick.STACK_LIFT = 0.0192 / (CLEAR_Z - GRASP_Z)  # one Duplo brick high
-                params["to_u"], params["to_v"], params["to_lift"] = pick.drop_spot(targets[0], near[0], said)
-                print(f"  putting it by: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f} lift={params['to_lift']:.2f}")
+            if spot:
+                params["to_u"], params["to_v"], params["to_lift"] = spot
+                print(f"  putting it at u={spot[0]:.2f} v={spot[1]:.2f}, {'on top' if spot[2] else 'on the table'}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 
     lifted = dict(before)
