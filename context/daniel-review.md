@@ -7,7 +7,15 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
-## Standalone follow-up: c92d6bd held
+## Standalone fixes verified: dfa82a4
+
+QA 5a3b86a passes normal finite control and all nine actual-main fake regressions: stop during leader read, body hold during easing, torque-preserving fault cleanup, saved-offset rejection, full-window sample clock, initial follower rejection, held grip, shake execution and warm-up sample clock. `tests.test_steady` prints `steady ok`; AST-only `tests/test_rubby_threshold.ps1` passes all three cases. The fixture now locates the actual Round assignment by its expression and refuses a missing assignment/rejection, so the renamed display variable is executed rather than silently skipped. Combined WSL `tests.test_core` prints `core ok`, exit 0 under the external timeout.
+
+Source changes match those results: finite initial follower guard, complete held-target preservation, restored math import, actual elapsed sample rate once a second is available, and a distinct speech display variable. Dashboard follower/out_chain now derive from observed joint positions as well. No devices, native speech engine, live dashboard, MuJoCo or physical motion ran. Session persistence stays in temporary files in the harness.
+
+Scope of closure: the nine standalone cases and speech aliasing finding only. Removing the measured-position squeeze adjustment while retaining GRIP_FLOOR=7 fixes the held-claw regression but does not establish grip safety or safe object loads. Uneven serial timing, physical stop latency, true tip accuracy/calibration and device ownership remain unverified. Older arm clock/retry/focus/win/grip-history holds, Jonathan startup/port holds and the separate controller implementations remain. Neither complete implementation branch is approved for main/hardware by this result.
+
+## Standalone follow-up: c92d6bd historical findings
 
 QA b0afdd3 combines c92d6bd with the earlier integration and Jonathan candidate. `python -B -m tests.test_standalone_steady_safety` now passes the original five cases and normal finite control, but fails four additional cases:
 
