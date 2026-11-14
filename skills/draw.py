@@ -25,6 +25,7 @@ PARAMS = {"text": "str"}
 WORD = "HI"      # what it writes when no text is given
 MAX_CHARS = 8    # longer words get too small to read and too slow for a demo
 MAX_STEP_S = 30  # the arm refuses any single move longer than this
+MAX_SQUEEZE = 30  # most the gripper may close past the taught pen width, on its 0-100 scale
 GRID = Path(__file__).parent.parent / "poses" / "paper.json"
 STOPPED = {"ok": False, "reason": "stopped"}
 
@@ -32,11 +33,14 @@ STOPPED = {"ok": False, "reason": "stopped"}
 def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], float]]:
     """Every (joints, seconds) step for the whole word, home to home. Nothing moves here."""
     n = grid["n"]
+    squeeze = strokes_lib.PEN_SQUEEZE  # read from the environment: NaN would clench fully, a negative would let go
+    if not (math.isfinite(squeeze) and 0 <= squeeze <= MAX_SQUEEZE):
+        raise ValueError(f"PEN_SQUEEZE must be 0 to {MAX_SQUEEZE}, got {squeeze}")
 
     def pose(layer: str, u: float, v: float) -> list[float]:
         p = interpolate(grid[layer], n, u, v)
         # taught limp around the pen, so the taught value is exactly pen width: squeeze a bit more
-        p["gripper.pos"] = max(0.0, p["gripper.pos"] - strokes_lib.PEN_SQUEEZE)
+        p["gripper.pos"] = max(0.0, p["gripper.pos"] - squeeze)
         return _checked(p[f"{j}.pos"] for j in JOINTS)
 
     grip = pose("up", 0.5, 0.5)[5]
@@ -129,6 +133,14 @@ if __name__ == "__main__":
         before = arm.get_joints()
         assert not run(arm, {}, arm.halt)["ok"] and arm.get_joints() == before, f"PEN_SPEED {bad_speed}: must not move"
     strokes_lib.PEN_SPEED = good_speed
+
+    good_squeeze = strokes_lib.PEN_SQUEEZE
+    for bad_squeeze in (-5, float("nan"), float("inf"), 31):
+        strokes_lib.PEN_SQUEEZE = bad_squeeze
+        arm = MockArm()
+        before = arm.get_joints()
+        assert not run(arm, {}, arm.halt)["ok"] and arm.get_joints() == before, f"PEN_SQUEEZE {bad_squeeze}: must not move"
+    strokes_lib.PEN_SQUEEZE = good_squeeze
 
     write_grid({"n": 3, "down": taught(float("nan")), "up": taught(10)})
     arm = FakeArm()
