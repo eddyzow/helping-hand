@@ -41,7 +41,8 @@ SPRING = float(os.environ.get("SPRING", "120"))   # the holder's spring, newtons
 SPRING_TRAVEL = 0.008  # how far the pencil can slide up into the holder
 RUB = float(os.environ.get("RUB", "0.4"))         # friction of the pencil's point on the paper
 PEN_DRAG = 0.0         # lead for a trailing point (see draw.py). Not needed at this pressing depth; at 1 mm, 0.033 fixed it
-GRIP = 22.0            # gripper value taught around the pencil; skills/draw.py squeezes a little past it
+BESIDE = float(os.environ.get("BESIDE", "-0.0155"))  # the pencil lies against the fixed jaw: this far from the gripper's reference point, across the jaws
+GRIP = float(os.environ.get("GRIP", "12"))  # gripper value taught around the pencil; skills/draw.py squeezes PEN_SQUEEZE past it, onto the pencil
 INK_GAP = 0.0015       # ink is laid down in segments at least this long
 BLACK = [0.05, 0.05, 0.08, 1]
 
@@ -59,15 +60,15 @@ class DrawArm(sim.SimArm):
         x, y = page_xy(0.5, 0.5)
         sim.EXTRA = (f'<geom name="paper" type="box" size="{PAGE / 2 + 0.01} {PAGE / 2 + 0.01} {PAPER_Z / 2}" '
                      f'pos="{x} {y} {PAPER_Z / 2}" rgba="1 1 1 1" contype="0" conaffinity="0"/>'
-                     f'<camera name="page" pos="{x + 0.30} {y - 0.02} 0.34" xyaxes="0 1 0 -0.72 0 0.69" fovy="27"/>')
+                     f'<camera name="page" pos="{x + 0.20} {y - 0.26} 0.34" xyaxes="0.79 0.61 0 -0.42 0.55 0.72" fovy="30"/>')
         # The pencil sits in a spring-loaded holder on the gripper, like a pen plotter's: it can slide up
         # SPRING_TRAVEL against a light spring. Only its point touches anything. It is added to a copy of the arm model.
         cone = " ".join(f"{0.004 * math.cos(a):.5f} {0.004 * math.sin(a):.5f} {-PENCIL / 2 + 0.012}"
                         for a in np.linspace(0, 2 * math.pi, 12, endpoint=False)) + f" 0 0 {-PENCIL / 2}"
-        pencil = (f'<body name="pencil" pos="0.012 -0.000218 {-0.098127 - PEN + PENCIL / 2}">'
+        pencil = (f'<body name="pencil" pos="{0.012 + BESIDE} -0.000218 {-0.098127 - PEN + PENCIL / 2}">'
                   f'<joint name="pen_spring" type="slide" axis="0 0 1" range="0 {SPRING_TRAVEL}" stiffness="{SPRING}" '
                   f'damping="0.4" armature="0.0005"/>'
-                  f'<geom type="cylinder" size="0.004 {PENCIL / 2 - 0.006}" pos="0 0 0.006" rgba="0.95 0.75 0.1 1" '
+                  f'<geom type="cylinder" size="0.004 {PENCIL / 2 - 0.006}" pos="0 0 0.006" rgba="0.8 0.15 0.15 1" '
                   f'mass="0.006" contype="0" conaffinity="0"/>'
                   f'<geom type="mesh" mesh="pencil_cone" rgba="0.85 0.7 0.5 1" contype="0" conaffinity="0" density="0"/>'
                   f'<geom name="pencil_tip" type="sphere" size="{POINT}" pos="0 0 {-PENCIL / 2}" rgba="0.1 0.1 0.1 1" '
@@ -80,6 +81,7 @@ class DrawArm(sim.SimArm):
         sim.ARM_XML.write_text(source)
         self.ink, self.last, self.shown = [], None, 0
         super().__init__(view)
+        self.camera, self.frame_every = "page", 3
 
     def tip(self) -> np.ndarray:
         return self.data.geom("pencil_tip").xpos.copy()  # the centre of the pencil's point
@@ -128,16 +130,18 @@ def write_paper(model) -> None:
     sim.SIM_POSES.mkdir(parents=True, exist_ok=True)
     as_pose = lambda joints: {f"{j}.pos": v for j, v in zip(sim.JOINTS, joints[:5] + [GRIP])}
     grid = {"n": PAPER_N, "down": [], "up": []}
+    # the pencil is beside the gripper's reference point, across the jaws, so the gripper goes that much to one side
+    off_x, off_y = BESIDE * math.cos(sim.JAW_ACROSS), BESIDE * math.sin(sim.JAW_ACROSS)
     for v in np.linspace(0, 1, PAPER_N):          # row 0 is the top of the page
         for u in np.linspace(0, 1, PAPER_N):      # column 0 is its left edge
             x, y = page_xy(u, v)
-            grid["down"].append(as_pose(sim.solve(model, x, y, POINT - PRESS + PEN)))
-            grid["up"].append(as_pose(sim.solve(model, x, y, POINT + LIFT + PEN)))
+            grid["down"].append(as_pose(sim.solve(model, x - off_x, y - off_y, POINT - PRESS + PEN)))
+            grid["up"].append(as_pose(sim.solve(model, x - off_x, y - off_y, POINT + LIFT + PEN)))
     (sim.SIM_POSES / "paper.json").write_text(json.dumps(grid))
     # Resting pose: pen held 5 cm above the middle of the page. From sim.py's folded-away home, the straight
     # joint move to the page dipped the pen through the table at the page's corner and left a mark.
     x, y = page_xy(0.5, 0.5)
-    (sim.SIM_POSES / "home.json").write_text(json.dumps(as_pose(sim.solve(model, x, y, POINT + 0.05 + PEN))))
+    (sim.SIM_POSES / "home.json").write_text(json.dumps(as_pose(sim.solve(model, x - off_x, y - off_y, POINT + 0.05 + PEN))))
 
 
 def picture(ink, strokes=None, size: int = 600):

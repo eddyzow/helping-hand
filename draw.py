@@ -122,7 +122,8 @@ def best_of(drawings: list[list[Stroke]], what: str) -> list[Stroke]:
     reply = see.parse_reply(see.ask_claude(
         f'These are {len(drawings)} numbered line drawings that are each meant to be "{what}". Which single one '
         "would a stranger most readily recognise as that, and looks neatest? Prefer a complete, tidy drawing "
-        'over a detailed but messy one. Return only JSON: {"best": number}', sheet(drawings), max_tokens=300))
+        "over a detailed but messy one, and mark down any with stray marks or decoration that is not part of "
+        'the subject. Return only JSON: {"best": number}', sheet(drawings), max_tokens=300))
     best = reply.get("best") if isinstance(reply, dict) else None
     return drawings[best - 1] if type(best) is int and 1 <= best <= len(drawings) else drawings[0]
 
@@ -250,10 +251,13 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
     prompt = (f"Draw {what} as a clean, charming line drawing for a pen plotter. "
               "It should be instantly recognisable and look good, like a well-made illustration in a children's "
               "book: the whole subject (all of an animal, not only its head), well proportioned, in its most "
-              "familiar view. Draw the main shapes first, then add the details that give it character: eyes and "
-              "expression, fur, feathers or scales suggested with a few short marks, windows, wheels with spokes, "
-              "patterns, and a hint of ground or setting where it helps. Use 14 to 36 strokes. No shading or "
-              "filling in, and do not let details crowd or cross each other. "
+              "familiar view. Match the detail to the subject. Something simple (a smiley face, a heart, a star) "
+              "stays simple: a few clean strokes and nothing else. Something complex (a castle, a train, an animal) "
+              "gets the parts that make it what it is: eyes and expression, windows, wheels, a mane, a shell "
+              "pattern. Every stroke must be a part of the subject itself. Do not add decoration: no sparkles, "
+              "motion lines, blush marks, raindrops, clouds, stray ticks or background, and no ground line unless "
+              "the subject would look like it is floating without one. Use 4 to 30 strokes. No shading or filling "
+              "in, and do not let strokes crowd or cross each other. "
               + (f'An earlier attempt was mistaken for "{mistaken_for}": make what sets {what} apart unmistakable. '
                  if mistaken_for else "")
               + "Each stroke is a list of [x, y] points, x right and y down, both 0 to 100. Mark a stroke "

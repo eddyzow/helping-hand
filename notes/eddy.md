@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:42 PM.
+Updated Sat Nov 14, 3:57 PM.
 
 ## Working on now
 
@@ -261,3 +261,8 @@ For whoever builds the pen holder (Ben's note says that is a person's job): the 
 - `skills/draw.py` (Ben's) now also: waits 0.25 s after lowering the pen and 0.15 s before lifting it; times pen-up travel by distance instead of a fixed second; checks `PEN_DRAG`. `draw ok` still prints.
 - Drawings are richer now: the prompt asks for 14 to 36 strokes with character details. Of 28 new subjects drawn end to end with the pencil, the blind viewer named 27; the one it marked wrong was "a robot arm drawing a picture" seen as a robot arm drawing. A detailed drawing takes about 13 seconds to work out and 60 to 70 seconds to draw. 45 drawings are cached in `drawings/`.
 - The arm now tracks the line much more closely than the drawings are good: what limits the result is how well Claude draws the thing (the fox and the knight's horse are weak).
+
+## Drawing: pencil in the jaws, no stray marks, Sat Nov 14, 3:57 PM
+
+- Eddy saw the pencil floating beside open jaws. It now lies against the fixed jaw with the moving jaw closed onto it (still sliding against its spring), and the taught paper grid allows for the pencil being 15.5 mm to one side of the gripper's reference point. The point still lands within 0.2 mm of the aim.
+- Eddy saw random extra lines on "a smiley face". The cause was my prompt asking for details, which invited sparkles, blush marks and motion lines. The prompt now says every stroke must be part of the subject and simple things stay simple, and the picker marks down stray marks. The smiley is four strokes. All 55 cached drawings were regenerated with it.
