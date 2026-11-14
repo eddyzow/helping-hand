@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:40 PM ET.
+Updated Sat Nov 14, 4:15 PM ET.
 
 ## Working on now
 
@@ -14,9 +14,16 @@ Next, in order:
    `daniel/arm-core` at `bbdfac5`. Mock only; see below. It adds one file and touches nothing else.
 3. `skills/draw.py` is on `main`, mock only; see below. Next for it: a taught paper grid and a
    pen holder, then a first try in an arm slot.
-4. Pen holder: a person's job, not this agent's.
+4. Pen holder: Ben is building one now (4:15 PM), sprung so the pen can slide, per Eddy's simulator
+   findings. Then a first real try with Daniel; the checklist is under "Needs from others".
 
 ## Done and how it was tested
+
+- `docs/tracks.md` (2:10 PM): every prize on the Devpost page (28), the one-category limit, and
+  the rules quoted from the Devpost rules page. Read with a browser on Sat 2:10 PM. Ben heard that
+  tracks are being added, so this agent re-reads the page about once an hour and logs changes at
+  the bottom of that file. Three sponsor prizes are not in `PLAN.md`: Sentient OS Best Agentic
+  Hack, Analog Devices ADI Hardware, Capital One Nessie. So are Best Pitch and Best UMass Hack.
 
 - `docs/devpost.md` (3:35 AM): a first draft of the Devpost text, section by section, in both an
   Accessibility and a Hardware version of the opening. Every claim that is not yet true on the real
@@ -53,6 +60,40 @@ Next, in order:
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel, a request for arm time (4:15 PM): Ben wants drawing tried on the real arm today, about
+  30 minutes, whenever Duplo and Geometry Dash can spare it. Ben will bring the pen in a holder and
+  be there. If there is no slot before the 8:50 PM freeze, say so and drawing comes out of the
+  demo; that is a fine answer. The first try, in order, stopping at the first thing that goes wrong:
+  1. In the `lerobot` env in WSL: `pip install Hershey-Fonts`. Your reviewer found it missing
+     there, and without it `run draw` fails on import (it does not move).
+  2. Tape a small sheet, about 10 by 10 cm, flat and close to the arm's base. Small and close keeps
+     the error between taught points down.
+  3. Pen in the holder, cap ON. `python arm.py teach paper 3`: a 3 by 3 grid is 18 hand poses.
+     Row 0 is the far edge, column 0 the left. First layer: the pen TIP on each grid point, pressed
+     about 2 mm into its spring. Second layer: the tip lifted about 2 cm. Keep the pen upright and
+     the wrist the same way round at every point. The arm goes limp for this; hold it.
+  4. `python arm.py check paper`, cap still on: a slow pass between the taught points. Watch for
+     the tip digging in or lifting off.
+  5. Start the dispatcher, cap still on, and type `run draw {"text": "I"}`. One stroke, about 11
+     seconds. Hand on the stop key (Z). Does the tip follow a line and lift cleanly?
+  6. Cap off. `run draw {"text": "I"}` again, then `run draw {"text": "HI"}` (about 31 seconds).
+  7. Write down what happened, including a failure, and a photo of the paper if there is ink on it.
+  Settings that may need changing, all environment variables: `PEN_SQUEEZE` (default 8) closes the
+  gripper that much past the taught value. If the holder is fixed to a jaw and the gripper is not
+  what holds the pen, set `PEN_SQUEEZE=0`. `PEN_SPEED` (default 0.15 pages a second) is slow on
+  purpose. Leave `PEN_DRAG` at 0 with a sprung holder.
+  Two things I do not know and you will see first: whether the arm reaches `home` safely with a pen
+  sticking out (the skill goes home at the start and end, keeping the pen grip), and which way the
+  pen has to lean so the wrist does not hit the paper.
+
+- Everyone (2:10 PM): two facts from the Devpost rules page that differ from our notes. The initial
+  submission is due Saturday 11:59 PM, and the public repo link must be under "Try it out" and stay
+  public after the event. Also, the rules have no rule about AI coding tools, so that question is
+  closed in the Devpost draft the way Eddy wanted.
+- Anyone near the sponsor tables: what does Sentient OS mean by "Best Agentic Hack"? Devpost gives
+  no description. A model choosing the skill and the placement for a physical arm may fit, and
+  opting in costs nothing, but only if it honestly fits.
 
 - Daniel or Jonathan (1:40 PM): commit `f1e8a18` says the arm completes Stereo Madness. If someone
   watched it reach Level Complete, please write three lines in your note: how many attempts out of
@@ -103,6 +144,27 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's `e2d3e02` (second change to `skills/draw.py`: pen-down and pen-up waits, pen-up travel
+  timed by distance, `PEN_DRAG`): read the diff, fine by me. `PEN_DRAG` is checked before any move
+  and is 0 by default. Re-run at 3:55 PM on `main` at `84a00de`, no hardware: `draw ok`, `sketch
+  boundaries ok`. Thank you for the holder findings; they are in `docs/demo.md` block 4 and Ben has
+  them. One note: with `PEN_DRAG` above 0 a led point can leave the page and `grid.interpolate`
+  clamps it without saying so, as Daniel's reviewer also noted.
+
+- Daniel's reviewer (`fd80e9b`, two statements to narrow): both done at 3:00 PM. `docs/demo.md` no
+  longer calls the cached sketches network-free; it says they skip generation and that a sentence
+  still goes to the model for routing. The Devpost draft now describes the blind viewer as feedback
+  for one retry, not a gate.
+
+- Eddy's `27595d3` (sketches, with changes to `skills/draw.py`): I read the whole diff to that file
+  and it is fine by me. Strokes from outside are checked before any move, the pose, squeeze and
+  duration checks in `plan` still cover the new path, and the text path is unchanged. Re-run at
+  2:55 PM on `main` at `3c7170a`, no hardware: `draw ok`, `sketch boundaries ok`. One thing to
+  know, not a bug: there is no cap on a sketch's total drawing time, only on its 4000 points, so a
+  dense sketch could run for minutes; the plan prints its estimate before the first move.
+  `docs/demo.md` block 4 and the Devpost draft now cover sketches, marked as never tried with a
+  real pen.
 
 - Eddy's `a620d95` (keyword matching removed): `docs/demo.md` now says block 3 has no offline path
   for sentences and names the fallbacks, the keypad keys and a typed `run fetch` with a grid

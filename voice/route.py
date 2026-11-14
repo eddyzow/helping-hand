@@ -28,7 +28,7 @@ Skills: {skills}
 Return only JSON: {{"skill": "<name>", "params": {{}}}}. Use "stop" as the skill if the person wants
 the arm to stop. Use null if no skill fits. For fetch, put what the person asked for in
 params.object in their own words (for example "the red brick") and leave u and v out; if they say how
-long to hold it up, put the seconds in params.hold."""
+long to hold it up, put the seconds in params.hold. For draw, put a thing to sketch in params.what ("a cat"), or a word to write in params.text."""
 
 
 def send(command: str):
@@ -120,6 +120,16 @@ def main() -> None:
             speak(problem)
             return
         params = {**found[0], **({"hold": params["hold"]} if "hold" in params else {})}
+    if name == "draw" and params.get("what"):  # a sketch: work out the strokes here, where the model keys are
+        import draw
+
+        speak(f"Let me think how to draw {params['what']}.")
+        try:
+            params = {"strokes": draw.sketch(str(params["what"]))}
+        except Exception as err:
+            print(f"{type(err).__name__}: {str(err)[:200]}", file=sys.stderr)
+            speak("I couldn't work out how to draw that.")
+            return
     result = send(f"run {name} {json.dumps(params)}")
     print(name, params, result)
     if not result.get("ok"):

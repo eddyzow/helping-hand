@@ -13,16 +13,20 @@ the arm must confirm each physical claim.
 
 ## Decisions needed before submitting
 
-1. Track: exactly one HackUMass category. Accessibility or Hardware (see `docs/demo.md`).
+1. Track: exactly one [HACKUMASS] category. Accessibility or Hardware (see `docs/demo.md`; the
+   full list of 28 prizes is in `docs/tracks.md`). Sponsor prizes are separate opt-ins.
 2. Project name. Eddy says it will not be "Helping Hand"; the four of you settle it. The title
    below is a placeholder, written as NAME.
 3. Which skills are in. Only skills that passed 4 of 5 on the real arm at the freeze are described
    as working. The draft below lists the team's four; cut the ones that did not pass.
-4. AI coding tools. Most of this code was written with coding agents. Eddy's view (4:05 AM) is that
-   this is expected at hackathons this year and no organizer question is needed. Ben has not
-   weighed in. A search did not turn up the HackUMass rule text either way, so this is unverified,
-   not settled; the Devpost rules tab would answer it in a minute.
-5. Repo public, all four teammates added on Devpost. Do NOT tick MLH's Best Use of Gemini API:
+4. AI coding tools: settled by the rules page, read Sat 2:10 PM (`docs/tracks.md`). It has no
+   rule about AI tools, and one MLH prize at this event is awarded for building with an AI coding
+   agent, so no organizer question is needed (Eddy's view). The rule that does apply: "You must
+   document any external code usages in your submission and mention during judging to clearly
+   distinguish your contributions." The open-source list below is how we meet it.
+5. Repo public, with its link under "Try it out" (required, and it must stay public afterwards).
+   All four teammates need a Devpost account and must be listed as contributors. An optional
+   demo video under 3 minutes is "recommended". Initial submission is due Sat 11:59 PM. Do NOT tick MLH's Best Use of Gemini API:
    Gemini was removed from the project at 10:34 AM Saturday and is in no live path.
 
 ## Title and tagline
@@ -57,7 +61,8 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Handles Duplo by voice. [CONFIRM ON ARM] Say "pick up the red brick" or "put the roof next to
   the purple brick". A camera looks at the table, and the arm picks the piece up and hands it over
   or sets it down. If two pieces match, it asks which one.
-- Writes. [CONFIRM ON ARM] Give it a short word and it writes it on a card with a pen.
+- Draws and writes. [CONFIRM ON ARM] Name a thing and it sketches it on a card with a pen, or
+  give it a short word and it writes it.
 - Feeds. [CONFIRM ON ARM; not built as of this draft] It scoops dry food from a bowl and holds the
   spoon out, stopping short of the face so the person leans in, and offers water from a lidded cup
   with a straw.
@@ -79,7 +84,10 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
 - Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
   blend between them. [CONFIRM: the grid size we ended up using.]
 - Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
-  a taught grid over the paper.
+  a taught grid over the paper. For a sketch, Claude draws the thing as strokes three times, guided
+  by the most typical doodles of it from Google's Quick, Draw! dataset. A second call that is not
+  told the subject is asked to name the drawing; if it names something else, the sketch is redone
+  once with that feedback.
 - Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
   and release delay. [CONFIRM: the measured delay in milliseconds.]
 - Safety was treated as a feature. Commands are checked before the first motor moves: joint

@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:08 PM.
+Updated Sat Nov 14, 4:09 PM.
 
 ## Working on now
 
@@ -238,3 +238,40 @@ Then these numbers, each measured once on the real arm (all are environment vari
 What will not carry over: real Duplo studs have to be pressed together and lined up to a millimetre or two, and the simulator has no studs; the real arm repeats to a few millimetres at best; shadows and glare on the grey table can break the outline step (it falls back to the detector's box). Expect pick-up and handover first, putting beside second, resting one brick on another third, pressed-on stacks and the car body last or not at all.
 
 Can be done before the arm is free: mount the camera, photograph the real table from it, run `python see.py --image that.jpg "..."` and `python pick.py --image` on it, and try a spoken request on the Windows side.
+
+## Drawing anything, in the simulator, Sat Nov 14, 2:44 PM
+
+Eddy asked for: say what to draw, and the simulated arm holds a pen and sketches it. Ben, this touches your `skills/draw.py`; details below.
+
+- `draw.sketch(what)` in root `draw.py`: Claude Sonnet 5.5 draws the thing three times at once as strokes, and picks the best. If the thing is one of the 345 in the public Quick, Draw! database, it is first shown the dozen most typical of people's doodles of it (found by comparing a few hundred doodles with their average) as a guide to what to include. A second call that is not told the subject then names the drawing; if it names something else, there is one more round, told what it was mistaken for. With no model reachable, the doodles themselves are used. Results are cached in `drawings/sketch_*.json`: 17 are committed, so those are instant and need no Wi-Fi. A new one takes about 10 seconds (20 if it needs the second round).
+- `sim_draw.py`: paper, a pen below the jaws, and ink wherever the tip touches. It runs the real `skills/draw.py` on a 5 by 5 "taught" paper grid. `python sim_draw.py a cat` saves `outputs/sim_drawing.png` and a video; `mjpython sim_draw.py --view` is the live window (the window itself I could not check from here, only the video).
+- Result on 12 subjects I had not tuned on (elephant, dog, fish, coffee cup, car, butterfly, flower, umbrella, dinosaur, lighthouse, snowman, penguin): the blind viewer named all 12 from the simulated ink. The ink was 0.7 to 0.9 mm from the intended line on average, about 2 mm at worst, on a 12 cm page. Each took 25 to 40 seconds to draw.
+- Ben, changes to `skills/draw.py`: `run draw {"strokes": [[[u, v], ...], ...]}` draws ready-made strokes (checked before any move: 1 to 80 strokes, numbers from 0 to 1, at most 4000 points); `plan` takes text or strokes; the description and `PARAMS` now mention sketches; its self-check covers the new path and still prints `draw ok`. `voice/route.py` turns `params.what` ("a cat") into strokes before sending.
+- For the real arm, from the simulator: the first move from a folded-away home to the page dipped the pen through the table at the page's corner. Teach a home, or a rest pose, that holds the pen above the page. Not modelled: the pen slipping or tilting in the jaws, and paper friction.
+
+## Drawing with a real pencil in the simulator, Sat Nov 14, 3:42 PM
+
+For whoever builds the pen holder (Ben's note says that is a person's job): the simulator says make it spring-loaded.
+
+- The pencil is now a body in the physics whose point presses on the table and drags with friction. Three ways of holding it, measured:
+  - In the bare jaws it is pinched at one point and swings.
+  - Held rigidly, the pressing depth decides everything. Pressing 1 mm, the point trailed the gripper by 5 to 6 mm: every stroke ended short and a sharp corner was cut by 6 mm. Pressing 0.5 mm it was accurate where it touched but skipped 4 to 15 percent of the line. Pressing 0.2 mm it skipped more. A hand-taught grid will not hold half a millimetre across a page.
+  - In a spring-loaded holder (the pencil slides up to 8 mm against a light spring, about 25 grams at 2 mm of travel), aiming 2 mm into the table: no skipped ink, 0.2 to 0.3 mm from the line on average, under 1 mm at worst, corners within 0.8 mm.
+- If the holder has to be rigid, `PEN_DRAG` in `draw.py` (new, default 0) aims the pen ahead along its direction of travel. At 1 mm of pressing, 0.033 of the page brought stroke ends and the corner back within about 1 mm, but it overshoots on small details.
+- `skills/draw.py` (Ben's) now also: waits 0.25 s after lowering the pen and 0.15 s before lifting it; times pen-up travel by distance instead of a fixed second; checks `PEN_DRAG`. `draw ok` still prints.
+- Drawings are richer now: the prompt asks for 14 to 36 strokes with character details. Of 28 new subjects drawn end to end with the pencil, the blind viewer named 27; the one it marked wrong was "a robot arm drawing a picture" seen as a robot arm drawing. A detailed drawing takes about 13 seconds to work out and 60 to 70 seconds to draw. 45 drawings are cached in `drawings/`.
+- The arm now tracks the line much more closely than the drawings are good: what limits the result is how well Claude draws the thing (the fox and the knight's horse are weak).
+
+## Drawing: pencil in the jaws, no stray marks, Sat Nov 14, 3:57 PM
+
+- Eddy saw the pencil floating beside open jaws. It now lies against the fixed jaw with the moving jaw closed onto it (still sliding against its spring), and the taught paper grid allows for the pencil being 15.5 mm to one side of the gripper's reference point. The point still lands within 0.2 mm of the aim.
+- Eddy saw random extra lines on "a smiley face". The cause was my prompt asking for details, which invited sparkles, blush marks and motion lines. The prompt now says every stroke must be part of the subject and simple things stay simple, and the picker marks down stray marks. The smiley is four strokes. All 55 cached drawings were regenerated with it.
+
+## Drawing: closed shapes, plain subjects, gripped from the start, Sat Nov 14, 4:09 PM
+
+Eddy's report on "draw me a cup": jaws open before the drawing started, some lines unfinished, and an odd saucer.
+
+- Unfinished lines were in the drawing, not the arm: Claude often draws a circle or ellipse and stops just short of where it began. `draw.closed_up` now closes a stroke whose ends are within a fifth of its size of each other.
+- The prompt now asks for the thing named in its plainest form with no accessories (a cup has no saucer or steam) and for every shape to be finished.
+- `sim_draw.py` starts with the jaws closed on the pencil and the arm waiting above the page.
+- All 63 cached drawings regenerated and looked through; the cup drawn in the simulator had no missing ink and was 0.3 mm from the line on average.

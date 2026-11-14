@@ -109,7 +109,7 @@ def test_voice_and_drawing():
         assert commands == ["list", "run wave {}"]
         reply = "```json\n[[[0,0],[1,1]]]\n```"
         draw = {"Stroke": list, "json": json, "os": scope["os"], "fit": lambda strokes: strokes}
-        functions("draw.py", {"from_model"}, draw)
+        functions("draw.py", {"from_model", "closed_up"}, draw)
         assert draw["from_model"]("line") == [[(0.0, 0.0), (1.0, 1.0)]]
 
 

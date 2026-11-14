@@ -19,19 +19,48 @@ from core.arm import JOINTS, _checked
 from grid import interpolate
 
 NAME = "draw"
-DESCRIPTION = "Write a short word on the paper with the pen"
-PARAMS = {"text": "str"}
+DESCRIPTION = "Draw a picture of something, or write a short word, on the paper with the pen"
+PARAMS = {"text": "str: a short word to write",
+          "what": "str: a thing to sketch, in the person's own words, e.g. 'a cat' (voice/route.py turns it into strokes)",
+          "strokes": "filled in by voice/route.py or sim_draw.py for a sketch: pen strokes as [[[u, v], ...], ...], 0 to 1"}
 
 WORD = "HI"      # what it writes when no text is given
 MAX_CHARS = 8    # longer words get too small to read and too slow for a demo
+TRAVEL_SPEED = 0.6   # pen-up travel between strokes, in pages per second; never quicker than TRAVEL_MIN_S
+TRAVEL_MIN_S = 0.35
+PEN_SETTLE_S = 0.25  # wait this long after lowering the pen: it lands late, and short strokes (an eye) were skipped
+PEN_FINISH_S = 0.15  # and this long at the end of a stroke before lifting, so the dragging point catches up
 MAX_STEP_S = 30  # the arm refuses any single move longer than this
+MAX_DRAG = 0.1    # most the pen may be led ahead of the line, as a fraction of the page
 MAX_SQUEEZE = 30  # most the gripper may close past the taught pen width, on its 0-100 scale
 GRID = Path(__file__).parent.parent / "poses" / "paper.json"
 STOPPED = {"ok": False, "reason": "stopped"}
 
 
-def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], float]]:
-    """Every (joints, seconds) step for the whole word, home to home. Nothing moves here."""
+MAX_STROKES, MAX_POINTS = 80, 4000  # a sketch bigger than this is not a demo any more
+
+
+def checked_strokes(strokes) -> list:
+    """Strokes from outside (a model or a database) -> lists of (u, v) inside the page, or ValueError."""
+    if not isinstance(strokes, list) or not 1 <= len(strokes) <= MAX_STROKES:
+        raise ValueError(f"strokes must be a list of 1 to {MAX_STROKES} strokes")
+    out = []
+    for stroke in strokes:
+        if not isinstance(stroke, (list, tuple)) or len(stroke) < 2:
+            raise ValueError("every stroke needs at least two points")
+        for point in stroke:
+            if not (isinstance(point, (list, tuple)) and len(point) == 2
+                    and all(type(n) in (int, float) and math.isfinite(n) and 0 <= n <= 1 for n in point)):
+                raise ValueError(f"a stroke point must be two numbers from 0 to 1, got {point!r}")
+        out.append([(float(u), float(v)) for u, v in stroke])
+    if sum(len(s) for s in out) > MAX_POINTS:
+        raise ValueError(f"more than {MAX_POINTS} points")
+    return out
+
+
+def plan(text, grid: dict, home: list[float]) -> list[tuple[list[float], float]]:
+    """Every (joints, seconds) step for the whole word (or, given a list, those strokes), home to
+    home. Nothing moves here."""
     n = grid["n"]
     squeeze = strokes_lib.PEN_SQUEEZE  # read from the environment: NaN would clench fully, a negative would let go
     if not (math.isfinite(squeeze) and 0 <= squeeze <= MAX_SQUEEZE):
@@ -44,14 +73,32 @@ def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], fl
         joints[5] = max(0.0, joints[5] - squeeze)
         return joints
 
+    drag = strokes_lib.PEN_DRAG
+    if not (math.isfinite(drag) and 0 <= drag <= MAX_DRAG):
+        raise ValueError(f"PEN_DRAG must be 0 to {MAX_DRAG}, got {drag}")
+
+    def led(pts: list) -> list:
+        """The points to command so the trailing pen point lands on pts: each one pushed `drag` further
+        along the way the pen is travelling when it gets there."""
+        out = [pts[0]]
+        for (u0, v0), (u1, v1) in zip(pts, pts[1:]):
+            length = math.hypot(u1 - u0, v1 - v0) or 1.0
+            out.append((u1 + drag * (u1 - u0) / length, v1 + drag * (v1 - v0) / length))
+        return out
+
     grip = pose("up", 0.5, 0.5)[5]
     rest = _checked(home[:5] + [grip])  # home, but still holding the pen
     steps = [(rest, 2.0)]
-    for stroke in strokes_lib.from_text(text):
-        pts = strokes_lib.resample(stroke)
-        steps.append((pose("up", *pts[0]), 1.0))
+    at = None  # where the pen last was on the page
+    for stroke in (strokes_lib.from_text(text) if isinstance(text, str) else text):
+        pts = led(strokes_lib.resample(stroke))
+        hop = 1.0 if at is None else max(TRAVEL_MIN_S, math.hypot(pts[0][0] - at[0], pts[0][1] - at[1]) / TRAVEL_SPEED)
+        steps.append((pose("up", *pts[0]), hop))
+        at = pts[-1]
         steps.append((pose("down", *pts[0]), 0.4))
+        steps.append((pose("down", *pts[0]), PEN_SETTLE_S))
         steps += [(pose("down", u, v), strokes_lib.STEP / strokes_lib.PEN_SPEED) for u, v in pts[1:]]
+        steps.append((pose("down", *pts[-1]), PEN_FINISH_S))
         steps.append((pose("up", *pts[-1]), 0.4))
     steps.append((rest, 2.0))
     for _, seconds in steps:  # a bad PEN_SPEED must be caught here, not after the pen is already down
@@ -62,15 +109,22 @@ def plan(text: str, grid: dict, home: list[float]) -> list[tuple[list[float], fl
 
 def run(arm, params, stop):
     text = params.get("text", WORD)
-    if not isinstance(text, str) or not text.strip() or len(text) > MAX_CHARS or not text.isascii():
+    if "strokes" in params:  # a sketch: the strokes are checked here, the text rules do not apply
+        try:
+            text = checked_strokes(params["strokes"])
+        except ValueError as err:
+            return {"ok": False, "reason": str(err)}
+    elif "what" in params:
+        return {"ok": False, "reason": "a sketch needs its strokes: voice/route.py or sim_draw.py supplies them"}
+    elif not isinstance(text, str) or not text.strip() or len(text) > MAX_CHARS or not text.isascii():
         return {"ok": False, "reason": f"text must be 1 to {MAX_CHARS} plain characters"}
     if not GRID.exists():
         return {"ok": False, "reason": "no paper grid: teach it with python arm.py teach paper"}
     try:  # the whole word is planned and checked before the first move
-        steps = plan(text.strip(), json.loads(GRID.read_text()), arm.load_pose("home"))
+        steps = plan(text.strip() if isinstance(text, str) else text, json.loads(GRID.read_text()), arm.load_pose("home"))
     except (ValueError, KeyError, IndexError, TypeError, ZeroDivisionError) as err:
         return {"ok": False, "reason": f"cannot plan '{text}': {err}"}
-    print(f"[draw] '{text.strip()}': {len(steps)} moves, about {sum(s for _, s in steps):.0f} seconds", flush=True)
+    print(f"[draw] {text.strip() if isinstance(text, str) else 'sketch'!r}: {len(steps)} moves, about {sum(s for _, s in steps):.0f} seconds", flush=True)
     for joints, seconds in steps:
         if not arm.move_joints(joints, seconds):
             return STOPPED
@@ -123,6 +177,12 @@ if __name__ == "__main__":
     assert arm.sent[1][1] == 10 and arm.sent[2][1] == 0, "first stroke: arrive lifted, then lower"
     lifts = [t[1] for t in arm.sent[1:-1]]
     assert set(lifts) == {0, 10} and lifts[-1] == 10, "pen is either down or up, and ends up"
+
+    arm = FakeArm()  # a sketch: ready-made strokes are drawn; bad ones never move the arm
+    assert run(arm, {"strokes": [[[0.1, 0.1], [0.9, 0.9]]]}, arm.halt)["ok"] and len(arm.sent) > 4
+    for bad in ([], [[[0.1, 0.1]]], [[[0.1, 0.1], [1.5, 0.2]]], [[[0.1, float("nan")], [0.2, 0.2]]], "cat", [[[0.1, 0.1], ["a", 0.2]]]):
+        arm = FakeArm()
+        assert not run(arm, {"strokes": bad}, arm.halt)["ok"] and arm.sent == [], f"bad strokes {bad!r} must not move"
 
     arm = FakeArm(stop_after=5)  # stop lands mid-word: nothing more is sent
     assert run(arm, {}, arm.halt) == STOPPED and len(arm.sent) == 5
