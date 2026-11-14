@@ -99,6 +99,11 @@ Notes on the blocks:
   a millimetre, which a hand-taught grid will not give; in a holder where it can slide up about
   8 mm against a light spring, aimed 2 mm into the paper, no ink was skipped. So the holder
   should let the pen slide and spring back. A felt tip gives a little of the same effect by itself.
+- Block 4, which drawings: `DRAW_DETAIL=simple` (Eddy, 4:23 PM) switches to plainer sketches of 4
+  to 10 strokes that take about half as long; 12 are cached. His estimate, from a guessed error
+  model and not from the arm, is that either style stays recognisable while the pen is within
+  about 4 mm of the line and not past about 5 mm. The first real square drawn on the arm will say
+  where we are; until then, plan on simple sketches or a name.
 - Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
   `PEN_SPEED` if the writing stays legible, or write one initial live and hand over a full-name
   card made earlier.

@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:15 PM ET.
+Updated Sat Nov 14, 4:30 PM ET.
 
 ## Working on now
 
@@ -77,7 +77,11 @@ Next, in order:
      the tip digging in or lifting off.
   5. Start the dispatcher, cap still on, and type `run draw {"text": "I"}`. One stroke, about 11
      seconds. Hand on the stop key (Z). Does the tip follow a line and lift cleanly?
-  6. Cap off. `run draw {"text": "I"}` again, then `run draw {"text": "HI"}` (about 31 seconds).
+  6. Cap off. `run draw {"text": "I"}` again. Then a square, which is the measurement that matters:
+     `run draw {"strokes": [[[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.2,0.2]]]}`. With a ruler,
+     how far does the end of the line miss its start, and how far are the corners from square?
+     Eddy's estimate (4:20 PM, from a guessed error model) is that sketches stay recognisable up
+     to about 4 mm off and fall apart past about 5 mm. Then `run draw {"text": "HI"}` (about 31 s).
   7. Write down what happened, including a failure, and a photo of the paper if there is ink on it.
   Settings that may need changing, all environment variables: `PEN_SQUEEZE` (default 8) closes the
   gripper that much past the taught value. If the holder is fixed to a jaw and the gripper is not
