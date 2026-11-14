@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steady Hand</title>
+<style>
+  :root { --paper:#f3ede2; --card:#fbf8f2; --ink:#2a2227; --soft:#6f6468; --line:#e2d9cb; --plum:#6b2d5c; --raw:#b8552f; --ok:#2f6b4f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.45 "Segoe UI", system-ui, sans-serif; }
+  main { max-width:1180px; margin:0 auto; padding:20px 16px 28px; }
+  header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  h1 { font-size:26px; margin:0; letter-spacing:-0.01em; }
+  h1 small { font-size:14px; font-weight:400; color:var(--soft); margin-left:10px; }
+  .modes { display:flex; gap:8px; }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 14px; border-radius:10px; cursor:pointer; }
+  button.on { background:var(--plum); border-color:var(--plum); color:#fff; }
+  button:hover { border-color:var(--plum); }
+  .grid { display:grid; grid-template-columns:repeat(12, 1fr); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .card h2 { font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--soft); margin:0 0 6px; }
+  .big { font-size:44px; font-weight:650; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .big span { font-size:17px; font-weight:400; color:var(--soft); margin-left:4px; }
+  .note { color:var(--soft); font-size:13px; margin-top:4px; }
+  .c3 { grid-column:span 3; } .c4 { grid-column:span 4; } .c5 { grid-column:span 5; } .c7 { grid-column:span 7; } .c8 { grid-column:span 8; } .c12 { grid-column:span 12; }
+  canvas { width:100%; display:block; }
+  .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:6px 0 2px; }
+  .bar i { display:block; height:100%; width:0; background:var(--plum); transition:width .15s; }
+  .row { display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+  .legend { display:flex; gap:16px; font-size:13px; color:var(--soft); margin-top:6px; }
+  .legend b { display:inline-block; width:18px; height:3px; vertical-align:middle; margin-right:6px; border-radius:2px; }
+  input[type=range] { width:100%; accent-color:var(--plum); }
+  footer { color:var(--soft); font-size:13px; margin-top:14px; }
+  #lost { display:none; background:#f6e3d8; border:1px solid #e3b9a2; border-radius:10px; padding:8px 12px; margin-bottom:12px; }
+  @media (max-width:860px) { .c3,.c4,.c5,.c7,.c8 { grid-column:span 12; } .big { font-size:36px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Steady Hand <small>the arm copies the hand, without the tremor</small></h1>
+    <div class="modes">
+      <button id="steady" title="Middle key on the keypad">Steady</button>
+      <button id="hold" title="Jump key on the keypad">Hold</button>
+    </div>
+  </header>
+  <div id="lost">No data from the arm. Start it with: python steady.py</div>
+  <div class="grid">
+    <section class="card c4"><h2>Hand shake</h2><div class="big" id="hand">0.0<span>mm</span></div><div class="note" id="freq">no tremor found</div></section>
+    <section class="card c4"><h2>Arm shake</h2><div class="big" id="arm">0.0<span>mm</span></div><div class="note">what is left at the claw</div></section>
+    <section class="card c4"><h2>Tremor removed</h2><div class="big" id="removed">0<span>%</span></div><div class="note" id="mode">steady mode on</div></section>
+
+    <section class="card c7">
+      <h2>Fingertip height, last 30 seconds</h2>
+      <canvas id="chart" height="250"></canvas>
+      <div class="legend"><span><b style="background:var(--raw)"></b>the hand (leader arm)</span><span><b style="background:var(--plum)"></b>the arm (follower)</span></div>
+    </section>
+    <section class="card c5">
+      <h2>Hand and arm, side by side</h2>
+      <canvas id="arms" height="250"></canvas>
+      <div class="legend"><span><b style="background:var(--raw)"></b>hand</span><span><b style="background:var(--plum)"></b>arm</span></div>
+    </section>
+
+    <section class="card c4"><h2>Grip effort</h2><div class="row"><span>share of the claw motor's maximum</span><b id="gripv">0%</b></div><div class="bar"><i id="grip"></i></div><div class="note">The motor's own load reading: an estimate, not a measured force.</div></section>
+    <section class="card c4"><h2>Arm load</h2><div class="row"><span>hardest-working joint</span><b id="loadv">0%</b></div><div class="bar"><i id="load"></i></div><div class="note" id="speed">claw speed 0 mm/s</div></section>
+    <section class="card c4"><h2>Filter</h2><div class="row"><span>lets through movement slower than</span><b id="cutv">2.0 Hz</b></div><input id="cut" type="range" min="0.5" max="6" step="0.1" value="2"><div class="note">Lower is steadier but follows the hand a little later.</div></section>
+  </div>
+  <footer>Prototype. Tested only with a person shaking the leader arm on purpose, not with patients. The arm holds light objects.</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const send = line => fetch('/cmd?' + encodeURIComponent(line)).catch(() => {});
+let steady = true, hold = false, dragging = false, misses = 0;
+$('steady').onclick = () => send('steady ' + (steady ? 'off' : 'on'));
+$('hold').onclick = () => send('hold ' + (hold ? 'off' : 'on'));
+$('cut').oninput = e => { dragging = true; $('cutv').textContent = (+e.target.value).toFixed(1) + ' Hz'; };
+$('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; };
+
+function fit(canvas) {  // sharp lines on high-density screens
+  const ratio = window.devicePixelRatio || 1, w = canvas.clientWidth, h = +canvas.getAttribute('height');
+  if (canvas.width !== w * ratio) { canvas.width = w * ratio; canvas.height = h * ratio; }
+  const ctx = canvas.getContext('2d'); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, w, h);
+  return [ctx, w, h];
+}
+function chart(history) {
+  const [ctx, w, h] = fit($('chart'));
+  if (history.length < 2) return;
+  const t1 = history[history.length - 1][0], t0 = t1 - 30, values = history.flatMap(p => [p[1], p[2]]);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  if (hi - lo < 20) { const mid = (hi + lo) / 2; lo = mid - 10; hi = mid + 10; }
+  const x = t => (t - t0) / 30 * w, y = v => h - 8 - (v - lo) / (hi - lo) * (h - 16);
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(0, h * i / 4); ctx.lineTo(w, h * i / 4); ctx.stroke(); }
+  for (const [index, colour, width] of [[1, css('--raw'), 1.4], [2, css('--plum'), 2.4]]) {
+    ctx.strokeStyle = colour; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.beginPath();
+    history.forEach((p, i) => i ? ctx.lineTo(x(p[0]), y(p[index])) : ctx.moveTo(x(p[0]), y(p[index])));
+    ctx.stroke();
+  }
+  ctx.fillStyle = css('--soft'); ctx.font = '12px Segoe UI, sans-serif';
+  ctx.fillText(Math.round(hi) + ' mm', 4, 14); ctx.fillText(Math.round(lo) + ' mm', 4, h - 4);
+}
+function arms(raw, out) {
+  const [ctx, w, h] = fit($('arms'));
+  if (!raw.length) return;
+  // a side view tilted a little toward the viewer: x runs out from the base, z is up, y adds depth
+  const scale = Math.min(w / 520, h / 420), px = p => [w * 0.22 + (p[0] - 0.45 * p[1]) * scale, h - 26 - (p[2] + 0.25 * p[1]) * scale];
+  ctx.strokeStyle = css('--line'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(8, h - 26); ctx.lineTo(w - 8, h - 26); ctx.stroke();
+  for (const [chain, colour, width, alpha] of [[raw, css('--raw'), 3, 0.55], [out, css('--plum'), 6, 1]]) {
+    ctx.globalAlpha = alpha; ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = width; ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.beginPath(); chain.forEach((p, i) => { const [a, b] = px(p); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke();
+    chain.forEach(p => { const [a, b] = px(p); ctx.beginPath(); ctx.arc(a, b, width * 0.75, 0, 7); ctx.fill(); });
+  }
+  ctx.globalAlpha = 1;
+}
+async function tick() {
+  try {
+    const s = await (await fetch('/state', {cache: 'no-store'})).json();
+    misses = 0; $('lost').style.display = 'none';
+    steady = s.steady; hold = s.hold;
+    $('steady').className = steady ? 'on' : ''; $('steady').textContent = steady ? 'Steady: on' : 'Steady: off';
+    $('hold').className = hold ? 'on' : ''; $('hold').textContent = hold ? 'Holding' : 'Hold';
+    $('hand').firstChild.textContent = s.tremor_mm.toFixed(1); $('arm').firstChild.textContent = s.out_mm.toFixed(1);
+    $('removed').firstChild.textContent = s.removed_pct;
+    $('freq').textContent = s.tremor_mm >= 0.3 ? 'tremor at ' + s.tremor_hz.toFixed(1) + ' Hz' : 'no tremor found';
+    $('mode').textContent = hold ? 'holding: the arm is frozen in place' : steady ? 'steady mode on' : 'steady mode off: the arm copies the shake';
+    $('grip').style.width = Math.min(100, s.grip_effort) + '%'; $('gripv').textContent = Math.round(s.grip_effort) + '%';
+    $('load').style.width = Math.min(100, s.arm_load) + '%'; $('loadv').textContent = Math.round(s.arm_load) + '%';
+    $('speed').textContent = 'claw speed ' + s.speed_mm_s + ' mm/s';
+    if (!dragging) { $('cut').value = s.cutoff; $('cutv').textContent = s.cutoff.toFixed(1) + ' Hz'; }
+    chart(s.history); arms(s.raw_chain, s.out_chain);
+  } catch (e) { if (++misses > 5) $('lost').style.display = 'block'; }
+}
+setInterval(tick, 100); tick();
+</script>
+</body>
+</html>
