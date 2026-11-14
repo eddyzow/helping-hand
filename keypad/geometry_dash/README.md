@@ -15,6 +15,20 @@ cd keypad\geometry_dash
 
 The supplied `stereo_madness.csv` has 74 presses and releases, including holds, captured from the restart key. To test on hardware, go to [Test the follower on Windows](#test-the-follower-on-windows).
 
+## Replay the browser clear
+
+`stereo_madness_browser.csv` contains the 73 presses and releases from the browser recording, timed to the start of the soundtrack. With a **12 ms delay** after that cue, MuJoCo's simulated O3C inputs completed Stereo Madness in RobTop's browser demo. The first replay with a zero offset reached 63%.
+
+```powershell
+& $python -m playwright install chromium
+& $python fetch_so101_model.py
+& $python geo_browser_replay.py --visible
+```
+
+The replay releases Space at a crash and starts from the first event on the next attempt. It retries once by default. Check the printed path to `end-screen.png` for **Level Complete**. If it crashes, check `crash-1.png` in the new run folder under `outputs` and adjust `--offset-ms` if needed. Browser timing can vary across machines and runs.
+
+To capture another browser run, use `& $python geo_browser_record.py`. Click Play, use Space, then release Space and press F8 on the Level Complete screen. Failed attempts are discarded automatically. Replay the result with `& $python geo_browser_replay.py --visible --pattern outputs/my_stereo_madness_browser.csv`. The follower's R-triggered desktop replay uses `stereo_madness.csv`.
+
 ## Run the simulation
 
 Download the SO-101 model once for the simulation; the hardware test can run without it.
@@ -95,3 +109,5 @@ The arm model is from [MuJoCo Menagerie](https://github.com/google-deepmind/mujo
 The textured O3C meshes are adapted from [miniblack0662's SayoDevice Visualizer](https://github.com/mini062/SayoDevice-Visualizer/tree/11d43f3932f0cec20c3b839b2b0c2764621f1098) under the MIT license. The original O3C footprint is from the [O3C manual](https://ae01.alicdn.com/kf/S3a399b6701fe4cfd82a4514a54f08d25o.pdf), the key spacing is from a [measured O3C enclosure project](https://github.com/lucasovbetts-tech/SayoDevice-O3C-case-model/blob/main/sayodevice_case.py), and the switch specifications are from [Gateron's KS-20 White datasheet](https://gateron.com/u_file/2311/10/file/GATERONMagneticWhiteSwitch-KS-20TF10B045NW-X72.pdf).
 
 The hardware script uses [Feetech Servo SDK](https://pypi.org/project/feetech-servo-sdk/) for the motor bus and [pynput](https://pypi.org/project/pynput/) to observe the restart, jump, and stop keys.
+
+The browser test uses [Playwright](https://playwright.dev/python/) to run [RobTop's official Stereo Madness demo](https://geometrydash.com/game/index.html).

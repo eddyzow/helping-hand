@@ -7,3 +7,4 @@ certifi
 mujoco==3.5.0
 pynput==1.8.2
 feetech-servo-sdk==1.0.0
+playwright==1.65.2
