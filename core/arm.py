@@ -8,6 +8,7 @@ The real arm wraps the helpers in the root arm.py, so pick.py and draw.py keep w
 Creating the real arm switches its motors on. Poses are taught by hand with `python arm.py pose <name>`.
 """
 import json
+import math
 import os
 import threading
 from pathlib import Path
@@ -21,8 +22,18 @@ TAP_DEG_PER_MM = float(os.environ.get("TAP_DEG_PER_MM", "1.0"))
 TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))
 
 
+def _checked(joints) -> list[float]:
+    """Six finite numbers, or ValueError. Every command to the motors passes through here."""
+    joints = list(joints)
+    if len(joints) != 6 or not all(type(v) in (int, float) and math.isfinite(v) for v in joints):
+        raise ValueError(f"need 6 finite joint values, got {joints}")
+    return [float(v) for v in joints]
+
+
 class MockArm:
     """Same methods as the real arm. Keeps the joints in memory and moves nothing."""
+
+    REAL = False
 
     def __init__(self):
         self.halt = threading.Event()  # set by stop(); every move checks it
@@ -37,23 +48,26 @@ class MockArm:
     def load_pose(self, name: str) -> list[float]:
         path = POSES / f"{name}.json"
         if not path.exists():
-            if type(self) is MockArm:
+            if not self.REAL:
                 return [0.0] * 6
             raise FileNotFoundError(f"No pose '{name}'. Teach it: python arm.py pose {name}")
         pose = json.loads(path.read_text())
-        return [float(pose[f"{j}.pos"]) for j in JOINTS]
+        return _checked(pose[f"{j}.pos"] for j in JOINTS)
 
     def get_joints(self) -> list[float]:
         return self._read()
 
     def move_joints(self, joints_deg: list[float], duration_s: float) -> bool:
-        """Glide to joints_deg. Returns False if stop() cut it short."""
+        """Glide to joints_deg. Returns False if stop() cut it short. Bad input raises before any motion."""
+        target = _checked(joints_deg)
+        if type(duration_s) not in (int, float) or not 0 <= duration_s <= 30:
+            raise ValueError(f"duration must be 0 to 30 seconds, got {duration_s}")
         start = self._read()
         steps = max(1, int(duration_s * HZ))
         for i in range(1, steps + 1):
             if self.halt.is_set():
                 return False
-            self._write([a + (b - a) * i / steps for a, b in zip(start, joints_deg)])
+            self._write(_checked(a + (b - a) * i / steps for a, b in zip(start, target)))
             self.halt.wait(1 / HZ)
         return not self.halt.is_set()
 
@@ -75,12 +89,17 @@ class MockArm:
         return self.move_joints(down, TAP_SECONDS) and self.move_joints(up, TAP_SECONDS)
 
     def play(self, trajectory) -> bool:
-        """trajectory: list of (time_s, joints_deg). Returns False if stopped."""
-        if not trajectory or not self.move_joints(trajectory[0][1], 2.0):
+        """trajectory: list of (time_s, joints_deg), times rising. Returns False if stopped.
+        The whole trajectory is checked before the first move."""
+        points = [(float(t), _checked(joints)) for t, joints in trajectory]
+        times = [t for t, _ in points]
+        if not points or not all(math.isfinite(t) and t >= 0 for t in times) or times != sorted(times):
+            raise ValueError("trajectory needs at least one point and rising, finite times")
+        if not self.move_joints(points[0][1], 2.0):
             return False
-        last = 0.0
-        for t, joints in trajectory:
-            if self.halt.wait(max(0.0, t - last)):
+        last = times[0]
+        for t, joints in points:
+            if self.halt.wait(t - last):
                 return False
             last = t
             self._write(joints)
@@ -95,6 +114,8 @@ class MockArm:
 
 
 class Arm(MockArm):
+    REAL = True
+
     def __init__(self):
         if not (POSES / "home.json").exists():
             # without a resting home pose, switching the motors off drops the arm from mid-air
@@ -112,12 +133,8 @@ class Arm(MockArm):
         self._robot.send_action({f"{j}.pos": v for j, v in zip(JOINTS, joints)})
 
     def close(self) -> None:
-        """Go home, then switch the motors off."""
-        self.halt.clear()
-        try:
-            self.home()
-        finally:
-            self._robot.disconnect()
+        """Switch the motors off. Never moves: the arm drops unless it is resting or held."""
+        self._robot.disconnect()
 
 
 def get_arm(mock: bool = False) -> MockArm:
