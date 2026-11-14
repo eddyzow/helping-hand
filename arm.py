@@ -1,6 +1,7 @@
 """Teach, record and replay motions on the SO-101 follower. Runs on the arm laptop.
 
-    python arm.py teach paper        # hand-pose the arm over a 3x3 grid, on the surface then above it
+    python arm.py teach paper        # hand-pose the arm over a 5x5 grid, on the surface then above it
+    python arm.py teach paper 4      # or a coarser 4x4 grid: fewer poses to teach, less accurate
     python arm.py pose home          # save one pose by hand (home, handover)
     python arm.py check table        # visit the points between taught poses, slowly, to spot dips
     python arm.py record wave        # move the leader; the follower copies and it is saved
@@ -29,8 +30,13 @@ Pose = dict[str, float]
 
 
 def follower():
+    """Connect to the follower. Every script that moves the arm comes through here.
+    LeRobot switches the motors off and on again while it connects, so an arm that is not
+    resting can drop: the warning comes first. ARM_NO_PROMPT=1 skips it for unattended runs."""
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
 
+    if os.environ.get("ARM_NO_PROMPT") != "1":  # only the exact value 1 skips the warning
+        input("Connecting switches the motors off and on. Support the arm or check it is resting, then Enter. ")
     robot = SO101Follower(SO101FollowerConfig(
         port=FOLLOWER_PORT, id="follower", max_relative_target=MAX_STEP))
     robot.connect()
@@ -64,7 +70,11 @@ def go_limp(robot) -> None:
     robot.bus.disable_torque()
 
 
-def teach(name: str, n: int = 3) -> None:
+def teach(name: str, n: int = 5) -> None:
+    # 5 per side: in simulation a 3 by 3 grid put the gripper 7 mm off between points (12 at worst),
+    # more than a brick grasp tolerates; 4 by 4 was 3 mm (5 at worst) and 5 by 5 under 2 mm (3 at worst).
+    if type(n) is not int or n < 2:  # checked before connecting: a bad size must not wipe a taught grid
+        sys.exit("The grid needs at least 2 points per side, e.g. python arm.py teach table 5")
     robot = follower()
     go_limp(robot)
     grid = {"n": n}
@@ -145,4 +155,5 @@ if __name__ == "__main__":
     commands = {"teach": teach, "pose": pose, "check": check, "record": record, "replay": replay}
     if len(sys.argv) < 3 or sys.argv[1] not in commands:
         sys.exit(__doc__)
-    commands[sys.argv[1]](sys.argv[2])
+    extra = [int(sys.argv[3])] if sys.argv[1] == "teach" and len(sys.argv) > 3 else []
+    commands[sys.argv[1]](sys.argv[2], *extra)

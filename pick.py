@@ -20,6 +20,7 @@ too far from the point under the camera: off by (object height / camera height) 
 its distance from that point. A 3 cm object 20 cm out under a 60 cm camera is 1 cm off.
 """
 import json
+import math
 import os
 import sys
 import time
@@ -32,10 +33,13 @@ import see
 
 HERE = Path(__file__).parent
 CORNERS = HERE / "poses" / "table_corners.json"
-GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "60"))      # gripper.pos when open
+GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
+GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
+SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
+DROP_GAP = float(os.environ.get("DROP_GAP", "0.3"))  # how far beside an object to put something, as a share of the grid
 
 
 def to_uv(x: float, y: float, corners: list[list[float]]) -> tuple[float, float]:
@@ -71,21 +75,104 @@ def load(name: str):
 
 
 def locate(frame, command=None, audio=None):
-    """Return (u, v, label) for the requested object, or None. Marks outputs/last.jpg."""
-    hit = see.find(frame, command, audio)
+    """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
+    many degrees to rotate the jaws so they close across the object's narrow side.
+    Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
+    asked to have it put next to, in the same form, and is None if they did not ask to put it
+    anywhere. Use place_problem() on it: a placement that was asked for must never turn into a
+    plain handover."""
+    hits, said, boxes, beside = see.find_all(frame, command, audio)
     corners = json.loads(CORNERS.read_text())
-    cv2.polylines(frame, [np.int32(corners)], True, (0, 255, 0), 2)
-    result = None
-    if hit:
-        x, y, label = hit
+    out = see.numbered(frame, boxes)
+    cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
+    targets = []
+    for x, y, label, box in hits:
         u, v = to_uv(x, y, corners)
-        cv2.drawMarker(frame, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 40, 3)
-        cv2.putText(frame, f"{label} u={u:.2f} v={v:.2f}", (x + 15, y - 15),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        result = (u, v, label)
+        cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
+        targets.append((u, v, label, jaw_turn(frame, box, corners)))
+    placing = beside is not None
+    what, where = split_request(said) if placing else (said, "")  # no placement: every word is about the object
+    targets = narrow(targets, what)
+    near = []
+    for x, y, label, box in beside or []:
+        cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
+        near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
+    near = narrow(near, where) if placing else None
     Path("outputs").mkdir(exist_ok=True)
-    cv2.imwrite("outputs/last.jpg", frame)
-    return result
+    cv2.imwrite("outputs/last.jpg", out)
+    return targets, said, near
+
+
+def place_problem(near) -> str | None:
+    """Why a requested placement cannot go ahead, or None if there is nothing wrong
+    (no placement asked for, or exactly one place found)."""
+    if near is None or len(near) == 1:
+        return None
+    return "I can't see where to put it." if not near else f"I see {len(near)} places that could mean. Which one?"
+
+
+def jaw_turn(frame, box, corners) -> float:
+    """Degrees to turn the jaws from their taught direction (closing left-right across the grid)
+    so they close across the object's narrow side. 0 if the object's direction cannot be read.
+    Positive turns from the grid's left-right line towards its near edge."""
+    axis = see.long_axis(frame, box)
+    if not axis:
+        return 0.0
+    angle, stretch = axis
+    cx, cy = (box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2
+    reach = 0.25 * max(box["x1"] - box["x0"], box["y1"] - box["y0"])
+    u0, v0 = to_uv(cx, cy, corners)
+    u1, v1 = to_uv(cx + reach * math.cos(math.radians(angle)), cy + reach * math.sin(math.radians(angle)), corners)
+    lies = math.degrees(math.atan2(v1 - v0, (u1 - u0) * GRID_ASPECT))  # the long side, on the table
+    if stretch < SQUARE_BELOW:
+        return (lies + 45.0) % 90.0 - 45.0   # square: either pair of faces will do, take the smaller turn
+    return (lies + 90.0 + 90.0) % 180.0 - 90.0  # long: close across it, at right angles to the long side
+
+
+# Words that settle "which one?" by position. The model does not know where the arm is, so code does it.
+# Each maps a target (u, v, label) to a score; the lowest wins. Left and right are the arm's own.
+TIEBREAKS = {
+    ("closest", "nearest", "closer", "nearer"): lambda t: (-t[1], abs(t[0] - 0.5)),
+    ("farthest", "furthest", "farther", "further"): lambda t: (t[1], abs(t[0] - 0.5)),
+    ("leftmost", "left"): lambda t: (t[0],),
+    ("rightmost", "right"): lambda t: (-t[0],),
+    ("any", "either", "one of"): lambda t: (-t[1], abs(t[0] - 0.5)),
+}
+
+
+# Not " on " or " by ": "the brick on the left" and "the one by the edge" describe the object itself.
+PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " in front of ", " behind ",
+               " close to ", " against ", " into ")
+
+
+def split_request(command: str | None) -> tuple[str, str]:
+    """"put the red brick next to the right blue brick" -> ("put the red brick", "the right blue brick").
+    A position word only narrows the object it describes: "right" here is about the blue brick."""
+    words = f" {(command or '').lower()} "
+    cuts = [(words.find(w), w) for w in PLACE_WORDS if w in words]
+    if not cuts:
+        return words.strip(), ""
+    at, word = min(cuts)
+    return words[:at].strip(), words[at + len(word):].strip()
+
+
+def narrow(targets: list, command: str | None) -> list:
+    """Several matches and a position word in the request ("the closest red brick"): keep one.
+    A dead heat goes to the first in the list. No such word: all are returned, and the caller asks."""
+    words = f" {(command or '').lower()} "
+    for names, score in TIEBREAKS.items():
+        if len(targets) > 1 and any(f" {name} " in words for name in names):
+            return [min(targets, key=score)]
+    return targets
+
+
+def drop_spot(picked: tuple, near: tuple) -> tuple[float, float]:
+    """A place on the taught grid beside `near`, on the side the picked object came from.
+    If `near` is outside the grid, this is the closest point the arm can reach."""
+    du, dv = picked[0] - near[0], picked[1] - near[1]
+    length = (du * du + dv * dv) ** 0.5 or 1.0
+    u, v = near[0] + DROP_GAP * du / length, near[1] + DROP_GAP * dv / length
+    return min(max(u, 0.05), 0.95), min(max(v, 0.05), 0.95)
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -123,9 +210,13 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        target = locate(frame, command, audio)
-        if not target:
-            print("I can't see that.")
+        targets, said, _ = locate(frame, command, audio)  # pick.py only hands over; putting down is in skills/fetch.py
+        target = targets[0] if len(targets) == 1 else None
+        if not targets:
+            print(f"I can't see that. (heard: {said})")
+        elif len(targets) > 1:  # never pick one silently: ask
+            print(f"I see {len(targets)} of those: " + "; ".join(
+                f"{label} at u={u:.2f} v={v:.2f}" for u, v, label, _ in targets) + ". Which one?")
         elif not (-EDGE <= target[0] <= 1 + EDGE and -EDGE <= target[1] <= 1 + EDGE):
             print(f"{target[2]} is outside my reach (u={target[0]:.2f}, v={target[1]:.2f}).")
         else:
@@ -146,4 +237,19 @@ if __name__ == "__main__":
         assert all(abs(a - b) < 1e-4 for a, b in zip(to_uv(*pixel, quad), uv)), pixel
     # a square-on view: the middle pixel is the middle of the grid
     assert all(abs(a - 0.5) < 1e-4 for a in to_uv(300, 250, [[100, 50], [500, 50], [500, 450], [100, 450]]))
+    two = [(0.12, 0.79, "left red"), (0.88, 0.60, "right red")]
+    assert narrow(two, "pick up the closest red brick") == [two[0]] and narrow(two, "the right one") == [two[1]]
+    assert narrow(two, "the farthest red brick") == [two[1]] and narrow(two, "pick up the red brick") == two
+    assert narrow(two[:1], "the closest") == two[:1] and narrow([], "the closest") == []
+    # a position word about the destination must not pick the source
+    assert split_request("put the red brick next to the right blue brick") == ("put the red brick", "the right blue brick")
+    what, where = split_request("put the red brick next to the right blue brick")
+    assert narrow(two, what) == two and narrow(two, where) == [two[1]]
+    assert split_request("pick up the closest red brick") == ("pick up the closest red brick", "")
+    assert split_request("pick up the brick on the left") == ("pick up the brick on the left", "")
+    assert place_problem(None) is None and place_problem([two[0]]) is None
+    assert "can't see" in place_problem([]) and "2 places" in place_problem(two)
+    # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
+    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
+    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
     main()

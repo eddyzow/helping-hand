@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:50 AM ET.
+Updated Sat Nov 14, 4:40 AM ET.
 
 ## Working on now
 
@@ -17,6 +17,12 @@ Next, in order:
 4. Pen holder: a person's job, not this agent's.
 
 ## Done and how it was tested
+
+- `docs/devpost.md` (3:35 AM): a first draft of the Devpost text, section by section, in both an
+  Accessibility and a Hardware version of the opening. Every claim that is not yet true on the real
+  arm is in [SQUARE BRACKETS] and must be confirmed or cut before submitting. It also holds the
+  cost figures with their sources, and an open-source list to check against `requirements.txt`.
+  A document only.
 
 - `docs/demo.md`: pitch outline, a 90-second table script in blocks, failure procedure, table and
   submission checklists. A document only. No skill in it has run on the real arm.
@@ -48,6 +54,16 @@ Next, in order:
 
 ## Needs from others
 
+- Everyone: please read `docs/devpost.md` and correct the paragraph about your own part. The
+  "How we built it" section describes each person's work from the notes, not from watching it run.
+- Whoever bought the arm: what did the assembled kit cost? The repo's "$300 arm" matches only the
+  bare motor kit ($240 at launch); an assembled one is listed far higher.
+- Everyone: the draft says most of the code was written with coding agents and that this should be
+  disclosed. Does anyone know what the HackUMass rules require? If not, ask an organizer.
+- Daniel: did any skill run on the real arm tonight? Your commit messages read as if tapping did
+  (for example "hover higher above the key so it no longer reads as held"), but no note says so.
+  The demo script and the Devpost draft both still say mock only for everything.
+
 - Everyone: the track. `docs/demo.md` lays out Accessibility against Hardware and what each needs
   from the demo. Ben leans Accessibility if fetch works live; Eddy leans Hardware. Four humans need
   to settle it before the Saturday midnight submission.
@@ -75,6 +91,55 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Fetch merged to `main` (`3d49b9e`, pull request 3). Re-run at 4:40 AM on Ben's laptop, no
+  hardware: `draw ok`, `personality ok`, `core ok`, `fetch ok`. `docs/demo.md` now shows Duplo by
+  voice as on `main`, and carries the one finding Daniel's reviewer still had open at the merge
+  (a missing placement destination becomes a handover). Eddy: is that fixed on `main`, or still to do?
+
+- Eddy's note of 4:05 and 4:07 AM, acted on at 4:20 AM by Ben's agent while Ben sleeps. Ben has
+  not seen these changes yet and may change them back; the earlier drafts are in git at `78addaa`.
+  - Skill list: `docs/demo.md` and `docs/devpost.md` are rebuilt around Geometry Dash, Duplo by
+    voice, drawing, and feeding food and water. Wave and voice fetch are no longer blocks of their
+    own. Feeding is in, on a teammate only, under the safety rules from `PLAN.md`. The 4 of 5 gate
+    applies to each.
+  - Name: now a placeholder (NAME) in the Devpost draft, listed as a decision for the four of you.
+  - "Eddy leans Hardware" is removed. The script says the team has not decided.
+  - AI coding tools: I did not delete this, because it is Ben's document and he has not weighed
+    in. It now records your view that no organizer question is needed, and that I could not find
+    the rule text by search. Ben decides in the morning.
+  - Stale facts: the settings caveat now says fetch's settings are checked on `eddy/fetch` and
+    waits only for the merge; the demo machine needs an OpenAI key as well; the finder time is
+    about 20 seconds when Gemini is timing out, and the time budget in `docs/demo.md` uses that.
+  - Geometry Dash on the real arm: both drafts now say it is reported to have run (your 4:07 AM
+    note) and that no note records what was run or measured. Jonathan or Daniel: three lines in
+    your note would let me replace that with facts. How many taps, how far into the level, and
+    the press and release delay you measured.
+- New problem the list creates: Geometry Dash about 20 s, Duplo 35 to 45 s, a written name 31 to
+  54 s, plus feeding, do not fit in 90 seconds. `docs/demo.md` now has a time budget and proposes
+  a short script of two skills and a full one. Does anyone know how long a judge stays at a table?
+
+- Daniel's review of `88298b8` (four corrections to the Devpost draft): all applied at 3:40 AM.
+  The draft no longer says every setting is checked before motion; it says poses are taught by
+  hand-positioning the follower and the leader records motions; it says transcription and box
+  detection are separate calls; and it no longer claims nothing has ever run on hardware, in the
+  draft or in `docs/demo.md`. Physical claims in both files now wait for operator confirmation.
+
+- Daniel's review of `66e5de9` (a taught NaN gripper survives the clamp): fixed at 2:45 AM. The
+  interpolated joints are now checked before the squeeze and clamp, so `max(0.0, nan)` can no
+  longer hide a bad value. Regression: a grid with one NaN gripper reading sends nothing. `draw ok`,
+  `core ok`. Eddy: root `draw.py` line 127 has the same clamp, as the review says; that one is yours.
+- Eddy's simulation findings, as they bear on drawing: (1) `skills/draw.py` reads `n` from the grid
+  file, so a 5 by 5 paper grid works with no change, and a pen is less forgiving of height error
+  than a grasp, so teach the paper grid at 5 by 5. (2) The point about `move_joints` starting each
+  move from the measured gripper applies to the pen too: drawing is hundreds of short moves, so
+  the squeeze on the pen would relax at the start of every one. Daniel, that makes your `core/arm.py`
+  decision matter for drawing as well as fetch.
+
+- Daniel's review of fetch (`f7a6aa5`, settings read from the environment go unchecked): the same
+  kind of gap was in `skills/draw.py`. `PEN_SQUEEZE=nan` clenched the gripper to 0 and a negative
+  value opened it, both silently. Fixed at 2:35 AM: it must be finite and 0 to 30, checked before
+  any move, with a no-motion regression for -5, NaN, inf and 31. `draw ok`, `core ok`.
 
 - Daniel's review of `56a5f0f` (durations not checked before motion): fixed. `plan()` now rejects
   any step that is not finite and between 0 and 30 seconds, before the first move. Regression in

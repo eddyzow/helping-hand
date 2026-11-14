@@ -1,66 +1,93 @@
 # Demo script and pitch outline
 
-Draft by Ben (Person 4), Sat Nov 14, 1:00 AM. This is a first draft for the team to change.
-Nothing in it has run on the real arm yet. Event facts are from `AGENTS.md` and `PLAN.md`.
+Drafted by Ben's agent (Person 4). Rebuilt Sat Nov 14, 4:15 AM around the team's skill list as Eddy
+gave it at 4:05 AM. Ben was asleep and has not reviewed this version; the earlier one is in git at
+`78addaa`. Event facts are from `AGENTS.md` and `PLAN.md`.
+
+## The team's skill list (Eddy, 4:05 AM)
+
+"gd (almost done), duplo (almost done), then we are doing drawing tomorrow, and feeding food and
+water also tomorrow."
+
+| Skill | Owner | State as recorded in the repo at 4:15 AM |
+|---|---|---|
+| Geometry Dash | Jonathan, Daniel | Has run on the real arm (Eddy, 4:07 AM: "seems decent", timing offsets being tuned). No note yet says what was run or measured. Dispatcher skill on `main`; newer tapping work held in review |
+| Duplo by voice: pick up, hand over, put next to | Eddy, Daniel | On `main` since 4:38 AM (pull request 3 merged), mock and simulation only. One review finding was still open at the merge: asking to put a piece next to something that is not on the table hands the piece over instead of refusing. Finder tested on two real phone photos, not from the real camera position |
+| Drawing | Ben, Eddy | `skills/draw.py` on `main`, mock only. Needs a pen holder and a taught paper grid. Planned for Saturday |
+| Feeding food and water | Daniel | Nothing in the repo yet. Planned for Saturday |
+
+Wave and the personality moves (`skills/wave.py`, `skills/personality.py`) are on `main`, mock only.
+They are not on the team's list, so they are not blocks here. If there is arm time, a celebrate
+after a good run or a droop after a crash costs no script time.
 
 ## The one rule
 
-A skill is in the table demo only if it passes 4 runs out of 5 on the real arm at the
-Saturday 8:50 PM freeze. Anything that does not pass is cut from the script, not rehearsed harder.
-Three skills that work beat six that sometimes do.
+A skill is in the table demo only if it passes 4 runs out of 5 on the real arm at the Saturday
+8:50 PM freeze. Anything that does not pass is cut from the script, not rehearsed harder.
 
-## Open decision: the track (needs all four people, before Saturday midnight)
+## Open decisions for the four of you
 
-We must pick exactly one HackUMass category at the initial submission.
-
-| Option | The pitch it needs | Demo order it needs | Weak point |
-|---|---|---|---|
-| Best Accessibility Hack | One button or one sentence runs a physical task for someone with limited hand use | Fetch first, then write, then games as "it is also fun" | Geometry Dash does not fit; fetch must work live |
-| Best Hardware Hack | A desk robot with many skills on one dispatcher | Any order, lead with the most reliable skill | The arm is a kit, and `PLAN.md` already noted judges favour custom builds |
-
-Ben's recommendation: Accessibility, if fetch passes the gate. Reason: a single key that triggers
-a physical task is a real access method (switch access), and the category is mostly apps. If fetch
-does not pass by the freeze, switch to Hardware and lead with keypad skills. This is an opinion,
-not a measurement. Eddy leans Hardware (`notes/eddy.md`).
+1. The track: exactly one HackUMass category, at the initial submission (Saturday midnight). The
+   team has not decided. With feeding back on the list, the Accessibility pitch has three skills
+   behind it (feeding, fetching Duplo by voice, writing) and Geometry Dash is the odd one out. The
+   Hardware pitch fits all four, but the arm is a kit and `PLAN.md` noted judges favour custom
+   builds. Ben's agent leans Accessibility if feeding or Duplo passes the gate; that is an opinion.
+2. The name. Eddy says it will not be "Helping Hand". The Devpost draft uses NAME as a placeholder.
+3. How long a judge spends at a table. Nobody has confirmed it. See the time budget below: the
+   four skills together do not fit in 90 seconds.
 
 ## Pitch outline (about 20 seconds of talking, the rest is the arm)
 
-1. Who it is for, in one sentence. Draft: "Some people cannot reach, grip or write. This arm does
-   those things when you press one key or say one sentence."
+1. Who it is for, in one sentence. Draft for Accessibility: "Some people cannot reach, grip, write
+   or feed themselves. This arm does those things when you press one key or say one sentence."
 2. What it is: one low-cost arm, one dispatcher, a library of skills, a stop key that always works.
-3. Cost line. TO VERIFY before judging: what our kit cost, and the price of one commercial
-   assistive feeding or fetching device. Do not say a number we have not looked up.
-4. What is honest: which skills are hard-coded and which use the camera. Say it before a judge asks.
+3. Cost line, with sources in `docs/devpost.md`: the bare motor kit for this arm launched at $240;
+   a robotic feeding device is listed around $8,200 to $9,600; a wheelchair-mounted assistive arm
+   was reported at about $35,000. Still to find out: what our assembled kit actually cost, which
+   is likely well over $240. Do not say "$300 arm" and do not say it replaces those devices.
+4. What is honest: which skills replay a recording and which use the camera. Say it before a judge
+   asks.
 
-## Table script (target 90 seconds, each block stands alone)
+## Time budget
 
-Judges score Innovation, Functionality, Practicality and Presentation. Functionality is what they
-see work, so blocks are ordered most reliable first. Drop any block that failed the gate.
+| Skill | Rough time at the table | Where the number comes from |
+|---|---|---|
+| Geometry Dash, first section | about 20 s | A guess; set by how many taps are replayed. Jonathan or Daniel to correct |
+| Duplo by voice | 35 to 45 s | The finder took about 20 s on most runs tonight (Gemini timing out), plus the arm. 4.5 s when Gemini is healthy |
+| Drawing a name | 31 to 54 s | Planned from the stroke plan at the default pen speed, not timed on the arm. "HI" 31 s, "HELLO" 35 s, "BEN" 42 s, "JONATHAN" 54 s |
+| Feeding | unknown | Not built |
 
-| # | Time | Trigger | What the judge sees | If it fails | Owner | State today |
-|---|---|---|---|---|---|---|
-| 1 | 0:00 | Teammate speaks | The one-sentence pitch | | Ben | Draft above |
-| 2 | 0:10 | Judge presses the wave key (X) | Arm waves. Then judge presses stop (Z) mid-move and it freezes | See "When something breaks" | Daniel | Mock only |
-| 3 | 0:25 | Judge says "bring me the red brick" | Arm picks the brick from the mat and holds it out | Use the taped-spot fetch instead | Eddy, Daniel | On two real phone photos the finder points accurately at the object it picks, but it picks one of two look-alike red bricks without saying so and missed the red bricks in one photo (Eddy's check at 1:30 AM, which corrected an earlier 15 of 16). The free Gemini key rate-limits after about 15 calls in a burst. Fetch skill mock only and held out of `main` |
-| 4 | 0:50 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy | `skills/draw.py` on `main`, mock only. No pen holder and no taught paper grid yet |
-| 5 | 1:15 | Teammate runs `geometry_dash`; the keypad listener restarts the level | Arm taps through the start of Stereo Madness, holds included | Show the recorded clip | Jonathan, Daniel | On `main` as a dispatcher skill (`183db5e`), using the taught `tap_key` pose. Mock and simulation only; tap delay on the real key not yet measured |
-| 6 | 1:30 | Teammate speaks | Cost line, and what is next | | Ben | |
+Three of these plus the pitch is already over two minutes. So there are two scripts: a short one
+of two skills for a judge in a hurry, and the full one. Which two go in the short one is decided
+at the freeze by which passed the gate most cleanly.
+
+## Table script (blocks stand alone; drop any that failed the gate)
+
+| # | Trigger | What the judge sees | If it fails | Owner |
+|---|---|---|---|---|
+| 1 | Teammate speaks | The one-sentence pitch | | Ben |
+| 2 | Teammate runs `geometry_dash`; the keypad listener restarts the level | Arm taps through the start of Stereo Madness, holds included. A teammate presses stop (Z) once on purpose and the arm freezes | Show the recorded clip | Jonathan, Daniel |
+| 3 | Judge says "pick up the red brick" or "put the roof next to the purple brick" | Arm picks the piece from the mat and hands it over or sets it down. If two match, it asks "which one?" | Typed request; then a taped-spot pick | Eddy, Daniel |
+| 4 | Judge says or types their name | Arm writes it on a card the judge keeps | Hand over a card it wrote earlier | Ben, Eddy |
+| 5 | Teammate says "feed me" | Arm scoops and holds the spoon out, short of the face; the teammate leans in. Water: a lidded cup with a straw | Skip it. Do not improvise near a person | Daniel |
+| 6 | Teammate speaks | Cost line, and what is next | | Ben |
 
 Notes on the blocks:
 
-- Block 3 only works at the table if the judge cannot ask for an ambiguous object. Until the finder
-  handles look-alikes, put out objects that differ in colour or kind (one red brick, not two), and
-  space the requests so the Gemini key is not rate-limited.
 - Block 2 shows the stop key on purpose. A judge who sees the arm stop on command trusts the rest.
-- Block 4 is slow. Planned times from `skills/draw.py` at the default `PEN_SPEED` (computed from
-  the stroke plan at 1:40 AM, not timed on the arm): "I" 11 s, "HI" 31 s, "HELLO" 35 s, "EDDY" 36 s,
-  "BEN" 42 s, "JONATHAN" 54 s. Every real name is over the 25 seconds this block has. Options, to
-  decide once the pen works on the arm: start the writing first and talk over it; raise `PEN_SPEED`
-  if the writing stays legible; or write one initial live and hand over a full-name card made earlier.
-- Feeding is not in the script. It is the riskiest skill near a person and no part of it exists yet.
-  Add it only if it passes the gate and the team agrees.
-- Personality moves (nod, celebrate, droop) attach to results: celebrate after a successful fetch,
-  droop after a Geometry Dash crash. They cost no script time.
+- Block 3: until the missing-destination case is fixed, only ask it to put a piece next to something
+  that is on the mat.
+- Block 3 needs three keys on the demo machine: Gemini, Anthropic, and OpenAI for the fallback when
+  Gemini stalls. Keep pieces apart on the mat (two touching pieces come back as one box), avoid
+  thin plates and hollow pieces, and have the typed request ready: the hall will be loud, and the
+  microphone has been tried once, in a quiet room.
+- Block 4 is slow at the default pen speed. Options once the pen works on the arm: raise
+  `PEN_SPEED` if the writing stays legible, or write one initial live and hand over a full-name
+  card made earlier.
+- Block 5, feeding, is done on a teammate, never on a judge. The rules from `PLAN.md` stand: the
+  arm stops short of the face and the person leans in, speed is capped, dry food that scoops
+  without precision, a cup a third full with a lid and straw, and one person on the power switch.
+  It goes in only if it passes the same 4 of 5 gate.
 
 ## When something breaks at the table
 
@@ -72,25 +99,26 @@ Press the stop key (Z) and say what failed in one sentence. Then it depends on t
   arm, and move to the next block. Do not home and retry a failure nobody can explain.
 
 If a block fails twice, move on. The backup video stays open in a browser tab.
-(Corrected 12:55 AM from Daniel's note: the first draft said to press home and retry every time.)
 
 ## Table setup checklist
 
 - Arm clamped to the table, mat taped down, camera fixed. Nothing that was calibrated may move.
 - Stop key within reach of a teammate at all times, and one person on the power switch.
-- Cards and a capped marker for block 4. A lamp. A power strip. A phone hotspot for the Gemini calls.
-- Dispatcher started and `home` run before the first judge arrives.
+- Cards and a capped marker. Dry food, a bowl with a non-slip base, a lidded cup with a straw.
+- A lamp, a power strip, and a phone hotspot for the model calls.
+- `.env` on the demo machine with all three keys. Dispatcher started and `home` run before the
+  first judge arrives.
 - Backup video loaded.
 
 ## Submission checklist
 
 | When | What | Owner |
 |---|---|---|
-| Sat 8:50 PM | Feature freeze. Track decided. Script cut down to skills that passed the gate | Everyone |
+| Sat 8:50 PM | Feature freeze. Track and name decided. Script cut down to skills that passed the gate | Everyone |
 | Sat by 11:00 PM | Initial Devpost submission: title, one track, draft text, repo link. Repo made public | Ben |
 | Sat night | Backup video of real runs, filmed during the hacking period | Ben |
 | Sun by 8:00 AM | Final Devpost text, open source list, all four teammates listed | Ben |
 | Sun 9:00 AM to 12:30 PM | Table set up, script rehearsed out loud with a timer, three times | Everyone |
 
 Still to confirm with an organizer: whether the final deadline is 9:00 AM or 10:00 AM, and how long
-each judge spends at a table. The 90 seconds above is our assumption, not a stated rule.
+each judge spends at a table.
