@@ -5,7 +5,7 @@ Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specif
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
 Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../newcontext.md).
 
-Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in published `f1553cf`) introduces reproduced CLI cue, stop-key filtering, and negative-schedule issues below. The earlier shutdown cleanup fix `bbdfac5` remains verified; the pre-connection support warning remains open. All Codex execution used mock/fake objects and bytecode writes were disabled. No real Arm constructor, serial access, input listener, or hardware test ran.
+Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
 ## Architecture
 
@@ -22,6 +22,9 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 ## Findings for Daniel's Claude
 
+### Drawing 66e5de9: taught NaN gripper survives clamp, 02:35 ET
+The Windows drawing self-check completed with exit 0 after the new finite 0..30 PEN_SQUEEZE guard. Independently ran actual `skills.draw.run` with valid squeeze 8, a temporary synthetic 3x3 paper grid whose gripper values were NaN, a fake home loader, and a fake movement recorder. Writing I returned `ok: True` and issued 47 fake targets, all with gripper 0. `max(0.0, NaN)` returns 0 before `_checked` sees the value. Validate the interpolated taught joints before squeezing/clamping and leave a no-motion regression. The same clamp exists at root `draw.py:127`; that standalone path was inspected but not executed. No real pose file, arm, input hook, or API was used.
+Arm branch delta `b15d0e6` changes calibration CLEAR from 0.5 to 2.5 and adjusts its regression expectation from lift 1.15 to 3.15. The missing-result client loop is unchanged, so integration remains held; increased physical clearance is not independently measured here.
 ### Software integration c6a3418, 01:17 ET
 
 Merged Ben's `79ac6aa`, including the reviewed `bbdfac5` core ancestry, to unblock team development against a common mock/dispatcher. Full unmerged ancestry and resulting file set were reviewed; `a908855` is not an ancestor and its blocked press changes are absent. Combined WSL `tests.test_core` and `skills.personality` passed under external timeouts (`core ok`, `personality ok`); staged whitespace check passed. A pre-push rebase preserved Ben's newer demo text and changed no tested source. Physical startup support remains outstanding; software integration is not hardware approval.
