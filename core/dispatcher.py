@@ -130,6 +130,13 @@ def handle(line: str):
             return {"ok": True, "temps": _arm.temperatures()}
     if command == "home":
         return dispatch("home")
+    if command == "tap":  # from the Windows sequencer: press / release / end, carried out by gd_remote
+        if rest.strip() not in ("press", "release", "end"):
+            return {"ok": False, "reason": "tap takes press, release or end"}
+        core.remote.put(rest.strip())
+        return {"ok": True}
+    if command == "remote":  # is gd_remote in place and waiting for taps?
+        return {"ok": core.remote_ready.is_set()}
     if command == "clock":  # the keypad listener reports the Windows clock; see core.real_now
         try:
             core.clock_tick(float(rest))
