@@ -12,12 +12,17 @@ Only the SayoDevice triggers these (matched by USB id), and it works whichever w
 Needs the dispatcher running for wave and stop. No extra packages.
 
     python keypad\\listen.py --learn    # relearn the three keys, then quit
+    python keypad\\listen.py --record my_macro
+        Record your own run. With the game on the level's Play page and the pointer on Play, press the
+        jump key: that click starts the level and is time zero. Play with the jump key, then press the
+        stop key. Replay: run geometry_dash {"enter": true, "pattern": "my_macro.csv"}
 """
 import ctypes
 import json
 import os
 import socket
 import sys
+import time
 from ctypes import wintypes
 from pathlib import Path
 
@@ -86,6 +91,8 @@ def main() -> None:
     learn_only = "--learn" in sys.argv
     keys = {} if learn_only or not KEYS_FILE.exists() else json.loads(KEYS_FILE.read_text())  # role -> vk
     held = set()
+    # --record NAME: your own presses of the jump key in the game become keypad/geometry_dash/NAME.csv
+    recording = {"name": sys.argv[sys.argv.index("--record") + 1], "events": []} if "--record" in sys.argv else {}
 
     def prompt():
         missing = [r for r in ROLES if r not in keys]
@@ -105,19 +112,37 @@ def main() -> None:
                     if learn_only:
                         user32.PostQuitMessage(0)
             return
+        now = time.perf_counter()
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
             title = ctypes.create_unicode_buffer(200)
             user32.GetWindowTextW(user32.GetForegroundWindow(), title, 200)
-            if GAME_TITLE.lower() in title.value.lower():
+            in_game = GAME_TITLE.lower() in title.value.lower()
+            if in_game:
                 # in the game: a left mouse click. It jumps in a level and presses Play on the level
                 # page (park the mouse pointer on the Play button), so the arm can start the level itself.
                 user32.mouse_event(0x0002 if down else 0x0004, 0, 0, 0, 0)
             elif vk != VK_UP:  # anywhere else a click could hit anything, so stay with the harmless Up arrow
                 user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
-            send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
+            if not recording:
+                send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
+            elif in_game and "t0" not in recording:
+                if down:  # the press that clicks Play is time zero and is not itself part of the macro
+                    recording["t0"] = now
+                    print("Recording. Play the level; press the STOP key when done.", flush=True)
+            elif in_game and (down or recording["events"]):  # skip the release of that first press
+                recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
             print(f"wave -> {send('run wave')}", flush=True)
         elif down and vk == keys["stop"]:
+            if recording.get("events"):
+                events = recording["events"]
+                if events[-1][1]:  # still held when stop was pressed: drop the unfinished press
+                    events.pop()
+                path = Path(__file__).with_name("geometry_dash") / f"{recording['name']}.csv"
+                path.write_text("time_ms,state\n" + "".join(
+                    f"{t * 1000:.3f},{'down' if d else 'up'}\n" for t, d in events))
+                print(f"saved {len(events) // 2} presses to {path}", flush=True)
+                recording.clear()
             print(f"STOP -> {send('stop')}", flush=True)
 
     told = []  # so the "click the game" hint prints once per wait, not twice a second
