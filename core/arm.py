@@ -53,6 +53,7 @@ class MockArm:
         if tune.exists():
             self.set_tap(**json.loads(tune.read_text()))
         self._joints = [0.0] * 6
+        self._grip_sent = None  # the last gripper value commanded by a move
 
     def _read(self) -> list[float]:
         return list(self._joints)
@@ -80,11 +81,19 @@ class MockArm:
         if type(duration_s) not in (int, float) or not 0 <= duration_s <= 30:
             raise ValueError(f"duration must be 0 to 30 seconds, got {duration_s}")
         start = self._read()
+        # A held brick stops the jaw short of its command (about 19 with a command of 5). Starting
+        # every move from the MEASURED jaw would restart the command near 19 and ramp back to 5: the
+        # squeeze lets go just as the arm speeds up, and the brick slips. So when a move asks for the
+        # same grip as the last one sent, the grip is held constant instead of ramped.
+        if self._grip_sent is not None and target[5] == self._grip_sent:
+            start[5] = target[5]
         steps = max(1, int(duration_s * HZ))
         for i in range(1, steps + 1):
             if self.halt.is_set():
                 return False
-            self._write(_checked(a + (b - a) * i / steps for a, b in zip(start, target)))
+            joints = _checked(a + (b - a) * i / steps for a, b in zip(start, target))
+            self._write(joints)
+            self._grip_sent = joints[5]
             self.halt.wait(1 / HZ)
         return not self.halt.is_set()
 

@@ -346,6 +346,23 @@ def test_core():
 
 
 
+def test_held_grip_is_not_relaxed():
+    """A brick blocks the jaw at 19 with a command of 5. The next move with the same grip must keep
+    commanding 5 from its first step, not restart from the measured 19."""
+    arm = get_arm(mock=True)
+    sent = []
+    arm._write = lambda joints: sent.append(joints[5])
+    arm._read = lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 19.0]  # the jaw as measured: blocked by the brick
+    assert arm.move_joints([0, 0, 0, 0, 0, 5.0], 0.1)      # the close: ramps 19 -> 5
+    assert sent[-1] == 5.0 and sent[0] > 5.0
+    sent.clear()
+    assert arm.move_joints([0, 10, 0, 0, 0, 5.0], 0.1)     # the lift, same grip
+    assert sent and all(v == 5.0 for v in sent), sent
+    sent.clear()
+    assert arm.move_joints([0, 10, 0, 0, 0, 60.0], 0.1)    # opening still ramps from the measured jaw
+    assert sent[0] > 19.0 and sent[-1] == 60.0, sent
+
+
 def test_tap_delay():
     """A pretend key that follows the tap joint 20 ms late: the measured delays come out near 20 ms."""
     import threading
@@ -460,6 +477,7 @@ def test_cli_cue():
 
 if __name__ == "__main__":
     test_core()
+    test_held_grip_is_not_relaxed()
     test_tap_delay()
     test_send_waits_for_its_own_result()
     test_cli_cue()
