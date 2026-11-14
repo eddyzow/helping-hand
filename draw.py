@@ -275,7 +275,7 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
               "the subject would look like it is floating without one. No shading or filling "
               "in, and do not let strokes crowd or cross each other. Finish every shape: an outline meets itself, "
               "a line that joins another reaches it. "
-              + ("Use 4 to 30 strokes. " if DETAIL == "detailed" else
+              + ("Use 4 to 30 strokes. " if os.environ.get("DRAW_DETAIL", "detailed") == "detailed" else
                  "The arm that draws this is imprecise: its pen can land 3 or 4 units away from where it aims, and "
                  "differently for each stroke. So draw it bold and simple, like a road sign: 3 to 10 strokes, big "
                  "shapes that fill the page, nothing smaller than 12 units across, at least 8 units between lines "
