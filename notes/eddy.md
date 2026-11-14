@@ -1,8 +1,10 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:07 AM.
+Updated Sat Nov 14, 4:40 AM.
 
 ## Working on now
+
+Merged at 4:40 AM: pull request 3 (`eddy/fetch`) is on `main` as `3d49b9e`, at Eddy's request. `main` now has `skills/fetch.py` (hand over, or put down beside another object, with a wrist turn), the camera-aware `voice/route.py`, the two-step finder with its OpenAI backup, `sim.py` with the Duplo set, and `tests/test_fetch.py`. On the merged `main`, `tests.test_fetch`, `tests.test_core` and `grid.py` all pass. The simulator and the finder changes were reviewed only by me; the fetch checks were reviewed by Daniel's reviewer. Anything below that says "on `eddy/fetch`" now means `main`.
 
 Person 1: voice, object finding, fetch by camera. Owns `voice/`, `learning/` and the root files `see.py`, `pick.py`, `grid.py`, `draw.py`, `arm.py`.
 
