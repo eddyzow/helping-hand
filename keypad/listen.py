@@ -100,13 +100,16 @@ def notify(command: str, retry: bool = True) -> None:
                 _open.append(s)
             _open[0].sendall((command + "\n").encode())
             try:
-                _open[0].recv(4096)  # discard replies so they never pile up
+                if _open[0].recv(4096) == b"":  # the dispatcher closed this connection
+                    raise ConnectionResetError("the dispatcher closed the connection")
             except BlockingIOError:
-                pass
+                pass  # no reply waiting yet: normal
             return
-        except OSError:
+        except OSError as err:
             if _open:
-                _open.pop().close()
+                _open.pop().close()  # never keep a dead connection
+            if not retry:
+                print(f"'{command}' may not have reached the dispatcher ({err}); it is not sent again", flush=True)
             if not had:
                 return
 

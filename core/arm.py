@@ -221,8 +221,14 @@ class Arm(MockArm):
         """One packet to the tapping motor only. The normal write first reads all six motors to
         limit the step, which added a few milliseconds that varied from tap to tap; a tap is a
         small, already-checked move of one joint, so it does not need that."""
-        name = JOINTS[TAP_JOINT]
-        self._robot.bus.sync_write("Goal_Position", {name: joints[TAP_JOINT]})
+        name, goal = JOINTS[TAP_JOINT], joints[TAP_JOINT]
+        cap = self._robot.config.max_relative_target
+        if cap is not None:
+            # Keep the same safety the normal write has, for this one motor: read where it really is
+            # and never command it further than the step limit from there. One motor, one read.
+            here = float(self._robot.bus.sync_read("Present_Position", [name])[name])
+            goal = max(here - cap, min(here + cap, goal))
+        self._robot.bus.sync_write("Goal_Position", {name: goal})
 
     def close(self, release: bool = True) -> None:
         """Close the serial port. Never moves. release=True switches the motors off, so the arm
