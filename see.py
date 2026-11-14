@@ -14,6 +14,7 @@ does step 2 as well, and gets look-alike pieces wrong more often.
 """
 import base64
 import json
+import math
 import os
 import re
 import sys
@@ -123,18 +124,37 @@ def _gemini(parts):
             time.sleep(RETRY_SECONDS)
 
 
+def _number(value):
+    return type(value) in (int, float) and math.isfinite(value)  # bool is not a number here
+
+
+def to_boxes(reply, width, height):
+    """The model's reply -> pixel boxes. A malformed entry is dropped, never guessed: it needs
+    four finite numbers in 0 to 1000 with ymin < ymax and xmin < xmax."""
+    boxes = []
+    for obj in reply if isinstance(reply, list) else []:
+        box = obj.get("box_2d") if isinstance(obj, dict) else None
+        if not (isinstance(box, list) and len(box) == 4 and all(_number(n) and 0 <= n <= 1000 for n in box)):
+            continue
+        y0, x0, y1, x1 = box
+        if y0 >= y1 or x0 >= x1:
+            continue
+        boxes.append({"x0": int(x0 / 1000 * width), "y0": int(y0 / 1000 * height),
+                      "x1": int(x1 / 1000 * width), "y1": int(y1 / 1000 * height),
+                      "label": str(obj.get("label", ""))})
+    return boxes
+
+
+def to_matches(answer, count):
+    """The chooser's reply -> indexes into the boxes. Only whole numbers from 1 to count."""
+    matches = answer.get("matches") if isinstance(answer, dict) else None
+    return [n - 1 for n in matches if type(n) is int and 1 <= n <= count] if isinstance(matches, list) else []
+
+
 def detect(frame):
     """Box every object. Returns dicts with pixel x0, y0, x1, y1 and a label."""
     reply = _gemini([(cv2.imencode(".jpg", frame)[1].tobytes(), "image/jpeg"), DETECT])
-    h, w = frame.shape[:2]
-    boxes = []
-    for obj in reply if isinstance(reply, list) else []:
-        if not isinstance(obj, dict) or len(obj.get("box_2d") or []) != 4:
-            continue  # a malformed entry is dropped, not guessed
-        y0, x0, y1, x1 = obj["box_2d"]
-        boxes.append({"x0": int(x0 / 1000 * w), "y0": int(y0 / 1000 * h),
-                      "x1": int(x1 / 1000 * w), "y1": int(y1 / 1000 * h), "label": obj.get("label", "")})
-    return boxes
+    return to_boxes(reply, frame.shape[1], frame.shape[0])
 
 
 def transcribe(audio_path):
@@ -178,8 +198,7 @@ def choose(frame, boxes, command):
     else:
         print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
         answer = _gemini([(jpg, "image/jpeg"), prompt])
-    matches = answer.get("matches", []) if isinstance(answer, dict) else []
-    return [n - 1 for n in matches if isinstance(n, int) and 1 <= n <= len(boxes)]
+    return to_matches(answer, len(boxes))
 
 
 def find_all(frame, command=None, audio_path=None):
@@ -231,4 +250,14 @@ def main():
 if __name__ == "__main__":
     assert parse_reply('```json\n{"matches": [2, 5]}\n```')["matches"] == [2, 5]
     assert parse_reply("nothing here") == {}
+    # malformed model replies produce no target
+    good = {"box_2d": [100, 200, 300, 400], "label": "brick"}
+    assert to_boxes([good], 1000, 1000) == [{"x0": 200, "y0": 100, "x1": 400, "y1": 300, "label": "brick"}]
+    for bad in [[900, 900, 100, 100], [100, 200, "300", 400], [100, 200, 300], [True, 200, 300, 400],
+                [100, 200, float("nan"), 400], [100, 200, 300, 1400]]:
+        assert to_boxes([{"box_2d": bad}], 1000, 1000) == [], bad
+    assert to_boxes({"objects": [good]}, 1000, 1000) == [] and to_boxes(["x", None], 10, 10) == []
+    assert to_matches({"matches": [2, 3]}, 3) == [1, 2]
+    for bad in [{"matches": [True]}, {"matches": [0, 4, 1.0, "2"]}, {"matches": 2}, [1], None]:
+        assert to_matches(bad, 3) == [], bad
     main()
