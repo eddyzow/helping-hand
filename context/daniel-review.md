@@ -21,6 +21,10 @@ Interview questions: Why does caching a command require tracing every writer? Ho
 
 ## Drawing expansion: main 27595d3
 
+**Follow-up e2d3e02:** model prompt/cache additions, distance-timed pen-up travel, settling/finish dwell and PEN_DRAG validation reviewed. Existing drawing, sketch, model-adapter and perception checks pass. Extended tests.test_sketch_boundaries verifies invalid drag refusal before any fake move, valid 0.03 directional lead, a 0.6-page hop at 0.6 pages/second, and two strokes' settle/finish durations. Grid interpolation still clamps led points to the taught square at its edges; this is not physical compensation/margin proof. Both model-unavailable fallback regressions still fail on the updated source.
+
+The simulator's later pencil is a spring-mounted physical body in MuJoCo with a contacting tip and friction, superseding the earlier offset-point description below. Its metric now includes intended-line samples without nearby ink. Neither the new physics, metric execution, live viewer, reported 27/28 recognition nor claimed accuracy/holder comparisons were independently run here. All remain attributed owner simulation evidence; no real pen or arm test ran.
+
 Documentation follow-up 6edbd95: Ben reports repeating draw/sketch boundary checks; acknowledged without repeating unchanged code. Draft claims need scope: cached draw.sketch skips provider calls, but voice.route.main still calls by_model before reaching that cache. Also draw.sketch uses failed blind recognition to trigger one retry, then returns the second selection without a second recognition check. It is feedback, not a guaranteed recognition gate. Requested wording corrections in Daniel's note; the owner-reported simulation recognition results remain separate.
 
 Ben's 789e304 corrects both statements in the demo and Devpost draft. Documentation requests closed after reading the diff; executable source and the open fallback finding are unchanged.

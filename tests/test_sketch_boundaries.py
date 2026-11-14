@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import math
 import os
 import sys
 import tempfile
@@ -65,8 +66,38 @@ def test_voice_sketch():
             assert commands == (["list"] if failed else ["list", "run draw " + json.dumps({"strokes": strokes})]), commands
 
 
+def test_pen_motion():
+    strokes = [[[.1, .1], [.2, .1]], [[.8, .1], [.9, .1]]]
+    grid = {"n": 2}
+    for layer, height in (("up", 10), ("down", 0)):
+        grid[layer] = [dict(zip((joint + ".pos" for joint in skill.JOINTS), [u, height, v, 0, 0, 20]))
+                       for v in (0, 1) for u in (0, 1)]
+    with tempfile.TemporaryDirectory() as temporary:
+        path = Path(temporary) / "paper.json"
+        path.write_text(json.dumps(grid))
+        sent = []
+        arm = SimpleNamespace(load_pose=lambda name: [0] * 6,
+                              move_joints=lambda joints, seconds: sent.append((joints, seconds)) or True)
+        with patch.object(skill, "GRID", path), patch.object(draw, "PEN_DRAG", 0), \
+                patch.object(draw, "PEN_SQUEEZE", 8), patch.object(draw, "PEN_SPEED", .15):
+            for invalid in (float("nan"), float("inf"), -.001, .101):
+                draw.PEN_DRAG = invalid
+                assert not skill.run(arm, {"strokes": strokes}, threading.Event())["ok"] and not sent
+            draw.PEN_DRAG = 0
+            steps = skill.plan(strokes, grid, [0] * 6)
+            hop = [seconds for joints, seconds in steps
+                   if math.isclose(joints[0], .8) and joints[1] == 10]
+            assert len(hop) == 1 and math.isclose(hop[0], 1), hop
+            assert sum(seconds == skill.PEN_SETTLE_S for _, seconds in steps) == 2
+            assert sum(seconds == skill.PEN_FINISH_S for _, seconds in steps) == 2
+            draw.PEN_DRAG = .03
+            led = skill.plan(strokes, grid, [0] * 6)
+            assert math.isclose(max(joints[0] for joints, _ in led if joints[1] == 0), .93)
+
+
 if __name__ == "__main__":
     test_stroke_preflight()
     test_generated_and_cached()
     test_voice_sketch()
+    test_pen_motion()
     print("sketch boundaries ok")
