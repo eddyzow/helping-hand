@@ -22,6 +22,8 @@ Latest review, 2026-11-14 01:05 ET: Geometry Dash integration `2393df7` (now in 
 
 ## Findings for Daniel's Claude
 
+Related branch check, 01:09 ET: Ben's `79ac6aa` personality self-check printed `personality ok`; Eddy's `f652789` fetch test printed `fetch ok`. Both were inspected first and loaded in memory against the local mock core. A separate fetch check found that NaN table-grid targets are not validated before `arm.home()`: the fake home log was `['home']`, then `move_joints` raised ValueError. Eddy should validate the complete planned joint targets before the first home and add this no-motion failure case. No voice main, speech subprocess, camera, or hardware path ran.
+
 ### Geometry Dash integration: 2393df7 / f1553cf, 01:05 ET
 
 What this change does: adds dispatcher cue/ready events, a Geometry Dash skill using Jonathan's CSV and held presses, taught press/release poses, and automatic game-restart logic in the Windows listener. Reproduction file hashes remained unchanged across the checks: skill `3f15242`, listener `4d61012`, dispatcher `ee45427`. These began as a working-tree review and are now committed.
