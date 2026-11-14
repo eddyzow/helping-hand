@@ -7,7 +7,19 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
-## Architecture
+## Clock-feed review: d6a7207 held
+
+The new core clock is shared by geometry_dash replay and tap_delay. keypad/listen reports Windows perf_counter over a separate TCP connection; dispatcher accepts it through clock_tick. No live listener was launched. Tests use fake local time and actual core/dispatcher functions without an arm connection.
+
+- At local time 1000, real_now returns 1000. clock_tick(100) changes it to 100 without elapsed local time. At local 1002.01 it falls back to 1002.01; clock_tick(102.01) changes it back to 102.01. Startup, stale expiry and resumption therefore switch epochs. Subtracting a start from another epoch can delay or burst replay commands. The same clock now governs cue/press/settle timeouts and tap_delay waits.
+- Dispatcher handle('clock nan'), handle('clock inf') and handle('clock -inf') each return ok=True; real_now returns the corresponding nonfinite value. The rate filter alone does not protect the returned time. A NaN comparison can bypass waits.
+- Requested fix: reject nonfinite reports before storing them, preserve a continuous local monotonic timeline through feed transitions, and keep safety deadlines on local monotonic time independent of external reports. No proposed clock implementation was written by Codex.
+- Durable check on QA branch f2220cd: `python -B -m tests.test_clock_boundaries`. First tick, stale expiry, resumption and invalid-report checks fail; the deterministic 1.042 rate/interpolation control passes. Existing WSL tests.test_core prints core ok; Windows tests.test_keypad_safety and tests.test_pending_boundaries pass. These passing older gates do not override the new reproductions.
+- Main remains at the reviewed baseline. Changed poses/tuning and reported physical clock drift were source-reviewed only; no hardware, native input, simulation or real replay ran.
+
+Interview questions: Why can two monotonic clocks still have incompatible epochs? Why must a timeout remain independent of a corrected playback clock? What do fake timing tests prove, and what requires measurement on the real keypad/arm?
+
+## Original architecture
 
 1. Root `arm.py` owns LeRobot connections, pose teaching, and recorded playback.
 2. `grid.py` interpolates taught joint grids.
