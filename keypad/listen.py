@@ -213,6 +213,30 @@ def main() -> None:
                 print(f"ready check failed: {err}", flush=True)
             time.sleep(0.3)
 
+    def report_clock() -> None:
+        """Tell the dispatcher the Windows time ten times a second, on a connection of its own.
+        The clock inside WSL was measured running 4.2% fast, so the dispatcher times a replay by
+        this clock, the same one a recording is made with."""
+        link = None
+        while True:
+            try:
+                if link is None:
+                    link = socket.create_connection(("127.0.0.1", PORT), timeout=0.5)
+                    link.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    link.setblocking(False)
+                link.sendall(f"clock {time.perf_counter():.6f}\n".encode())
+                try:
+                    if link.recv(4096) == b"":
+                        raise ConnectionResetError
+                except BlockingIOError:
+                    pass
+            except OSError:
+                if link is not None:
+                    link.close()
+                link = None
+                time.sleep(0.5)
+            time.sleep(0.1)
+
     def wndproc(hwnd, msg, wparam, lparam):
         if msg == WM_INPUT:
             raw = RAWKEYBOARD()
@@ -245,6 +269,7 @@ def main() -> None:
     if not hwnd or not user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(rid)):
         raise SystemExit(f"Could not listen for keys (Windows error {ctypes.get_last_error()}).")
     threading.Thread(target=poll_ready, daemon=True).start()
+    threading.Thread(target=report_clock, daemon=True).start()
     if not prompt():
         print("Keypad ready: wave, jump (Up arrow), stop. Ctrl+C to quit.", flush=True)
     msg = wintypes.MSG()
