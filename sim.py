@@ -1,10 +1,13 @@
 """Try skills on a simulated SO-101 in MuJoCo, with no arm attached.
 
     python keypad/geometry_dash/fetch_so101_model.py     # once: downloads the arm model
-    python sim.py "pick up the red brick"                # camera -> finder -> fetch, end to end
+    mjpython sim.py --view                               # live window; type requests one after another
+    python sim.py "pick up the purple brick"             # no window: camera -> finder -> fetch, saves a video
     python sim.py --at 0.5 0.5                           # fetch at a grid position, no AI calls
     python sim.py --skill wave                           # any skill in skills/
-    mjpython sim.py --view "pick up the red brick"       # live window (macOS needs mjpython)
+
+The live window needs mjpython on macOS (it is installed next to python in .venv/bin). On Windows
+and Linux, plain python works with --view.
 
 Writes outputs/sim.mp4 (side view) and outputs/sim_top.jpg (what the camera saw).
 
@@ -36,29 +39,79 @@ TOP_CAMERA = {"pos": (0.25, 0.0, 0.50), "fovy": 45.0}  # looks straight down; im
 
 # the taught grid, in metres on the table: x is away from the arm, y is to its left
 # Pointing straight down, this model reaches about 12 to 30 cm from its base and lifts about 5 cm.
-FAR, NEAR, LEFT, RIGHT = 0.27, 0.15, 0.09, -0.09
-GRASP_Z, CLEAR_Z = 0.012, 0.055  # gripper tip height when closing on a brick, and when carrying
-GRID_N = 5           # taught points per side. With 3, blending was 7 mm off between points and grasps failed.
+FAR, NEAR, LEFT, RIGHT = 0.25, 0.14, 0.12, -0.12
+GRASP_Z, CLEAR_Z = 0.010, 0.055  # gripper tip height when closing on a brick, and when carrying
+GRID_N = 7           # taught points per side. On the first, smaller grid: 3 was 7 mm off between points and
+                     # grasps failed, 5 was under 2 mm. This grid is wider, so it uses 7.
 GRIP_OFFSET = 0.004  # the model's reference point is one jaw's tip; the brick sits this far toward the other.
                      # Measured here: a 32 mm brick is carried at 0 to 8 mm and dropped at -10 or +16.
 HOME_DEG = [95, -95, 90, 70, 0, 20]      # folded to the side, out of the camera's view
 HANDOVER_DEG = [-50, -30, 30, 50, 0, 0]  # held out to the front right
 
-# name, colour, half sizes in metres (Duplo 2x2 is 32 x 32 x 24 mm), x, y, turn in degrees
-BRICKS = [
-    ("red_square", "0.85 0.1 0.1 1", (0.016, 0.016, 0.012), 0.20, 0.05, 0),
-    ("blue_square", "0.2 0.6 0.75 1", (0.016, 0.016, 0.012), 0.25, -0.04, 25),
-    ("green_long", "0.6 0.75 0.1 1", (0.032, 0.016, 0.012), 0.18, -0.06, 90),
-    ("purple_square", "0.7 0.55 0.85 1", (0.016, 0.016, 0.012), 0.25, 0.06, 40),
+RED, BLUE, PURPLE = "0.85 0.08 0.08 1", "0.25 0.62 0.72 1", "0.75 0.62 0.86 1"
+CREAM, LIME, BLACK = "0.93 0.89 0.82 1", "0.68 0.78 0.13 1", "0.06 0.06 0.06 1"
+GRIP = 'friction="2 0.1 0.01" condim="6"'
+
+# The Duplo set from photos/duplo_a.jpg: name, shape, colour, x, y, turn in degrees.
+# Long pieces lie across the arm's reach so the jaws close on their 32 mm width. The chassis and the
+# car body sit beyond the taught grid: the camera sees them and fetch should refuse them.
+PIECES = [
+    ("red_square_left", "2x2", RED, 0.165, 0.090, 0),
+    ("blue_square", "2x2", BLUE, 0.165, 0.030, 10),
+    ("purple_square", "2x2", PURPLE, 0.165, -0.030, 45),
+    ("red_square_right", "2x2", RED, 0.165, -0.090, 30),
+    ("white_flat", "plate", CREAM, 0.228, 0.085, 90),
+    ("red_triangle", "slope", RED, 0.228, 0.0, 90),
+    ("green_curved", "arch", LIME, 0.228, -0.085, 90),
+    ("car_chassis", "chassis", BLACK, 0.350, 0.100, 20),
+    ("car_body", "carbody", BLUE, 0.360, -0.090, -15),
 ]
+NAMES = [piece[0] for piece in PIECES]
+
+
+def _studs(across: int, along: int, top: float, rgba: str) -> str:
+    """Duplo studs, for looks only: 9.4 mm wide, 16 mm apart."""
+    return "".join(
+        f'<geom type="cylinder" size="0.0047 0.0023" pos="{(i - (along - 1) / 2) * 0.016} '
+        f'{(j - (across - 1) / 2) * 0.016} {top + 0.0023}" rgba="{rgba}" contype="0" conaffinity="0" density="0"/>'
+        for i in range(along) for j in range(across))
+
+
+def _shape(kind: str, rgba: str) -> str:
+    box = lambda sx, sy, sz, z, mass: (f'<geom type="box" size="{sx} {sy} {sz}" pos="0 0 {z}" rgba="{rgba}" '
+                                       f'mass="{mass}" {GRIP}/>')
+    if kind == "2x2":       # 32 x 32 x 19 mm
+        return box(0.0159, 0.0159, 0.0096, 0.0096, 0.012) + _studs(2, 2, 0.0192, rgba)
+    if kind == "plate":     # the flat 2x4: 64 x 32 x 10 mm
+        return box(0.0319, 0.0159, 0.0048, 0.0048, 0.012) + _studs(2, 4, 0.0096, rgba)
+    if kind == "slope":     # the "triangle" 2x4: full height at one end, sloping down to the other
+        return f'<geom type="mesh" mesh="slope" rgba="{rgba}" mass="0.02" {GRIP}/>'
+    if kind == "arch":      # the curved-top 2x4
+        return f'<geom type="mesh" mesh="arch" rgba="{rgba}" mass="0.02" {GRIP}/>'
+    if kind == "chassis":   # a flat base on four wheels
+        wheels = "".join(
+            f'<geom type="cylinder" size="0.012 0.005" pos="{x} {y} 0.012" euler="90 0 0" rgba="{BLACK}" mass="0.004" {GRIP}/>'
+            f'<geom type="cylinder" size="0.007 0.0055" pos="{x} {y} 0.012" euler="90 0 0" rgba="{CREAM}" '
+            f'contype="0" conaffinity="0" density="0"/>'
+            for x in (-0.022, 0.022) for y in (-0.021, 0.021))
+        return box(0.032, 0.0159, 0.004, 0.014, 0.02) + _studs(2, 4, 0.018, rgba) + wheels
+    if kind == "carbody":   # a rough car shell: body plus cabin, too wide for the gripper
+        return (box(0.05, 0.026, 0.011, 0.011, 0.03)
+                + f'<geom type="box" size="0.024 0.023 0.01" pos="-0.008 0 0.032" rgba="{rgba}" mass="0.01" {GRIP}/>')
+    raise ValueError(kind)
+
+
+def _hull(points) -> str:
+    return " ".join(f"{v:.4f}" for point in points for v in point)
 
 
 def scene_xml() -> str:
-    bricks = "".join(
-        f'<body name="{name}" pos="{x} {y} {half[2]}" euler="0 0 {turn}"><freejoint/>'
-        f'<geom type="box" size="{half[0]} {half[1]} {half[2]}" rgba="{rgba}" mass="0.012" '
-        f'friction="2 0.1 0.01" condim="6"/></body>'
-        for name, rgba, half, x, y, turn in BRICKS)
+    slope = [(x, y, z) for y in (-0.0159, 0.0159)
+             for x, z in ((-0.0319, 0), (-0.0319, 0.0192), (0, 0.0192), (0.0319, 0.004), (0.0319, 0))]
+    arch = [(0.0319 * math.cos(t), y, 0.022 * math.sin(t)) for y in (-0.0159, 0.0159)
+            for t in [math.pi * k / 10 for k in range(11)]]
+    pieces = "".join(f'<body name="{name}" pos="{x} {y} 0.0005" euler="0 0 {turn}"><freejoint/>{_shape(kind, rgba)}</body>'
+                     for name, kind, rgba, x, y, turn in PIECES)
     cam = TOP_CAMERA
     return f"""<mujoco>
   <include file="{MODEL / 'so101.xml'}"/>
@@ -68,12 +121,16 @@ def scene_xml() -> str:
     <global offwidth="{WIDTH}" offheight="{HEIGHT}"/>
     <headlight ambient="0.35 0.35 0.35" diffuse="0.35 0.35 0.35" specular="0 0 0"/>
   </visual>
+  <asset>
+    <mesh name="slope" vertex="{_hull(slope)}"/>
+    <mesh name="arch" vertex="{_hull(arch)}"/>
+  </asset>
   <worldbody>
     <light pos="0.2 0 1" dir="0 0 -1" directional="true" diffuse="0.3 0.3 0.3" specular="0 0 0"/>
     <geom name="table" type="plane" size="0.7 0.7 0.01" rgba="0.72 0.72 0.7 1" friction="1 0.02 0.001"/>
     <camera name="top" pos="{cam['pos'][0]} {cam['pos'][1]} {cam['pos'][2]}" xyaxes="0 -1 0 1 0 0" fovy="{cam['fovy']}"/>
-    <camera name="side" pos="0.72 -0.62 0.42" xyaxes="0.65 0.76 0 -0.33 0.28 0.9" fovy="42"/>
-    {bricks}
+    <camera name="side" pos="0.74 -0.60 0.44" xyaxes="0.63 0.78 0 -0.34 0.28 0.9" fovy="44"/>
+    {pieces}
   </worldbody>
 </mujoco>"""
 
@@ -111,7 +168,7 @@ class SimArm(MockArm):
         self.model = mujoco.MjModel.from_xml_string(scene_xml())
         self.data = mujoco.MjData(self.model)
         self.steps = max(1, round(1 / HZ / self.model.opt.timestep))
-        self.renderer = mujoco.Renderer(self.model, HEIGHT // 2, WIDTH // 2)
+        self.renderer = None if view else mujoco.Renderer(self.model, HEIGHT // 2, WIDTH // 2)
         self.frames = []
         self.window = None
         home = to_radians(HOME_DEG)
@@ -131,13 +188,14 @@ class SimArm(MockArm):
         low, high = self.model.actuator_ctrlrange[:6].T
         self.data.ctrl[:6] = np.clip(to_radians(joints), low, high)
         mujoco.mj_step(self.model, self.data, self.steps)
-        self.renderer.update_scene(self.data, camera="side")
-        self.frames.append(cv2.cvtColor(self.renderer.render(), cv2.COLOR_RGB2BGR))
-        if self.window:
+        if self.window:  # live window, at real speed; no video
             import time
 
             self.window.sync()
             time.sleep(1 / HZ)
+        else:
+            self.renderer.update_scene(self.data, camera="side")
+            self.frames.append(cv2.cvtColor(self.renderer.render(), cv2.COLOR_RGB2BGR))
 
     def settle(self, seconds: float) -> None:
         for _ in range(int(seconds * HZ)):
@@ -213,18 +271,9 @@ def write_poses(model) -> None:
     (SIM_POSES / "table_corners.json").write_text(json.dumps(corners))
 
 
-def main() -> None:
-    args = sys.argv[1:]
-    view = "--view" in args
-    args = [a for a in args if a != "--view"]
-    if not (MODEL / "so101.xml").exists():
-        sys.exit("No arm model. Run: python keypad/geometry_dash/fetch_so101_model.py")
-    OUT.mkdir(exist_ok=True)
-    arm = SimArm(view)
-    write_poses(arm.model)
-    core.arm.POSES = SIM_POSES  # skills load poses from here, never from the real poses/ folder
-    before = {name: arm.height_of(name) for name, *_ in BRICKS}
-
+def request(arm, args: list[str]) -> None:
+    """Run one request on the simulated arm and report what happened to the pieces."""
+    before = {name: arm.height_of(name) for name in NAMES}
     if args[:1] == ["--skill"]:
         skill, params = importlib.import_module(f"skills.{args[1]}"), json.loads(args[2]) if len(args) > 2 else {}
     else:
@@ -240,7 +289,8 @@ def main() -> None:
             targets, said = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2)) for u, v, label in targets])
             if len(targets) != 1:
-                sys.exit("Not moving: the finder needs exactly one match.")
+                print("Not moving: the finder needs exactly one match.")
+                return
             params = {"u": targets[0][0], "v": targets[0][1]}
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 
@@ -248,24 +298,56 @@ def main() -> None:
     carried = set()
     write = arm._write
 
-    def watch(joints):  # track how high each brick gets, and which ones reach handover height in the jaws
+    def watch(joints):  # track how high each piece gets, and which ones reach handover height in the jaws
         write(joints)
         tip = arm.data.site("gripperframe").xpos
         for name in lifted:
             lifted[name] = max(lifted[name], arm.height_of(name))
-            if tip[2] > 0.09 and np.linalg.norm(arm.data.body(name).xpos - tip) < 0.03:
+            if tip[2] > 0.09 and np.linalg.norm(arm.data.body(name).xpos - tip) < 0.035:
                 carried.add(name)
 
-    arm._write = watch
-    result = skill.run(arm, params, arm.halt)
-    arm.settle(0.5)
-    arm.save_video(OUT / "sim.mp4")
+    arm._write, arm.frames = watch, []
+    try:
+        result = skill.run(arm, params, arm.halt)
+        arm.settle(0.5)
+    finally:
+        arm._write = write
     print(skill.NAME, params, result)
     for name in lifted:
         if lifted[name] - before[name] > 0.03:
             print(f"  {name} was lifted {100 * (lifted[name] - before[name]):.0f} cm")
-    print(f"  carried to the handover in the jaws: {', '.join(sorted(carried)) or 'nothing'}")
-    print(f"video: {OUT / 'sim.mp4'}")
+    if skill.NAME == "fetch":
+        print(f"  carried to the handover in the jaws: {', '.join(sorted(carried)) or 'nothing'}")
+    if arm.frames:
+        arm.save_video(OUT / "sim.mp4")
+        print(f"video: {OUT / 'sim.mp4'}")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    view = "--view" in args
+    args = [a for a in args if a != "--view"]
+    if not (MODEL / "so101.xml").exists():
+        sys.exit("No arm model. Run: python keypad/geometry_dash/fetch_so101_model.py")
+    OUT.mkdir(exist_ok=True)
+    arm = SimArm(view)
+    write_poses(arm.model)
+    core.arm.POSES = SIM_POSES  # skills load poses from here, never from the real poses/ folder
+    if args:
+        request(arm, args)
+    while view and arm.window.is_running():  # live window: keep taking requests until it is closed
+        try:
+            line = input('Request, e.g. "pick up the purple brick" (Enter to quit): ').strip()
+        except EOFError:  # started without a terminal: leave the window up until it is closed
+            import time
+
+            print("No terminal to type in. Close the window to finish.", flush=True)
+            while arm.window.is_running():
+                time.sleep(0.2)
+            break
+        if not line:
+            break
+        request(arm, line.split())
 
 
 if __name__ == "__main__":
