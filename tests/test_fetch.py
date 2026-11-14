@@ -31,6 +31,13 @@ def test_fetch():
     for bad in [{}, {"u": "0.5", "v": 0.5}, {"u": float("nan"), "v": 0.5}, {"u": 1.5, "v": 0.5}]:
         assert fetch.run(arm, bad, stop)["ok"] is False and arm.get_joints() == start, bad
 
+    # a taught grid holding a NaN is refused before home: nothing moves
+    broken = json.loads(json.dumps(grid))
+    broken["down"][4]["elbow_flex.pos"] = float("nan")
+    (core.arm.POSES / "table.json").write_text(json.dumps(broken))
+    assert "bad taught pose" in fetch.run(arm, {"u": 0.5, "v": 0.5}, stop)["reason"] and arm.get_joints() == start
+    (core.arm.POSES / "table.json").write_text(json.dumps(grid))
+
     # a good request: closes on the centre cell of the lower layer, ends open at home
     seen = []
     write = arm._write

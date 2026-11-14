@@ -56,6 +56,11 @@ def run(arm, params, stop):
         (_joints(up, GRIP_CLOSED), 1.0),
         (handover + [GRIP_CLOSED], 2.0),
     ]
+    try:  # a bad taught pose must fail here, before the arm has moved at all
+        for joints, _ in moves:
+            core.arm._checked(joints)
+    except (ValueError, TypeError) as err:
+        return {"ok": False, "reason": f"bad taught pose: {err}"}
     if not arm.home():
         return STOPPED
     for joints, seconds in moves:
