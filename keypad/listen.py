@@ -90,6 +90,17 @@ def notify(command: str, retry: bool = True) -> None:
     A key state may be sent again after a failed send, because sending it twice changes nothing.
     A cue may not (retry=False): it might have arrived the first time, and a second one would
     restart the replay."""
+    if _open:
+        # Look at the kept connection before sending. A send into a connection the dispatcher has
+        # closed is lost without any error, and the first key event after every restart used to
+        # vanish that way. Nothing has been sent yet here, so replacing the connection is not a retry.
+        try:
+            if _open[0].recv(4096) == b"":
+                raise ConnectionResetError("the dispatcher closed the connection")
+        except BlockingIOError:
+            pass  # nothing waiting: the connection is alive
+        except OSError:
+            _open.pop().close()
     for _ in range(2 if retry else 1):  # a second try only if the kept connection had gone stale
         had = bool(_open)
         try:
@@ -99,11 +110,6 @@ def notify(command: str, retry: bool = True) -> None:
                 s.setblocking(False)
                 _open.append(s)
             _open[0].sendall((command + "\n").encode())
-            try:
-                if _open[0].recv(4096) == b"":  # the dispatcher closed this connection
-                    raise ConnectionResetError("the dispatcher closed the connection")
-            except BlockingIOError:
-                pass  # no reply waiting yet: normal
             return
         except OSError as err:
             if _open:
