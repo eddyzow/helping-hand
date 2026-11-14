@@ -21,6 +21,7 @@ HERE = Path(__file__).parent
 MARGIN = 0.08          # keep this much of the page clear on every side
 STEP = 0.02            # pen travel between arm commands, as a fraction of the page
 PEN_SPEED = float(os.environ.get("PEN_SPEED", "0.15"))  # fractions of the page per second
+PEN_SQUEEZE = float(os.environ.get("PEN_SQUEEZE", "8"))  # close this much past the taught gripper value
 QUICKDRAW = "https://storage.googleapis.com/quickdraw_dataset/full/simplified/{}.ndjson"
 
 Stroke = list[tuple[float, float]]
@@ -120,6 +121,10 @@ def draw(strokes: list[Stroke], grid_name: str = "paper") -> None:
 
     grid = json.loads((HERE / "poses" / f"{grid_name}.json").read_text())
     n = grid["n"]
+    # the gripper was taught limp around the pen, which holds it at exactly pen width: squeeze a bit more
+    for layer in ("up", "down"):
+        for taught in grid[layer]:
+            taught["gripper.pos"] = max(0.0, taught["gripper.pos"] - PEN_SQUEEZE)
     robot = arm.follower()
     for stroke in strokes:
         pts = resample(stroke)

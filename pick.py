@@ -12,6 +12,12 @@ Use:
     python pick.py --go                       # voice loop: Enter, speak, Enter
 
 The arm half is UNTESTED ON HARDWARE. First runs: someone on the power switch.
+Run `python arm.py check table` before the first real grasp.
+
+Mount the camera straight above the middle of the grid, as high as it will go. The pixel
+is mapped as if everything were flat on the table, so the top of a tall object lands
+too far from the point under the camera: off by (object height / camera height) times
+its distance from that point. A 3 cm object 20 cm out under a 60 cm camera is 1 cm off.
 """
 import json
 import os

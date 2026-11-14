@@ -2,6 +2,7 @@
 
     python arm.py teach paper        # hand-pose the arm over a 3x3 grid, on the surface then above it
     python arm.py pose home          # save one pose by hand (home, handover)
+    python arm.py check table        # visit the points between taught poses, slowly, to spot dips
     python arm.py record wave        # move the leader; the follower copies and it is saved
     python arm.py replay wave        # the follower repeats it
 
@@ -58,9 +59,14 @@ def move_to(robot, target: Pose, seconds: float = 1.5) -> None:
         time.sleep(1 / HZ)
 
 
+def go_limp(robot) -> None:
+    input("The arm will go LIMP and drop. Hold it up now, then press Enter. ")
+    robot.bus.disable_torque()
+
+
 def teach(name: str, n: int = 3) -> None:
     robot = follower()
-    robot.bus.disable_torque()  # arm goes limp so you can pose it by hand
+    go_limp(robot)
     grid = {"n": n}
     for layer, hint in [("down", "pen or open gripper on the surface"), ("up", "lifted clear, about 5 cm")]:
         grid[layer] = []
@@ -77,12 +83,28 @@ def teach(name: str, n: int = 3) -> None:
 
 def pose(name: str) -> None:
     robot = follower()
-    robot.bus.disable_torque()
+    go_limp(robot)
     input(f"Move the arm to the {name} pose by hand, then Enter. ")
     out = HERE / "poses" / f"{name}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(read_pose(robot), indent=1))
     print(f"saved {out}")
+    robot.disconnect()
+
+
+def check(name: str) -> None:
+    """Blending joint angles does not guarantee height between taught points. Watch for dips."""
+    from grid import interpolate
+
+    grid = json.loads((HERE / "poses" / f"{name}.json").read_text())
+    n = grid["n"]
+    mids = [(c + 0.5) / (n - 1) for c in range(n - 1)]
+    robot = follower()
+    for layer in ("up", "down"):  # up first: if the lifted layer dips, stop before trying down
+        for v in mids:
+            for u in mids:
+                input(f"{layer} layer, u={u:.2f} v={v:.2f}. Hand on the power switch. Enter to move. ")
+                move_to(robot, interpolate(grid[layer], n, u, v), 3.0)
     robot.disconnect()
 
 
@@ -120,7 +142,7 @@ def replay(name: str, robot=None) -> None:
 
 
 if __name__ == "__main__":
-    commands = {"teach": teach, "pose": pose, "record": record, "replay": replay}
+    commands = {"teach": teach, "pose": pose, "check": check, "record": record, "replay": replay}
     if len(sys.argv) < 3 or sys.argv[1] not in commands:
         sys.exit(__doc__)
     commands[sys.argv[1]](sys.argv[2])

@@ -24,6 +24,7 @@ On the laptop with the arm and the overhead camera. Set up once:
 python arm.py pose home        # arm parked out of the camera's view
 python arm.py pose handover    # where the arm holds the object out
 python arm.py teach table      # 3 by 3 grid: open gripper on the table, then lifted clear
+python arm.py check table      # slow pass through the in-between points; watch for dips
 python pick.py --corners       # click the grid's corners: far-left, far-right, near-right, near-left
 ```
 
