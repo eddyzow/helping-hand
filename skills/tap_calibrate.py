@@ -106,7 +106,15 @@ def run(arm, params, stop):
         return {"ok": False, "reason": f"{why}; the saved calibration is unchanged"}
 
     (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
-    (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": 0.0}))
+    # Keep the press depth that was in use: calibration finds WHERE the key is, not how firmly to
+    # play it. Resetting it to 0 made 1 press in 25 stall about 40 ms at the trigger point (14 Nov).
+    press = before[1]
+    try:
+        arm.set_tap(lift, press)
+    except ValueError:  # that depth no longer fits the travel limit at the new position
+        press = 0.0
+        arm.set_tap(lift, press)
+    (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": press}))
     arm._poses.pop("tap_key", None)  # read the new pose from the file next time
     if not arm.from_key():
         return STOPPED
