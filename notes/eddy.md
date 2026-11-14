@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:28 PM.
+Updated Sat Nov 14, 5:04 PM.
 
 ## Working on now
 
@@ -299,3 +299,19 @@ Eddy asked for a skill that writes the judge's name on demand.
 - The voice router picks it without changes: "write Professor Chen's name" gave write with text "Professor Chen"; "sign it for Dr. Lee" and "in cursive" gave style script; "draw a cat" still went to draw.
 - Simulated with the pencil: "Sam", "Dr. Lee" in script, "Christopher" in script and "Maria Hernandez" on two lines all came out readable, 0.2 to 0.3 mm from the line, 22 to 67 seconds. The dots on letters were sometimes missed (2 percent of the line).
 - A spoken name will be spelled however the speech-to-text hears it. For a judge's name, typing it is safer.
+
+## Where we stand at Sat Nov 14, 5:04 PM, and a plan that fits the real arm
+
+Eddy reported: the real arm is only strong enough to press a button (Geometry Dash). It cannot grip a pencil, and it is not accurate enough to place blocks. The fallback pitch is "we printed and assembled the arm, built the leader and follower pair, and it plays Geometry Dash on its own", which the team feels is not multipurpose. Final deadline 9 AM Sunday.
+
+My suggestion to Eddy, for the team to decide: pick tasks that need neither grip nor precision.
+
+1. Teach by demonstration: record on the leader, replay on the follower (`arm.py record` and `replay`, untested on hardware; the dispatcher has its own replay path).
+2. Voice picks the skill: "play Geometry Dash", "wave", "stop". The router works on a laptop; not yet run against the real dispatcher.
+3. Point at a named object: new skill below. It uses the camera and Claude work from fetch but never grips and only has to land within a couple of centimetres.
+4. Gestures from Ben's `skills/personality.py`.
+5. A felt-tip marker taped to the gripper for writing a name: riskiest, try last.
+
+Cut from the live demo: picking, stacking, feeding, gripping a pencil. Show those from the simulator on video and say plainly that the servos are the limit.
+
+New: `skills/point.py`. `run point {"u": 0.5, "v": 0.5}` hovers over that spot on the taught table grid with the jaws closed, dips halfway to the table, holds 2 seconds, lifts, goes home. `voice/route.py` fills in u and v from the camera for "point at the red brick" and says "That's the red brick". Knobs: `POINT_DIP`, `POINT_GRIP`, `POINT_SECONDS`. `python -m skills.point` prints `point ok`. In the simulator, three requests through the camera each brought the finger within 5 mm of the right piece without moving any piece. It needs the taught table grid, `poses/table_corners.json` from `python pick.py --corners`, and the webcam. Not run on hardware.

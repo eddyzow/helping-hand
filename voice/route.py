@@ -107,6 +107,16 @@ def main() -> None:
     if name not in {s["name"] for s in skills}:
         speak("I don't know how to do that.")
         return
+    if name == "point":  # find it with the camera, as for fetch, but only its position is needed
+        thing = text or params.get("object") or "the object"
+        found, _ = locate(thing)
+        if not found:
+            speak(f"I can't see {thing}.")
+            return
+        if len(found) > 1:
+            speak(f"I see {len(found)} of those. Which one?")
+            return
+        params = {key: found[0][key] for key in ("object", "u", "v")}
     if name == "fetch":
         thing = text or params.get("object") or "the object"  # the whole sentence, so "next to the car" survives
         found, problem = locate(thing)
@@ -136,6 +146,8 @@ def main() -> None:
         speak("I'm busy." if result.get("reason") == "busy" else "I can't do that right now.")
     elif name == "fetch":
         speak(f"Getting {params['object']}.")
+    elif name == "point":
+        speak(f"That's the {params['object']}.")
 
 
 if __name__ == "__main__":
