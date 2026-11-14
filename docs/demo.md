@@ -25,14 +25,17 @@ built from skills that need neither grip strength nor millimetre accuracy.
 | Write a name with a taped-on marker (Ben, Eddy) | A felt tip that slides and springs back, taped to the jaw, not gripped; a taught paper grid | `skills/draw.py` and `skills/write.py` on `main`, mock and simulation only. Eddy rates this the riskiest and says to try it last. A first-try checklist is in `notes/ben.md` |
 
 Cut from the live demo, per the same plan: picking up and stacking Duplo, feeding, anything that
-grips a pencil. They exist in the simulator and can be shown as video, saying plainly that the
-servos are the limit.
+grips a pencil. Picking, stacking and drawing exist in the simulator and can be shown as video.
+Feeding was never built, in simulation or otherwise, so there is nothing of it to show. Say what
+happened on the arm (it could not grip the pencil or place the blocks) without naming a cause:
+nobody has yet recorded why.
 
 ## The one rule
 
 A skill is in the table demo only if it passes 4 runs out of 5 on the real arm at the Saturday
-8:50 PM freeze. Anything that does not pass is cut from the script, not rehearsed harder. By that
-rule, at 5:45 PM, only Geometry Dash is in.
+8:50 PM freeze. Anything that does not pass is cut from the script, not rehearsed harder. At 6:15
+PM nothing has passed it. Geometry Dash is the only skill reported to run on the arm, and it has
+no attempt count yet either; it passes when someone writes down at least 4 clears out of 5 tries.
 
 ## Open decisions for the four of you
 
@@ -52,8 +55,8 @@ rule, at 5:45 PM, only Geometry Dash is in.
 1. What it is, in one sentence. Draft: "A desk robot arm you talk to: it plays a rhythm game by
    itself, points at what you name, and reacts, all through one dispatcher with a stop key."
 2. What is real: Geometry Dash is the arm physically pressing a key in time. Say that first.
-3. What is honest: the arm's servos are too weak to grip and not accurate enough to place things,
-   so picking, stacking and drawing are shown in simulation. Say it before a judge asks. Judges
+3. What is honest: on the real arm, gripping a pencil and placing blocks did not work, so picking,
+   stacking and drawing are shown in simulation. Give the reason only if someone has found it. Say it before a judge asks. Judges
    score Functionality on what they see work.
 4. Cost line, only if it helps: the bare motor kit for this arm launched at $240 (source in
    `docs/devpost.md`). Do not compare it with assistive devices now that fetching and feeding are out.
@@ -67,12 +70,12 @@ rule, at 5:45 PM, only Geometry Dash is in.
 | 3 | Judge presses the wave key (X), or says "wave" | The arm waves; after a Geometry Dash run it celebrates or droops | Skip it | Daniel, Ben |
 | 4 | Judge says "point at the red brick" | The arm reaches over and points at it, and the laptop says "That's the red brick" | Typed request; then skip it | Eddy |
 | 5 | Judge gives a first name | The arm writes it on a card with a taped-on marker | Hand over a card made earlier, or skip it | Ben, Eddy |
-| 6 | Laptop screen | Simulator video: picking, stacking and drawing, with the line "this is what the same code does when the motors are strong enough" | | Eddy |
+| 6 | Laptop screen | Simulator video: picking, stacking and drawing, with the line "this is the same code in simulation; on the real arm, gripping and placing did not work yet" | | Eddy |
 | 7 | Teammate speaks | What is next | | Ben |
 
 Notes on the blocks:
 
-- Block 2 is the demo. Everything else is extra. Get one clean run filmed today: it is both the
+- Block 2 is the only block with a real run reported behind it. Everything else is extra. Get one clean run filmed today: it is both the
   backup video and the proof of the claim. Block 2 also shows the stop key on purpose; a judge who
   sees the arm stop on command trusts the rest.
 - Block 3 needs ten minutes on the arm: try the moves one at a time, gentlest first (`droop`,
