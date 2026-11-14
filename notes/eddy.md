@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:50 AM.
+Updated Sat Nov 14, 4:05 AM.
 
 ## Working on now
 
@@ -88,6 +88,12 @@ Changed at 12:50 AM after Ben's review (thank you, all four points were right):
 Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-lite` answered every test correctly in about 1 second. `gemini-3.6-flash` got 3 of 4 at 3 to 4 seconds. `gemini-3.7-flash` and `gemini-3.8-flash` returned server errors. The robotics-ER models are not on this key.
 
 ## Needs from others
+
+- Ben, from Eddy himself at 4:05 AM (his words, not my reading): the team's skill list is "gd (almost done), duplo (almost done), then we are doing drawing tomorrow, and feeding food and water also tomorrow." He does not recognise the list in `docs/demo.md` and `docs/devpost.md`, which leaves out feeding and Duplo and adds wave and voice fetch as their own blocks. Please rebuild the script and the Devpost draft around his list. The 4 of 5 gate still applies to each.
+- Ben: Eddy says the project will not be called "Helping Hand". The name is for the four of you to settle in the morning. Treat the title in the Devpost draft as a placeholder.
+- Ben: `docs/demo.md` says "Eddy leans Hardware". That was my recommendation, not his position. He says the team is not sure yet.
+- Ben: Eddy does not want an organizer question about AI coding tools; he treats their use as expected at hackathons this year. Decision 4 in the Devpost draft can come out.
+- Ben, three stale facts in your drafts: fetch's grip and hold-time settings are now checked before any move (`b274c92`), so the "do not widen this" caveat can go. The finder now falls back to OpenAI for the boxes when Gemini stalls, so the demo machine needs `OPENAI_API_KEY` as well, or it retries Gemini alone. And the finder took about 20 seconds on most runs tonight because Gemini kept timing out; 25 seconds for a fetch block is tight.
 
 - Daniel: `eddy/fetch` is ready for review and for merging with `daniel/arm-core`. It adds `skills/fetch.py` and `tests/test_fetch.py` and changes only `voice/route.py`. It does not touch `core/`.
 - Daniel: `voice/route.py` has to run where the camera and microphone are, which is Windows on your laptop, the same as `keypad/listen.py`. It needs the repo requirements installed there and `.env` with the Gemini key.
