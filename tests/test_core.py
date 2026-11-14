@@ -23,7 +23,7 @@ def test_core():
     arm = get_arm(mock=True)
     dispatcher.load(arm)
     names = {s["name"] for s in dispatcher.list_skills()}
-    assert {"wave", "gd_tap", "geometry_dash", "tap_calibrate"} <= names
+    assert {"wave", "gd_tap", "geometry_dash", "tap_calibrate", "tap_place"} <= names
 
     assert dispatcher.dispatch("nope")["ok"] is False
     assert dispatcher.handle("run wave {bad json")["reason"] == "params must be JSON"
@@ -269,6 +269,51 @@ def test_core():
     arm.set_tap, arm._write = good_set_tap, real_write
     assert (core.arm.POSES / "tap_key.json").read_text() == before_file
     assert not (core.arm.POSES / "tap_tune.json").exists()
+    key_down.clear()
+
+    # a key that sticks down after calibration's first test press: no success, nothing saved
+    state = {"stuck": False}
+
+    def sticky_key(joints):
+        real_write(joints)
+        if joints[1] != -20:                                       # only near the key, not on the way from home
+            return
+        if joints[2] >= 41.0:
+            if key_down.is_set() is False and state.get("armed"):
+                state["stuck"] = True                              # the second time it goes down, it stays
+            key_down.set()
+            state["armed"] = True
+        elif joints[2] < 40.6 and not state["stuck"]:
+            key_down.clear()
+
+    arm._write = sticky_key
+    before_file = (core.arm.POSES / "tap_key.json").read_text()
+    lift_before = arm.lift
+    assert dispatcher.handle("run tap_calibrate")["ok"] is True
+    dispatcher._worker.join(60)
+    arm._write = real_write
+    assert dispatcher.handle("status")["last"]["ok"] is False, dispatcher.handle("status")
+    assert "stayed down" in dispatcher.handle("status")["last"]["reason"]
+    assert (core.arm.POSES / "tap_key.json").read_text() == before_file
+    assert not (core.arm.POSES / "tap_tune.json").exists() and arm.lift == lift_before
+    key_down.clear()
+
+    # the key first registers exactly at the travel limit: the saved press must not go past it
+    rough_now = arm.load_pose("tap_key")[2]
+
+    def edge_key(joints):
+        real_write(joints)
+        if joints[2] >= rough_now + 1.0 - 1e-9:
+            key_down.set()
+        elif joints[2] < rough_now + 0.85:
+            key_down.clear()
+
+    arm._write = edge_key
+    assert dispatcher.handle('run tap_calibrate {"max_travel": 1}')["ok"] is True
+    dispatcher._worker.join(60)
+    arm._write = real_write
+    assert dispatcher.handle("status")["last"]["ok"] is True, dispatcher.handle("status")
+    assert json.loads((core.arm.POSES / "tap_key.json").read_text())["elbow_flex.pos"] <= rough_now + 1.0 + 1e-6
     key_down.clear()
 
     skills = dispatcher.list_skills()

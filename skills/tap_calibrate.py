@@ -67,30 +67,47 @@ def run(arm, params, stop):
         return STOPPED if stop.is_set() else {"ok": False, "reason": "the key never released while lifting"}
 
     key = list(rough)
-    key[TAP_JOINT] = pressed_at + PAST
-    lift = abs(key[TAP_JOINT] - released_at) + CLEAR
-    try:  # check the measurement first; only a valid one replaces the saved calibration
+    key[TAP_JOINT] = min(pressed_at + PAST, lowest)  # the saved press obeys the same travel limit
+    lift = key[TAP_JOINT] - released_at + CLEAR
+    hover = list(key)
+    hover[TAP_JOINT] -= lift
+    before = (arm.lift, arm.press_extra)
+    try:  # check the measurement first; only a valid, verified one replaces the saved calibration
         arm.set_tap(lift, 0.0)
+        core.arm._checked(key), core.arm._checked(hover)
     except ValueError as err:
         arm.from_key()
         return {"ok": False, "reason": f"measured an odd stroke ({err}); the saved calibration is unchanged"}
+
+    def reaches(pose, want_pressed):
+        """Command one pose and wait up to half a second for the key to read as wanted."""
+        if stop.is_set():
+            return False
+        arm._write(pose)
+        deadline = time.perf_counter() + 0.5
+        while key_down.is_set() != want_pressed and time.perf_counter() < deadline:
+            if stop.wait(0.01):
+                return False
+        return key_down.is_set() == want_pressed
+
+    # three test taps with the new numbers; every press must register AND every lift must release
+    taps = 0
+    released = reaches(hover, False)
+    while released and taps < 3 and reaches(key, True):
+        taps += 1
+        released = reaches(hover, False)
+    if stop.is_set():
+        arm.set_tap(*before)
+        return STOPPED
+    if taps < 3 or not released:
+        arm.set_tap(*before)
+        arm.from_key()
+        why = "the key stayed down after a lift" if not released else f"only {taps} of 3 test taps registered"
+        return {"ok": False, "reason": f"{why}; the saved calibration is unchanged"}
+
     (POSES / "tap_key.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, key)}, indent=1))
     (POSES / "tap_tune.json").write_text(json.dumps({"lift": lift, "press": 0.0}))
-
-    seen = 0
-    if not arm.release():
-        return STOPPED
-    for _ in range(3):
-        if stop.wait(0.4) or not arm.press():
-            return STOPPED
-        deadline = time.perf_counter() + 0.5
-        while time.perf_counter() < deadline and not key_down.is_set():
-            if stop.wait(0.01):
-                return STOPPED
-        seen += key_down.is_set()
-        if not arm.release():
-            return STOPPED
     if not arm.from_key():
         return STOPPED
-    return {"ok": seen == 3, "reason": f"key registers at {pressed_at:.2f}, releases at {released_at:.2f}, "
-            f"lift {lift:.2f}; {seen} of 3 test taps registered"}
+    return {"ok": True, "reason": f"key registers at {pressed_at:.2f}, releases at {released_at:.2f}, "
+            f"lift {lift:.2f}; 3 of 3 test taps registered and released"}
