@@ -7,6 +7,18 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Pointing and demo pivot: main c035029 / d267796
+
+The new point skill reuses fetch._aim, checks finite/ranged settings and coordinates, validates both planned poses, then homes, approaches, dips, waits, lifts and homes. Voice routing reuses locate and forwards one object's name/u/v; zero or multiple matches do not dispatch. `python -B -m skills.point` prints point ok. New `python -B -m tests.test_point_boundaries` passes invalid configuration/coordinates/taught pose with zero home/move calls, expected nominal commands, failure at each command, interrupted dwell with no recovery, and voice forwarding/refusal. Provider and sketch modules pass after the voice change. No runtime source was edited.
+
+Combined QA (arm 99babfd plus main d267796) also passes WSL `python -B -m tests.test_core`, printing core ok under an external timeout. This baseline success does not close the existing targeted failures.
+
+These are command/control checks only. Point ignores detected lift and dips a fixed fraction of the taught gap; neither tall-object clearance, jaw geometry nor obstacles are checked by that arithmetic. The claimed three simulated requests within 5 mm remain owner reports. An operator must establish the usable pointing envelope before treating this as a physical demo; QA performed no camera, microphone, provider, serial, simulator or real movement.
+
+Eddy's reported inability to grip a pencil or place blocks is attributed, without independently recorded measurements or a diagnosed cause. The revised plan remains a team proposal. Ben's requests for a filmed GD run with attempt counts, a gesture slot, failure details and build provenance were forwarded to the coordinator; no hardware slot was taken. Requested documentary corrections: the 4-of-5 rule cannot admit GD without attempt counts; the statement that all cut capabilities exist in simulation also overstates feeding evidence. A reported gripper failure alone does not establish servos as the cause. Existing source holds remain open.
+
+Interview questions: What must be checked before the first home call? Why does a valid joint-space dip not prove clearance over an object? What evidence distinguishes a reported success from passing a 4-of-5 gate?
+
 ## Held-grip history: arm 99babfd held
 
 `MockArm.move_joints` (inherited by Arm) now holds the last requested gripper value constant when a later move asks for the same value. The consecutive-move control passes with a fake jaw blocked at 19 while commanded to 5. However, `_grip_sent` is updated only in move_joints; play moves to its first trajectory point through that method, then writes later points directly without refreshing history.
