@@ -5,7 +5,8 @@
 It reuses Jonathan's browser replay (geo_browser_replay.py) and his MuJoCo-modelled key edges, then
 disturbs the times the way the real arm does: a shared offset, a random error on each press and
 each release, and a shortest possible hold. Every run is one line in outputs/jitter_study.jsonl:
-the settings, whether it cleared the level, and how far it got. No arm and no keypad are used.
+the settings, how far it got, and whether it ended with no crash heard (which still needs the saved
+end screenshot checked before calling it a clear). No arm and no keypad are used.
 
 The browser game is not the desktop game with Mega Hack: treat the numbers as how tolerant this
 kind of macro is, not as a promise about the desktop run.
@@ -64,7 +65,10 @@ def one_run(edges, seconds):
     started = "soundtrack started" in text
     if crash:
         return False, float(crash.group(1)), int(crash.group(2)), text
-    return bool(code == 0 and started), None, len(edges) if code == 0 else 0, text
+    # No crash sound was heard and every event was sent. That is NOT proof of Level Complete: the
+    # replay does not observe completion. The end screenshot is kept so a person can check it.
+    shot = run_dir / "end-screen.png"
+    return bool(code == 0 and started), None, len(edges) if code == 0 else 0, text + f"\nEND_SCREEN {shot}"
 
 
 def main() -> int:
@@ -99,8 +103,10 @@ def main() -> int:
                 cleared, crash_s, sent, error = False, None, 0, f"{type(err).__name__}: {err}"
             row = {"pattern": args.pattern.name, "offset_ms": offset, "press_jitter_ms": args.press_jitter_ms,
                    "release_jitter_ms": args.release_jitter_ms, "min_hold_ms": args.min_hold_ms, "run": run,
-                   "cleared": cleared, "crash_s": crash_s,
-                   "percent": 100.0 if cleared else round(100 * crash_s / level_s, 1) if crash_s else None,
+                   # "no_crash" = all events sent and no crash sound. Unconfirmed until the end screen is looked at.
+                   "no_crash": cleared, "crash_s": crash_s,
+                   "end_screen": text.rsplit("END_SCREEN ", 1)[1] if cleared and "END_SCREEN " in text else None,
+                   "percent": round(100 * crash_s / level_s, 1) if crash_s else None,
                    "events_sent": sent, "error": error, "took_s": round(time.time() - began, 1)}
             with args.out.open("a") as file:
                 file.write(json.dumps(row) + "\n")
