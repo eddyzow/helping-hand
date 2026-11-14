@@ -1,7 +1,7 @@
 # Devpost draft
 
-Drafted by Ben's agent (Person 4). Reworked Sat Nov 14, 5:45 PM after Eddy reported what
-the real arm can and cannot do; Ben has not reviewed this version. Initial submission is
+Drafted by Ben's agent (Person 4). Reworked Sat Nov 14, 6:50 PM around the Steady Hand pivot
+in `newcontext.md`; Ben has not reviewed this version. The claims list there binds this text. Initial submission is
 due Sat midnight; aim for 11 PM.
 
 How to use this file: the text under each heading is written to paste into Devpost. Lines in
@@ -13,10 +13,10 @@ the arm must confirm each physical claim.
 
 ## Decisions needed before submitting
 
-1. Track: exactly one [HACKUMASS] category. Accessibility or Hardware (see `docs/demo.md`; the
-   full list of 28 prizes is in `docs/tracks.md`). Sponsor prizes are separate opt-ins.
-2. Project name. Eddy says it will not be "Helping Hand"; the four of you settle it. The title
-   below is a placeholder, written as NAME.
+1. Track: exactly one [HACKUMASS] category. Best Accessibility Hack fits Steady Hand; Best MedTech
+   Hack is the alternative (see `docs/demo.md`; all 28 prizes are in `docs/tracks.md`). Sponsor
+   prizes are separate opt-ins.
+2. Project name: `newcontext.md` uses "Steady Hand". Confirm that is the Devpost title.
 3. Which skills are in. Only skills that passed 4 of 5 on the real arm at the freeze are described
    as working. The draft below lists the team's four; cut the ones that did not pass.
 4. AI coding tools: settled by the rules page, read Sat 2:10 PM (`docs/tracks.md`). It has no
@@ -31,115 +31,88 @@ the arm must confirm each physical claim.
 
 ## Title and tagline
 
-NAME [placeholder until the team picks one]
+Steady Hand [the name used in `newcontext.md`; confirm it is the Devpost name]
 
-Tagline, two options:
-
-- Hardware: A desk robot arm that beats a rhythm game with its own finger, and does what you tell it.
-- Accessibility [only if fetching or feeding is somehow back by the freeze]: A desk robot arm that
-  helps from one key or one sentence.
+Tagline: Your hand shakes. The arm does not.
 
 ## Inspiration
 
-[REWRITTEN 5:45 PM after Eddy reported that the real arm can press a button but cannot grip a
-pencil or place blocks. The earlier version compared the arm with assistive feeding devices; with
-fetching and feeding out of the live demo, that comparison would promise something we do not show.]
-
-Hobby robot arms are now cheap enough to sit on a desk, but most demos teach them one trick. We
-wanted one arm with a library of skills behind a single control point, where adding a skill is one
-small file, you can ask for a skill out loud, and a stop key always works. Then we found out what a
-$240 motor kit can and cannot physically do, which turned into the most useful part of the weekend.
+For people with essential tremor or Parkinson's, a shaking hand makes ordinary things hard: writing
+a name, holding something still. We started the weekend building a robot arm that did things by
+itself. By Saturday evening we had learned what our arm was actually good at: following a person.
+So we let the person do the aiming and gave the arm one job, taking the shake out.
+[Do not add a statistic unless someone has sourced it.]
 
 ## What it does
 
-NAME is an SO-101 robot arm with a set of skills you start from a three-key keypad or by speaking.
+Steady Hand is a pair of small robot arms. You hold and move the leader arm; the follower arm
+copies your movement with the tremor filtered out.
 
-- Plays Geometry Dash. [CONFIRM with whoever watched: how far it gets, out of how many attempts.]
-  The arm physically taps the jump key through Stereo Madness from recorded timings, held presses
-  included.
-- Reacts. [CONFIRM ON ARM] It waves, nods, celebrates a clear and droops after a crash.
-- Points at what you name. [CONFIRM ON ARM] Say "point at the red brick"; a camera looks at the
-  table and the arm reaches over and points at it.
-- Writes a name. [CONFIRM ON ARM; the riskiest one] With a felt-tip marker taped to its gripper.
-- Stops. One keypad key always stops the arm where it is. [CONFIRM ON ARM]
-- In simulation only, and we say so: the same code picks up and stacks Duplo by voice and sketches
-  what you ask for. On the real arm, gripping a pencil and placing pieces did not work, so these are
-  shown as simulator video. [State the cause only if someone has diagnosed it.]
+- Filters a shaking hand. [CONFIRM ON ARM with numbers: shake in mm with steady mode off and on.]
+  Slow, deliberate movement passes through; the fast shake does not.
+- Shows what it removed. A dashboard plots the hand's shake, the arm's shake and the percent
+  removed, and runs a ten-second "hold still" steadiness test. [CONFIRM the test exists at freeze.]
+- Holds things for you. [CONFIRM the skill on the arm; the grasp alone worked 4 of 4.] Hand the
+  claw a light object and it holds it steady and gives it back.
+- Extras [only those that passed 4 of 5]: it plays Geometry Dash by pressing the key itself
+  [so far: one full clear of Stereo Madness in three counted attempts], gestures, voice commands.
+
+What it is not: it has been tested by us shaking our own hands on purpose, not with patients. It
+lifts light things only. It does not treat tremor; it measures and tracks steadiness.
 
 ## How we built it
 
-- The arm is a Seeed Studio SO-ARM101 Pro (the SO-101 design by TheRobotStudio), driven through
-  Hugging Face's LeRobot. Poses are taught by switching the follower's motors off and positioning
-  it by hand; the leader arm is used to record whole motions.
-- A dispatcher process owns the arm and runs one skill at a time. Every skill is one Python file
-  with a name, a description and a `run(arm, params, stop)` function. The keypad, the voice router
-  and a typed command line all send the dispatcher the same one-line commands.
-- Finding objects takes two models. An OpenAI model draws a numbered box around every object in the camera
-  frame, because it was accurate about where things are. Claude then picks which numbers match the
-  request, because it was better at telling look-alike pieces apart. A spoken request is
-  transcribed by an OpenAI speech model in its own call before the boxes are found. We started
-  with Gemini for all of this and removed it when its free tier kept timing out.
-- Reaching uses no inverse kinematics. We teach the arm a grid of poses over the table by hand and
-  blend between them. [CONFIRM: the grid size we ended up using.]
-- Writing turns text into pen strokes with a single-stroke Hershey font, then follows them through
-  a taught grid over the paper. For a sketch, Claude draws the thing as strokes three times, guided
-  by the most typical doodles of it from Google's Quick, Draw! dataset. A second call that is not
-  told the subject is asked to name the drawing; if it names something else, the sketch is redone
-  once with that feedback.
-- Geometry Dash replays a recording of a person's key presses, shifted by the arm's measured press
-  and release delay. [CONFIRM: the measured delay in milliseconds.]
-- Safety was treated as a feature. Commands are checked before the first motor moves: joint
-  values, move durations, settings and the replies from the models. For the dispatcher skills a
-  rejected value means no move is sent, and each of those checks has a test that runs on a mock
-  arm with no hardware.
-  [Keep it this narrow. Closed findings do not prove every bad input gives zero motion: the
-  standalone `pick.py`, for one, homes the arm before it refuses.]
-  [CONFIRM at the freeze that no review finding about an unchecked value is still open. At
-  11:20 AM one was open on `main` (a malformed placement reply becoming a handover, in `a620d95`).]
-- A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
-  touching hardware.
+- The arms are a Seeed Studio SO-ARM101 Pro leader and follower pair (the SO-101 design by
+  TheRobotStudio), driven through Hugging Face's LeRobot.
+- Deliberate hand movement is slow, below about 2 Hz; tremor is fast, about 4 to 12 Hz. A low-pass
+  filter between the two arms passes the first and holds back the second, and the follower's
+  speed is capped. On synthetic input a 0.5 Hz reach passes at 94 percent and a 6 Hz shake is cut
+  by 90 percent. [REPLACE with the real-arm numbers when Daniel publishes them.]
+- The two arms' zero points differ, so a per-joint offset is measured once with both arms folded
+  against their end stops.
+- A dispatcher process owns the follower and runs one skill at a time; every skill is one Python
+  file with a name, a description and a `run(arm, params, stop)` function. A three-key keypad,
+  voice and a typed command line all drive it, and one key always stops the arm.
+- Commands are checked before the first motor moves, and those checks run as tests on a mock arm
+  with no hardware. A second coding agent reviewed every branch and held changes out of the main
+  branch until its reproduced findings were fixed.
+- Geometry Dash replays a recording of a person's key presses. The arm laptop's Linux clock ran
+  4.2 percent fast against Windows, which made every jump early until the replay was timed on
+  Windows. [Daniel's measurement; confirm the figure.]
 
 ## Challenges we ran into
 
-- The arm itself. It presses a key reliably, but on Saturday afternoon it could not grip a pencil
-  or place a brick where stacking needs it, after we had built picking, stacking and drawing in
-  simulation. [We have a report of the failure, not a measured cause.]
-  [CONFIRM the wording with whoever ran those tests, and add the numbers if anyone measured them.]
-- One arm, four people. Everyone wrote against a mock arm with the same interface and booked the
-  real arm in short slots.
-- Vision models were good at different halves of the job. One pointed accurately but miscounted
-  look-alike bricks; the other chose correctly but pointed loosely. Splitting the job fixed it.
-- The free model tier rate-limits and sometimes takes over ten seconds. The finder retries, and
-  the demo is planned around the worst case.
-- The arm has no sense of touch. [CONFIRM ON ARM: what this meant for the pen and the grasp.]
-- Stopping safely is harder than moving. Our first shutdown code homed the arm after a stop, and
-  the motor library's own cleanup could switch the motors off and drop the arm. Both were found in
-  review on fake hardware. [CONFIRM with Daniel whether that was before the arm first moved.]
-- [ADD: whatever actually went wrong on the real arm on Saturday.]
+- We pivoted late. For most of Saturday we built picking, stacking and drawing, with a camera
+  finding objects and the arm reaching for them. In simulation it worked. On the real arm, four
+  hours of attempts did not pick one brick off the table.
+- The cause of the "weak grip" was not weak motors. The follower's elbow had been calibrated
+  through only part of its travel, the motor stored that as a limit, and every pose asking for
+  more bend stopped about 23 degrees short without any error. [Daniel's diagnosis; confirm.]
+- What worked on the real arm had one thing in common: a person supplied the position. That
+  observation is the project we ended up with.
+- One arm pair, four people: everyone wrote against a mock arm and took turns on the real one.
+- Stopping safely is harder than moving. Early shutdown code moved the arm after a stop, and the
+  motor library's own cleanup could switch the motors off and drop it. Both were caught in review
+  on fake hardware.
 
 ## Accomplishments that we're proud of
 
-- [ONLY IF TRUE: N skills working live at the table from one key or one sentence.]
-- A stop key that was tested on purpose, including the cases where something else has just failed.
-- Four people's coding agents coordinated through notes in the repository, with every claim
-  marked as tested on a mock, in simulation, or on the arm.
+- [ONLY IF TRUE: a measured before and after on the real arm, with a stranger's hand on the leader.]
+- Finding the elbow limit instead of blaming the motors.
+- Saying no to our own plan with hours to go, and ending with something that fits the hardware.
 
 ## What we learned
 
-- Get the hardware moving first, and test the hardest physical thing on day one. We built
-  grasping and drawing for most of a day in simulation before learning the arm could not grip.
-  [CONFIRM this is how the team sees it.]
-- A taught grid of poses is a workable substitute for inverse kinematics on a cheap arm.
-  [CONFIRM ON ARM.]
-- Say exactly how each thing was tested. "Works" meant three different things on this team until
-  we wrote it down.
+- Test the hardest physical thing on day one. We learned what the arm could not do after building
+  for it.
+- A passing simulation is a claim about the simulation.
+- Write down how each thing was tested: on a mock, in simulation, or on the arm.
 
-## What's next for NAME
+## What's next for Steady Hand
 
-- [If feeding did not make the demo: feeding, as a recorded scoop that stops short of the face.]
-- A wrist camera, so the arm does not have to move out of the way to look.
-- Trying it with people who would actually use it. Nothing here has been tested with a person
-  with limited hand use, and it is a weekend prototype, not a medical device.
+- Trying it with people who have a tremor, with proper guidance. Nothing here has been.
+- A lighter, quicker follower, so the filtered motion trails the hand less.
+- Recalibrating the elbow so the arm reaches its full range.
 
 ## Built with
 
@@ -160,6 +133,10 @@ pynput, sounddevice, hershey-fonts, quick-draw-dataset
 [CHECK this list against `requirements.txt` and the README on Saturday night.]
 
 ## Cost figures and where they come from (looked up Sat Nov 14, 3:30 AM)
+
+[After the Steady Hand pivot these are background only. The claims list in `newcontext.md` rules
+out presenting the arm as a replacement for a medical device, so do not set its price beside
+theirs in the pitch.]
 
 Use these in the pitch only as written. They are list or reported prices, several years apart,
 found by web search. Open the source links and confirm each number before saying it to a judge.

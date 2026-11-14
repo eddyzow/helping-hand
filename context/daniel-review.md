@@ -7,6 +7,23 @@ Team protocol: [AGENTS.md](../AGENTS.md). Team contracts: [newcontext.md](../new
 
 Current review status: see [Daniel's current notes](../notes/daniel.md). The dated findings below preserve their original evidence; later fix sections supersede earlier open findings. All Codex execution used mock/fake objects; no physical validation is claimed.
 
+## Standalone Steady Hand: f865171 held
+
+Concurrent main 8e67300 adds the team's Steady Hand pivot and convergence plan: Jonathan owns the dispatcher path, sharing filter/meter work with Daniel's planned core.tremor. Acknowledged as the current coordination plan, not completion of the merge or these fixes. It also reports native Windows COM3 follower/COM4 leader, elbow calibration limits, 4/4 handed-brick grasps and one GD clear in three attempts; all remain attributed operator reports, not QA measurements. No recalibration or hardware action is authorized by this review. The statement that Jonathan's branch is held only until a real run omits the reproduced software blockers above/below; hardware success cannot replace fixing them.
+
+This is a second implementation, root steady.py, distinct from Jonathan's skills.steady. Claude/Jonathan are asked through Daniel's notes to coordinate one reviewed path before integration. Both remain on their branches and combined QA only. The standalone opens both devices directly and bypasses core Arm's validation/stop/cleanup contract. It binds BUDDY_PORT (default 8765) and dashboard 8780 before constructing devices, so an occupied default dispatcher port prevents that launch; changing BUDDY_PORT does not establish exclusive serial ownership. No real bind, device or dashboard was launched here.
+
+QA `a7885af`, `python -B -m tests.test_standalone_steady_safety`, executes actual standalone main with fake device/config factories, fake servers/threads/time/Fingertip and temporary offsets/logs. Normal finite control passes. Four targeted assertions fail:
+
+- Stop arriving inside leader.get_action is missed until the next loop: state.hold is true when send_action receives a new shoulder target 50 after the previous target 0. Snapshotting hold before a blocking read is insufficient; recheck immediately before a new write.
+- During the initial ease, hold replaces wanted with sent, but easing then changes it again: the requested shoulder target moves from 16.667 to 11.111 while held. Hold must retain the safe target rather than rerun the startup blend.
+- With --yes, a mid-run leader read exception reaches follower.disconnect with disable_torque_on_disconnect=True and no support confirmation. Preserve holding on faults/unconfirmed shutdown, including constructor/destructor paths; keep explicit supported release distinct from stop.
+- A NaN in the saved offset reaches follower.send_action as a NaN body target. Validate finite six-joint offsets, readings and resulting targets at the shared boundary before any command; direct driver use currently bypasses core._checked.
+
+These are fake command/cleanup observations, not physical movement or torque measurements. The fake config uses the installed follower default disable_torque_on_disconnect=True confirmed in both environments. Existing tests.test_steady prints steady ok for synthetic filter/meter/command checks; that does not exercise these runtime boundaries. Earlier arm holds are untouched because core source did not change. Gesture/hand/native-listener additions and metrics/cleanup details are still under review; no clearance, grip-load, tremor efficacy or clinical claim is verified.
+
+Interview questions: Where can stop race a blocking sensor read? Why can an easing expression move a held target? Which shared protections are lost when a new entry point talks directly to the driver?
+
 ## Steady shared-contract review: 30c95fd held
 
 Jonathan's branch adds skills.steady; merged into QA only, not main. Read the complete skill/self-check, every streaming/open-leader caller, core move/write paths, root leader/follower helpers, and both local Windows/WSL installed LeRobot sources. No runtime implementation was changed. QA `44be992`, `python -B -m tests.test_steady_boundaries`, preserves the owner's self-check while adding independent boundary checks with fake clocks/arms/factories and temporary poses/traces.
