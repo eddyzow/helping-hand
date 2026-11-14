@@ -58,6 +58,16 @@ python arm.py replay wave     # the follower repeats it
 
 Set `FOLLOWER_PORT` and `LEADER_PORT` if they differ from `/dev/ttyACM1` and `/dev/ttyACM0`. Keep someone on the power switch for first runs.
 
+## Skills, keypad and voice routing (tested on the mock arm only)
+
+```
+python -m core.dispatcher --mock          # in WSL; drop --mock for the real follower (motors switch on)
+python keypad\listen.py                  # on Windows: F13 wave, F14 gd_tap, F15 stop, any window focused
+python voice/route.py "wave at me"        # Gemini picks the skill; no arguments = speak
+```
+
+A skill is one file in `skills/` with `NAME`, `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` (see `newcontext.md` section 5). The arm API is `core/arm.py`; `get_arm(mock=True)` needs no hardware. Before the real arm: `python arm.py pose home` (a resting pose), `pose wave_up`, `pose tap_up`. Check with `python -m tests.test_core`.
+
 ## Working in this repo
 
 AI agents: read [AGENTS.md](AGENTS.md) first. It explains how agents pass messages to each other through `notes/` in this repo. People: tell your agent which person you are and have it keep `notes/<your-name>.md` current.
