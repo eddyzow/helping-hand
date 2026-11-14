@@ -143,8 +143,12 @@ class MockArm:
     def _jump(self, lower: float) -> bool:
         if self.halt.is_set():
             return False
-        self._write(_checked(self.key_pose(lower)))
+        self._write_tap(_checked(self.key_pose(lower)))
         return True
+
+    def _write_tap(self, joints: list[float]) -> None:
+        """Send a tap. The mock has nothing faster than a normal write."""
+        self._write(joints)
 
     def tap(self, depth_mm: float = 3.0) -> bool:
         # ponytail: depth_mm is ignored until there is IK; the stroke is set_tap(lift, press).
@@ -193,6 +197,13 @@ class Arm(MockArm):
 
     def _write(self, joints: list[float]) -> None:
         self._robot.send_action({f"{j}.pos": v for j, v in zip(JOINTS, joints)})
+
+    def _write_tap(self, joints: list[float]) -> None:
+        """One packet to the tapping motor only. The normal write first reads all six motors to
+        limit the step, which added a few milliseconds that varied from tap to tap; a tap is a
+        small, already-checked move of one joint, so it does not need that."""
+        name = JOINTS[TAP_JOINT]
+        self._robot.bus.sync_write("Goal_Position", {name: joints[TAP_JOINT]})
 
     def close(self, release: bool = True) -> None:
         """Close the serial port. Never moves. release=True switches the motors off, so the arm

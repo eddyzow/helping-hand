@@ -80,6 +80,33 @@ def send(command: str, timeout: float = 1) -> str:
         return f"dispatcher not reachable: {err}"
 
 
+_open = []  # the one connection kept open for key events
+
+
+def notify(command: str) -> None:
+    """Report a key event on a connection that stays open. Opening a new connection for every key
+    press took a few milliseconds that varied each time, and the arm's clock starts from this event."""
+    for _ in range(2):  # a second try only if the kept connection had gone stale
+        had = bool(_open)
+        try:
+            if not _open:
+                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.2)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                s.setblocking(False)
+                _open.append(s)
+            _open[0].sendall((command + "\n").encode())
+            try:
+                _open[0].recv(4096)  # discard replies so they never pile up
+            except BlockingIOError:
+                pass
+            return
+        except OSError:
+            if _open:
+                _open.pop().close()
+            if not had:
+                return
+
+
 def device_name(handle) -> str:
     size = wintypes.UINT(512)
     buf = ctypes.create_unicode_buffer(size.value)
@@ -129,7 +156,7 @@ def main() -> None:
             elif vk != VK_UP:  # anywhere else a click could hit anything, so stay with the harmless Up arrow
                 user32.keybd_event(VK_UP, 0, 0 if down else KEYUP, 0)
             if not recording:
-                send("key down" if down else "key up", 0.2)  # lets the arm feel the key: see skills/tap_calibrate.py
+                notify("key down" if down else "key up")  # lets the arm feel the key: see skills/tap_calibrate.py
             elif in_game and "t0" not in recording:
                 if down:  # the press that clicks Play is time zero and is not itself part of the macro
                     recording["t0"] = now
