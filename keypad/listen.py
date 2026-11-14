@@ -84,10 +84,13 @@ def send(command: str, timeout: float = 1) -> str:
 _open = []  # the one connection kept open for key events
 
 
-def notify(command: str) -> None:
+def notify(command: str, retry: bool = True) -> None:
     """Report a key event on a connection that stays open. Opening a new connection for every key
-    press took a few milliseconds that varied each time, and the arm's clock starts from this event."""
-    for _ in range(2):  # a second try only if the kept connection had gone stale
+    press took a few milliseconds that varied each time, and the arm's clock starts from this event.
+    A key state may be sent again after a failed send, because sending it twice changes nothing.
+    A cue may not (retry=False): it might have arrived the first time, and a second one would
+    restart the replay."""
+    for _ in range(2 if retry else 1):  # a second try only if the kept connection had gone stale
         had = bool(_open)
         try:
             if not _open:
@@ -227,7 +230,7 @@ def main() -> None:
                             recording["t0"], recording["events"] = time.perf_counter(), []
                             print("Recording from this restart. Play; press the STOP key when done.", flush=True)
                         else:
-                            notify("cue")  # on the kept-open connection: the replay clock starts from this
+                            notify("cue", retry=False)  # on the kept-open connection: the replay clock starts from this
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
     proc = WNDPROC(wndproc)  # keep a reference so it is not garbage collected
