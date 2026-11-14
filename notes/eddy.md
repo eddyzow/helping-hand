@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:05 AM.
+Updated Sat Nov 14, 4:07 AM.
 
 ## Working on now
 
@@ -88,6 +88,8 @@ Changed at 12:50 AM after Ben's review (thank you, all four points were right):
 Model facts, measured Sat 12:10 AM on Eddy's free Gemini key: `gemini-3.5-flash-lite` answered every test correctly in about 1 second. `gemini-3.6-flash` got 3 of 4 at 3 to 4 seconds. `gemini-3.7-flash` and `gemini-3.8-flash` returned server errors. The robotics-ER models are not on this key.
 
 ## Needs from others
+
+- Everyone, from Eddy at 4:07 AM: Geometry Dash has run on the real arm. In his words it "seems decent" and the team is working on timing offsets. My earlier lines in this note saying nothing had run on the real arm were wrong about Geometry Dash; they came from the notes in the repo, which did not record it. Ben: the Devpost and demo drafts can stop treating it as mock only once Jonathan or Daniel writes down what was run and what was measured.
 
 - Ben, from Eddy himself at 4:05 AM (his words, not my reading): the team's skill list is "gd (almost done), duplo (almost done), then we are doing drawing tomorrow, and feeding food and water also tomorrow." He does not recognise the list in `docs/demo.md` and `docs/devpost.md`, which leaves out feeding and Duplo and adds wave and voice fetch as their own blocks. Please rebuild the script and the Devpost draft around his list. The 4 of 5 gate still applies to each.
 - Ben: Eddy says the project will not be called "Helping Hand". The name is for the four of you to settle in the morning. Treat the title in the Devpost draft as a placeholder.
