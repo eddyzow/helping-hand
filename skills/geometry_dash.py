@@ -86,10 +86,20 @@ def run(arm, params, stop):
                 waiting.clear()
                 cue.clear()
                 start = time.perf_counter()
+            seen, last = [], [key_down.is_set()]  # what the keypad really did, to report after the run
+
+            def watch():
+                state = key_down.is_set()
+                if state != last[0]:
+                    last[0] = state
+                    seen.append((time.perf_counter() - start, state))
+
             for event in commands:
                 while not cue.is_set() and (left := event.at - (time.perf_counter() - start)) > 0:
-                    if stop.wait(min(left, 0.02)):
-                        return STOPPED      # hold where it is; stop never commands a move
+                    watch()
+                    if stop.wait(min(left, 0.002)):
+                        # hold where it is; stop never commands a move
+                        return {**STOPPED, "timing": _timing(seen, events) if feels_key else ""}
                 if cue.is_set():            # the level was restarted: let go and start the clock again
                     arm.release()
                     break
@@ -108,9 +118,36 @@ def run(arm, params, stop):
                     time.sleep(0.0005)
                 arm.release()
             else:
-                return _finish(arm, "")
+                settle = time.perf_counter() + 0.3  # catch the last release
+                while feels_key and time.perf_counter() < settle and not stop.is_set():
+                    watch()
+                    time.sleep(0.002)
+                result = _finish(arm, "")
+                if feels_key:
+                    result["timing"] = _timing(seen, events)
+                return result
     finally:
         waiting.clear()
+
+
+def _timing(seen, events) -> str:
+    """Compare what the keypad reported with the recording: counts, and how early or late in ms."""
+    seen = [(t, down) for t, down in seen if t > events[0].at - 0.5]  # not the level-entering press
+    lines = []
+    for down, word in ((True, "presses"), (False, "releases")):
+        got = [t for t, d in seen if d == down]
+        want = [e.at for e in events if e.down == down]
+        if len(got) != len(want):
+            off = next((i for i, (g, w) in enumerate(zip(got, want)) if abs(g - w) > 0.25), min(len(got), len(want)))
+            lines.append(f"{word}: keypad saw {len(got)}, recording has {len(want)}; first difference at "
+                         f"number {off + 1}, {want[off]:.2f} s into the level" if off < len(want) else
+                         f"{word}: keypad saw {len(got)}, recording has {len(want)}; extra ones at the end")
+        elif got:
+            err = [(g - w) * 1000 for g, w in zip(got, want)]
+            worst = max(range(len(err)), key=lambda i: abs(err[i]))
+            lines.append(f"{word}: all {len(got)} seen, average {sum(err) / len(err):+.0f} ms "
+                         f"(from {min(err):+.0f} to {max(err):+.0f}; worst is number {worst + 1} at {want[worst]:.2f} s)")
+    return "; ".join(lines) + ". Plus means late."
 
 
 def _finish(arm, reason):
