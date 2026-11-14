@@ -2,6 +2,7 @@
 
     python sim_draw.py cat              # no window: saves outputs/sim_drawing.png and outputs/sim_draw.mp4
     python sim_draw.py --text HI        # write a word
+    python sim_draw.py --write Dr. Lee  # a name, as the write skill does it; --script for handwriting
     mjpython sim_draw.py --view         # live window; type what to draw, one after another
 
 It runs the real skills/draw.py. Like sim.py it stands in for the taught paper grid (worked out by
@@ -192,6 +193,8 @@ def sketch(arm, strokes) -> dict:
 def strokes_for(words: list[str]):
     if words[:1] == ["--text"]:
         return draw.from_text(" ".join(words[1:]))
+    if words[:1] in (["--write"], ["--script"]):  # a name, as skills/write.py lays it out
+        return draw.from_writing(" ".join(words[1:]), "script" if words[0] == "--script" else "print")
     return draw.sketch(" ".join(words))
 
 
@@ -212,7 +215,7 @@ def main() -> None:
         if not args:
             if not (view and arm.window.is_running()):
                 break
-            args = input('What should I draw, e.g. "a cat" or "--text HI" (Enter to quit)? ').split()
+            args = input('What should I draw, e.g. "a cat" or "--write Dr. Lee" (Enter to quit)? ').split()
             if not args:
                 break
         try:

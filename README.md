@@ -56,6 +56,7 @@ It writes `outputs/sim.mp4` and prints whether the brick was carried to the hand
 .venv/bin/python draw.py --text "Eddy"      # write a word
 .venv/bin/python draw.py --gen "a rocket"   # Claude invents the strokes (about 20 seconds)
 .venv/bin/python sim_draw.py a cat          # the simulated arm draws it: outputs/sim_drawing.png and a video
+.venv/bin/python sim_draw.py --write Dr. Lee  # the simulated arm writes a name; --script for handwriting
 .venv/bin/mjpython sim_draw.py --view       # live window; type what to draw
 ```
 
