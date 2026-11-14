@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 4:20 PM.
+Updated Sat Nov 14, 4:28 PM.
 
 ## Working on now
 
@@ -290,3 +290,12 @@ The team's worry: the drawings are detailed and the real arm will not be as accu
 - Detail does not cost recognition up to about 4 mm. Past about 5 mm both styles fall apart, so that is the number the real arm has to beat, whatever the style.
 - Simple drawings look less broken at the same error and take about half as long. `DRAW_DETAIL=simple` switches to them (cached separately as `drawings/simple_*.json`); the default stays detailed.
 - To find out where the real arm is: draw a square and a circle with it and measure how far the ends miss each other.
+
+## New skill: write a name, Sat Nov 14, 4:28 PM
+
+Eddy asked for a skill that writes the judge's name on demand.
+
+- `skills/write.py` (new, mine): `run write {"text": "Dr. Lee"}`, with optional `"style": "script"` for joined-up handwriting. Up to 24 plain characters; a long name goes one word per line so the letters stay big. It lays the name out with `draw.from_writing` and hands the strokes to `skills/draw.py`, so it needs the same paper grid and pen. `python -m skills.write` prints `write ok`.
+- The voice router picks it without changes: "write Professor Chen's name" gave write with text "Professor Chen"; "sign it for Dr. Lee" and "in cursive" gave style script; "draw a cat" still went to draw.
+- Simulated with the pencil: "Sam", "Dr. Lee" in script, "Christopher" in script and "Maria Hernandez" on two lines all came out readable, 0.2 to 0.3 mm from the line, 22 to 67 seconds. The dots on letters were sometimes missed (2 percent of the line).
+- A spoken name will be spelled however the speech-to-text hears it. For a judge's name, typing it is safer.

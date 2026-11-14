@@ -3,6 +3,7 @@
     python draw.py a cat               # anything: the best of people's Quick, Draw! doodles, or Claude draws it
     python draw.py --first cat         # the first usable Quick, Draw! doodle, no model
     python draw.py --text "Eddy"       # write a word
+    python draw.py --write "Dr. Lee"   # a name on up to three lines; --script for joined-up handwriting
     python draw.py --gen "a rocket"    # ask Claude to invent the strokes
     python draw.py cat --go            # also draw it (needs poses/paper.json from arm.py teach)
 
@@ -248,6 +249,43 @@ def rounded(points: Stroke, passes: int = 2) -> Stroke:
     return points
 
 
+LINE_GAP = 44          # Hershey units from one line of writing to the next
+WIDE_LINE = 9          # a line longer than this many letters is worth splitting, so the letters stay big
+FONTS = {"print": "futural", "script": "scripts"}  # plain capitals and small letters, or joined-up handwriting
+
+
+def lines_of(text: str) -> list[str]:
+    """Split writing into lines so the letters come out as big as the page allows: one word per line when
+    there are several and they would be small side by side."""
+    words = text.split()
+    return words if len(words) > 1 and len(text) > WIDE_LINE else [" ".join(words)]
+
+
+def from_writing(text: str, style: str = "print") -> list[Stroke]:
+    """Pen strokes for a name or a few words, on up to three lines, each centred."""
+    from HersheyFonts import HersheyFonts
+
+    font = HersheyFonts()
+    font.load_default_font(FONTS[style])
+    strokes: list[Stroke] = []
+    for row, line in enumerate(lines_of(text)[:3]):
+        segments = list(font.lines_for_text(line))
+        if not segments:
+            continue
+        xs = [x for seg in segments for x, _ in seg]
+        middle = (min(xs) + max(xs)) / 2
+        first = len(strokes)
+        for (ax, ay), (bx, by) in segments:
+            a, b = (ax - middle, ay + row * LINE_GAP), (bx - middle, by + row * LINE_GAP)
+            if len(strokes) > first and strokes[-1][-1] == a:
+                strokes[-1].append(b)  # join segments so the pen stays down
+            else:
+                strokes.append([a, b])
+    if not strokes:
+        raise ValueError("nothing to write")
+    return fit(strokes)
+
+
 def closed_up(points: Stroke) -> Stroke:
     """A loop whose ends nearly meet is closed. The model often draws a circle or an ellipse and stops just
     short of where it started, which left a gap in a cup's rim and a saucer."""
@@ -275,7 +313,7 @@ def from_model(what: str, reference: bytes | None = None, mistaken_for: str | No
               "the subject would look like it is floating without one. No shading or filling "
               "in, and do not let strokes crowd or cross each other. Finish every shape: an outline meets itself, "
               "a line that joins another reaches it. "
-              + ("Use 4 to 30 strokes. " if os.environ.get("DRAW_DETAIL", "detailed") == "detailed" else
+              + ("Use 4 to 30 strokes. " if DETAIL == "detailed" else
                  "The arm that draws this is imprecise: its pen can land 3 or 4 units away from where it aims, and "
                  "differently for each stroke. So draw it bold and simple, like a road sign: 3 to 10 strokes, big "
                  "shapes that fill the page, nothing smaller than 12 units across, at least 8 units between lines "
@@ -358,6 +396,8 @@ def main() -> None:
         sys.exit(__doc__)
     if args[0] == "--text":
         strokes = from_text(" ".join(args[1:]))
+    elif args[0] in ("--write", "--script"):
+        strokes = from_writing(" ".join(args[1:]), "script" if args[0] == "--script" else "print")
     elif args[0] == "--gen":
         strokes = from_model(" ".join(args[1:]))
     elif args[0] == "--first":
@@ -375,6 +415,7 @@ if __name__ == "__main__":
     assert abs(square[0][0][0] - MARGIN) < 1e-9 and abs(square[0][1][0] - (1 - MARGIN)) < 1e-9
     assert abs((square[0][0][1] + square[0][2][1]) / 2 - 0.5) < 1e-9
     assert len(resample([(0, 0), (1, 0)])) == 51
+    assert lines_of("Sam") == ["Sam"] and lines_of("Al Lee") == ["Al Lee"] and lines_of("Maria Hernandez") == ["Maria", "Hernandez"]
     ring = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 1)]  # stops just short of its start
     assert closed_up(ring)[-1] == ring[0] and closed_up(ring[:4]) == ring[:4] and closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
     main()
