@@ -78,7 +78,8 @@ def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label, turn) on the taught grid; turn is how
     many degrees to rotate the jaws so they close across the object's narrow side.
     Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
-    asked to have it put next to, in the same form."""
+    asked to have it put next to, in the same form. More than one entry in either list means the
+    request is ambiguous: ask, never pick one."""
     hits, said, boxes, beside = see.find_all(frame, command, audio)
     corners = json.loads(CORNERS.read_text())
     out = see.numbered(frame, boxes)
@@ -88,11 +89,13 @@ def locate(frame, command=None, audio=None):
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label, jaw_turn(frame, box, corners)))
-    targets = narrow(targets, said)
+    what, where = split_request(said)
+    targets = narrow(targets, what)
     near = []
     for x, y, label, box in beside:
         cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
         near.append((*to_uv(x, y, corners), label, jaw_turn(frame, box, corners)))
+    near = narrow(near, where)
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
     return targets, said, near
@@ -125,6 +128,21 @@ TIEBREAKS = {
     ("rightmost", "right"): lambda t: (-t[0],),
     ("any", "either", "one of"): lambda t: (-t[1], abs(t[0] - 0.5)),
 }
+
+
+PLACE_WORDS = (" next to ", " near ", " beside ", " onto ", " on top of ", " on ", " in front of ", " behind ",
+               " by ", " close to ", " against ", " into ", " to the ")
+
+
+def split_request(command: str | None) -> tuple[str, str]:
+    """"put the red brick next to the right blue brick" -> ("put the red brick", "the right blue brick").
+    A position word only narrows the object it describes: "right" here is about the blue brick."""
+    words = f" {(command or '').lower()} "
+    cuts = [(words.find(w), w) for w in PLACE_WORDS if w in words]
+    if not cuts:
+        return words.strip(), ""
+    at, word = min(cuts)
+    return words[:at].strip(), words[at + len(word):].strip()
 
 
 def narrow(targets: list, command: str | None) -> list:
@@ -212,6 +230,11 @@ if __name__ == "__main__":
     assert narrow(two, "pick up the closest red brick") == [two[0]] and narrow(two, "the right one") == [two[1]]
     assert narrow(two, "the farthest red brick") == [two[1]] and narrow(two, "pick up the red brick") == two
     assert narrow(two[:1], "the closest") == two[:1] and narrow([], "the closest") == []
+    # a position word about the destination must not pick the source
+    assert split_request("put the red brick next to the right blue brick") == ("put the red brick", "the right blue brick")
+    what, where = split_request("put the red brick next to the right blue brick")
+    assert narrow(two, what) == two and narrow(two, where) == [two[1]]
+    assert split_request("pick up the closest red brick") == ("pick up the closest red brick", "")
     # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
     assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
     assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)

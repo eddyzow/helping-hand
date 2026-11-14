@@ -329,6 +329,9 @@ def request(arm, args: list[str]) -> None:
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
                 return
+            if len(near) > 1:
+                print(f"Not moving: {len(near)} objects match the place to put it.")
+                return
             params = {"u": targets[0][0], "v": targets[0][1], "turn": targets[0][3]}
             if len(near) == 1:
                 params["to_u"], params["to_v"] = pick.drop_spot(targets[0], near[0])

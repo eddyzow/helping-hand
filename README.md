@@ -36,7 +36,7 @@ python pick.py "pick up the mouse" --go   # moves the arm
 python pick.py --go                       # voice loop: Enter, speak, Enter
 ```
 
-Run the dry run first and check the green outline and red cross in `outputs/last.jpg`. Redo `--corners` if the camera or the arm's base moves. If the gripper opens or closes the wrong amount, set `GRIP_OPEN` and `GRIP_CLOSED` (defaults 60 and 5). The gripper keeps the angle it was taught at, so long objects need to lie the way the gripper closes.
+Run the dry run first and check the green outline and red cross in `outputs/last.jpg`. Redo `--corners` if the camera or the arm's base moves. If the gripper opens or closes the wrong amount, set `GRIP_OPEN` and `GRIP_CLOSED` (defaults 100 and 5). Teach every grid point with the jaws closing left to right across the table; the arm then turns its wrist to match each object.
 
 ## Simulation (no arm needed)
 

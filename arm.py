@@ -73,6 +73,8 @@ def go_limp(robot) -> None:
 def teach(name: str, n: int = 5) -> None:
     # 5 per side: in simulation a 3 by 3 grid put the gripper 7 mm off between points (12 at worst),
     # more than a brick grasp tolerates; 4 by 4 was 3 mm (5 at worst) and 5 by 5 under 2 mm (3 at worst).
+    if type(n) is not int or n < 2:  # checked before connecting: a bad size must not wipe a taught grid
+        sys.exit("The grid needs at least 2 points per side, e.g. python arm.py teach table 5")
     robot = follower()
     go_limp(robot)
     grid = {"n": n}

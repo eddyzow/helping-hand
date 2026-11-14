@@ -57,6 +57,18 @@ def test_fetch():
     here = arm.get_joints()
     assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 3.0, "to_v": 0.0}, stop)["ok"] is False and arm.get_joints() == here
 
+    # settings out of range are refused before any move
+    here = arm.get_joints()
+    for name, bad in [("GRIP_OPEN", 101.0), ("GRIP_CLOSED", -1.0), ("HOLD_SECONDS", -1.0), ("HOLD_SECONDS", float("nan"))]:
+        good = getattr(fetch, name)
+        setattr(fetch, name, bad)
+        assert fetch.run(arm, {"u": 0.5, "v": 0.5}, stop)["ok"] is False and arm.get_joints() == here, name
+        setattr(fetch, name, good)
+    # a wrist turn that would carry the corrected target off the grid is refused, not clamped
+    fetch.JAW_ARM_MM, fetch.GRID_WIDTH_MM, fetch.GRID_DEPTH_MM = 20.0, 100.0, 100.0
+    assert "wrist" in fetch.run(arm, {"u": 1.0, "v": 0.5, "turn": 90}, stop)["reason"] and arm.get_joints() == here
+    fetch.JAW_ARM_MM = 0.0
+
     # stop during the run: it reports stopped and does not go on to open the gripper at handover
     stop.set()
     assert fetch.run(arm, {"u": 0.5, "v": 0.5}, stop) == fetch.STOPPED

@@ -44,7 +44,11 @@ def _joints(pose: dict, grip: float) -> list[float]:
 
 
 def run(arm, params, stop):
-    # everything is checked before the first move
+    # everything is checked before the first move, settings included: they come from the environment
+    if not all(math.isfinite(g) and 0 <= g <= 100 for g in (GRIP_OPEN, GRIP_CLOSED)):
+        return {"ok": False, "reason": "GRIP_OPEN and GRIP_CLOSED must be numbers from 0 to 100"}
+    if not (math.isfinite(HOLD_SECONDS) and HOLD_SECONDS >= 0):
+        return {"ok": False, "reason": "HOLD_SECONDS must be a number, 0 or more"}
     u, v = params.get("u"), params.get("v")
     if not all(type(n) in (int, float) and math.isfinite(n) for n in (u, v)):
         return {"ok": False, "reason": "fetch needs numbers u and v (voice/route.py supplies them)"}
@@ -61,6 +65,8 @@ def run(arm, params, stop):
         swing = math.radians(turn)
         u -= (math.cos(swing) - 1) * JAW_ARM_MM / GRID_WIDTH_MM
         v -= math.sin(swing) * JAW_ARM_MM / GRID_DEPTH_MM
+        if not (math.isfinite(u) and math.isfinite(v) and -EDGE <= u <= 1 + EDGE and -EDGE <= v <= 1 + EDGE):
+            return {"ok": False, "reason": f"out of reach once the wrist is turned: u={u:.2f} v={v:.2f}"}
     up = interpolate(table["up"], table["n"], u, v)
     down = interpolate(table["down"], table["n"], u, v)
     for pose in (up, down):  # the wrist turns before the jaws come down, and stays turned while lifting

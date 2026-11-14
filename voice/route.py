@@ -79,8 +79,9 @@ def speak(text: str) -> None:
         pass  # no voice on this machine: the printed line is enough
 
 
-def locate(thing: str) -> list[dict]:
-    """Camera frame -> every matching object's position on the taught grid. Empty if none."""
+def locate(thing: str) -> tuple[list[dict], int]:
+    """Camera frame -> (every matching object's position on the taught grid, how many objects
+    matched the place to put it). With one of each, the entry also says where to put it down."""
     import cv2
 
     import pick
@@ -93,8 +94,8 @@ def locate(thing: str) -> list[dict]:
              for u, v, label, turn in targets]
     if len(found) == 1 and len(near) == 1:  # "put it next to the car": add where to put it down
         to_u, to_v = pick.drop_spot(targets[0], near[0])
-        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3), beside=near[0][2])
-    return found
+        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3))
+    return found, len(near)
 
 
 def main() -> None:
@@ -126,12 +127,15 @@ def main() -> None:
         return
     if name == "fetch":
         thing = text or params.get("object") or "the object"  # the whole sentence, so "next to the car" survives
-        found = locate(thing)
+        found, places = locate(thing)
         if not found:
             speak(f"I can't see {thing}.")
             return
         if len(found) > 1:  # never pick one silently
             speak(f"I see {len(found)} of those. Which one?")
+            return
+        if places > 1:  # asked to put it somewhere, and that somewhere is unclear: do not hand it over instead
+            speak(f"I see {places} places that could mean. Which one?")
             return
         params = found[0]
     result = send(f"run {name} {json.dumps(params)}")
