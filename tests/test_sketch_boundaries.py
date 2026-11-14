@@ -25,15 +25,17 @@ def test_stroke_preflight():
         assert not skill.run(arm, {"strokes": strokes}, threading.Event())["ok"]
     assert skill.checked_strokes([stroke] * 80)
     assert len(skill.checked_strokes([[stroke[0]] * 4000])[0]) == 4000
-    for path in (Path(draw.__file__).parent / "drawings").glob("sketch_*.json"):
-        assert skill.checked_strokes(json.loads(path.read_text())), path
+    for prefix in ("sketch", "simple"):
+        for path in (Path(draw.__file__).parent / "drawings").glob(f"{prefix}_*.json"):
+            assert skill.checked_strokes(json.loads(path.read_text())), path
 
 
 def test_generated_and_cached():
     reply = [{"smooth": True, "points": [[0, 0], [50, 100], [100, 0]]},
              {"points": [[True, 0], [1, 1]]}]
+    prompts = []
     see = SimpleNamespace(load_env=lambda: None, parse_reply=json.loads,
-                          ask_claude=lambda *args, **kwargs: json.dumps(reply))
+                          ask_claude=lambda prompt, *args, **kwargs: prompts.append(prompt) or json.dumps(reply))
     with patch.dict(sys.modules, {"see": see}):
         strokes = draw.from_model("curve")
         assert len(strokes) == 1 and len(strokes[0]) > 3
@@ -42,12 +44,20 @@ def test_generated_and_cached():
         loop = draw.from_model("loop")[0]
         assert loop[0] == loop[-1], "near-closed model loop reopened during smoothing"
         assert draw.closed_up([(0, 0), (10, 0)]) == [(0, 0), (10, 0)]
+        for detail, wording in (("detailed", "4 to 30 strokes"), ("simple", "3 to 10 strokes")):
+            with patch.object(draw, "DETAIL", detail):
+                assert skill.checked_strokes(draw.from_model("loop"))
+                assert wording in prompts[-1]
         with tempfile.TemporaryDirectory() as temporary, patch.object(draw, "HERE", Path(temporary)):
             cache = Path(temporary) / "drawings/sketch_a_cat.json"
             cache.parent.mkdir()
             cache.write_text(json.dumps(strokes))
+            simple = [[(.2, .2), (.8, .8)]]
+            cache.with_name("simple_a_cat.json").write_text(json.dumps(simple))
             with patch.object(see, "ask_claude", side_effect=AssertionError("cached request called provider")):
-                assert draw.sketch("a cat") == strokes
+                for detail, expected in (("detailed", strokes), ("simple", simple)):
+                    with patch.object(draw, "DETAIL", detail):
+                        assert draw.sketch("a cat") == expected
 
 
 def test_voice_sketch():
