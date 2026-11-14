@@ -89,7 +89,7 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
   [Keep it this narrow. Closed findings do not prove every bad input gives zero motion: the
   standalone `pick.py`, for one, homes the arm before it refuses.]
   [CONFIRM at the freeze that no review finding about an unchecked value is still open. At
-  10:40 AM all tracked ones were closed, and the Gemini-free finder (`bdea8c0`) was unreviewed.]
+  11:20 AM one was open on `main` (a malformed placement reply becoming a handover, in `a620d95`).]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
