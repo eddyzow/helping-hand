@@ -21,7 +21,8 @@ from grid import interpolate
 NAME = "fetch"
 DESCRIPTION = "Pick up an object from the table and hand it to the person"
 PARAMS = {"object": "what to pick up, in the person's own words, e.g. 'the red brick'",
-          "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py"}
+          "u": "filled in by voice/route.py from the camera", "v": "filled in by voice/route.py",
+          "to_u": "optional: where to put it down instead of handing it over", "to_v": "optional"}
 
 GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 the simulated jaw came down on top of a 32 mm brick
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper value when squeezing
@@ -48,16 +49,28 @@ def run(arm, params, stop):
     up = interpolate(table["up"], table["n"], u, v)
     down = interpolate(table["down"], table["n"], u, v)
     handover = arm.load_pose("handover")[:5]
+    to_u, to_v = params.get("to_u"), params.get("to_v")
+    placing = to_u is not None or to_v is not None
+    if placing and not all(type(n) in (int, float) and math.isfinite(n) and -EDGE <= n <= 1 + EDGE
+                           for n in (to_u, to_v)):
+        return {"ok": False, "reason": "the place to put it down is out of reach"}
 
     moves = [
         (_joints(up, GRIP_OPEN), 1.5),
         (_joints(down, GRIP_OPEN), 1.0),
         (_joints(down, GRIP_CLOSED), 0.6),
         (_joints(up, GRIP_CLOSED), 1.0),
-        (handover + [GRIP_CLOSED], 2.0),
     ]
+    if placing:  # carry it over, set it down, let go, lift clear
+        above = interpolate(table["up"], table["n"], to_u, to_v)
+        on_table = interpolate(table["down"], table["n"], to_u, to_v)
+        after = [(_joints(on_table, GRIP_OPEN), 0.6), (_joints(above, GRIP_OPEN), 1.0)]
+        moves += [(_joints(above, GRIP_CLOSED), 2.0), (_joints(on_table, GRIP_CLOSED), 1.0)]
+    else:
+        after = [(handover + [GRIP_OPEN], 0.6)]
+        moves += [(handover + [GRIP_CLOSED], 2.0)]
     try:  # a bad taught pose must fail here, before the arm has moved at all
-        for joints, _ in moves:
+        for joints, _ in moves + after:
             core.arm._checked(joints)
     except (ValueError, TypeError) as err:
         return {"ok": False, "reason": f"bad taught pose: {err}"}
@@ -66,8 +79,11 @@ def run(arm, params, stop):
     for joints, seconds in moves:
         if not arm.move_joints(joints, seconds):
             return STOPPED
-    if stop.wait(HOLD_SECONDS):  # the person takes it; a stop here keeps the grip
+    if not placing and stop.wait(HOLD_SECONDS):  # the person takes it; a stop here keeps the grip
         return STOPPED
-    if not (arm.move_joints(handover + [GRIP_OPEN], 0.6) and arm.home()):
+    for joints, seconds in after:
+        if not arm.move_joints(joints, seconds):
+            return STOPPED
+    if not arm.home():
         return STOPPED
     return {"ok": True, "reason": ""}

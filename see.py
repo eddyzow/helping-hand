@@ -52,8 +52,10 @@ The pieces may be LEGO Duplo. A piece may lie on its side or upside down, showin
 underside. People call the 2x4 brick with a sloped top the "triangle" brick; from below it shows
 three round holes in a row. One box may hold two touching pieces.
 The person said: "{command}"
-Which numbered objects are what the person asked for? Include every one that fits; a different
-kind of object does not fit. Return only JSON: {{"matches": [numbers]}}. Use [] if none fit."""
+Which numbered objects are what the person asked to pick up? Include every one that fits; a
+different kind of object does not fit. If the person also said where to put it, such as next to or
+near another object, list that other object under "near".
+Return only JSON: {{"matches": [numbers], "near": [numbers]}}. Use [] where nothing fits."""
 
 
 def load_env():
@@ -62,7 +64,7 @@ def load_env():
         for line in env.read_text().splitlines():
             key, sep, value = line.partition("=")
             if sep and not key.strip().startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip())
+                os.environ[key.strip()] = value.strip()  # .env wins: a stale key exported in a shell broke a run
 
 
 def grab_frame():
@@ -146,9 +148,9 @@ def to_boxes(reply, width, height):
     return boxes
 
 
-def to_matches(answer, count):
+def to_matches(answer, count, key="matches"):
     """The chooser's reply -> indexes into the boxes. Only whole numbers from 1 to count."""
-    matches = answer.get("matches") if isinstance(answer, dict) else None
+    matches = answer.get(key) if isinstance(answer, dict) else None
     return [n - 1 for n in matches if type(n) is int and 1 <= n <= count] if isinstance(matches, list) else []
 
 
@@ -196,7 +198,8 @@ def numbered(frame, boxes):
 
 
 def choose(frame, boxes, command):
-    """Which boxes match the request? Returns a list of indexes into boxes."""
+    """Which boxes match the request, and which box it should be put near?
+    Returns two lists of indexes into boxes: (to pick up, to put it near)."""
     image = numbered(frame, boxes)
     shrink = CHOOSER_LONG_EDGE / max(image.shape[:2])
     if shrink < 1:
@@ -217,12 +220,13 @@ def choose(frame, boxes, command):
     else:
         print("No ANTHROPIC_API_KEY: Gemini is choosing, which is less reliable.", file=sys.stderr)
         answer = _gemini([(jpg, "image/jpeg"), prompt])
-    return to_matches(answer, len(boxes))
+    return to_matches(answer, len(boxes)), to_matches(answer, len(boxes), "near")
 
 
 def find_all(frame, command=None, audio_path=None):
-    """Every object that matches the request. Returns (hits, said, boxes): hits are
-    (x_px, y_px, label) at the centre of each matching box; said is what was asked."""
+    """Every object that matches the request. Returns (hits, said, boxes, near): hits are
+    (x_px, y_px, label) at the centre of each matching box; said is what was asked; near is the
+    same for any object the person asked to have it put next to."""
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor() as pool:  # hearing and looking run side by side
@@ -230,11 +234,11 @@ def find_all(frame, command=None, audio_path=None):
         boxes = pool.submit(detect, frame).result()
         command = command or (heard.result() if heard else None)
     if not boxes or not command:
-        return [], command, boxes
-    answer = choose(frame, boxes, command)
-    hits = [((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2, boxes[i]["label"])
-            for i in answer]
-    return hits, command, boxes
+        return [], command, boxes, []
+    centre = lambda i: ((boxes[i]["x0"] + boxes[i]["x1"]) // 2, (boxes[i]["y0"] + boxes[i]["y1"]) // 2,
+                        boxes[i]["label"])
+    picked, near = choose(frame, boxes, command)
+    return [centre(i) for i in picked], command, boxes, [centre(i) for i in near]
 
 
 def find(frame, command=None, audio_path=None):
@@ -255,7 +259,7 @@ def main():
     frame = cv2.imread(image) if image else grab_frame()
     if frame is None:
         sys.exit(f"Could not read {image}")
-    hits, said, boxes = find_all(frame, command, audio)
+    hits, said, boxes, _ = find_all(frame, command, audio)
     out = numbered(frame, boxes)
     for x, y, _ in hits:
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)

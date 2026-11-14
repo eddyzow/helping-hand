@@ -289,6 +289,7 @@ def write_poses(model) -> None:
 def request(arm, args: list[str]) -> None:
     """Run one request on the simulated arm and report what happened to the pieces."""
     before = {name: arm.height_of(name) for name in NAMES}
+    start = {name: arm.data.body(name).xpos[:2].copy() for name in NAMES}
     if args[:1] == ["--skill"]:
         skill, params = importlib.import_module(f"skills.{args[1]}"), json.loads(args[2]) if len(args) > 2 else {}
     else:
@@ -301,12 +302,15 @@ def request(arm, args: list[str]) -> None:
 
             see.load_env()
             pick.CORNERS = SIM_POSES / "table_corners.json"
-            targets, said = pick.locate(arm.top_view(), command=" ".join(args))
+            targets, said, near = pick.locate(arm.top_view(), command=" ".join(args))
             print(f'asked "{said}": {len(targets)} match', [(label, round(u, 2), round(v, 2)) for u, v, label in targets])
             if len(targets) != 1:
                 print("Not moving: the finder needs exactly one match.")
                 return
             params = {"u": targets[0][0], "v": targets[0][1]}
+            if len(near) == 1:
+                params["to_u"], params["to_v"] = pick.drop_spot(targets[0], near[0])
+                print(f"  putting it beside: {near[0][2]}, at u={params['to_u']:.2f} v={params['to_v']:.2f}")
     cv2.imwrite(str(OUT / "sim_top.jpg"), arm.top_view())
 
     lifted = dict(before)
@@ -331,7 +335,13 @@ def request(arm, args: list[str]) -> None:
     for name in lifted:
         if lifted[name] - before[name] > 0.03:
             print(f"  {name} was lifted {100 * (lifted[name] - before[name]):.0f} cm")
-    if skill.NAME == "fetch":
+    if skill.NAME == "fetch" and "to_u" in params:
+        for name in NAMES:
+            moved = np.linalg.norm(arm.data.body(name).xpos[:2] - start[name])
+            if moved > 0.02:
+                gap = np.linalg.norm(arm.data.body(name).xpos[:2] - arm.data.body("car_body").xpos[:2])
+                print(f"  {name} moved {100 * moved:.0f} cm and now sits {100 * gap:.0f} cm from the car body")
+    elif skill.NAME == "fetch":
         print(f"  carried to the handover in the jaws: {', '.join(sorted(carried)) or 'nothing'}")
     if arm.frames:
         arm.save_video(OUT / "sim.mp4")
@@ -362,7 +372,10 @@ def main() -> None:
             break
         if not line:
             break
-        request(arm, line.split())
+        try:
+            request(arm, line.split())
+        except Exception as err:  # a failed AI call or a bad request must not close the window
+            print(f"That request failed: {type(err).__name__}: {str(err)[:200]}")
 
 
 if __name__ == "__main__":

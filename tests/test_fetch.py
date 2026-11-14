@@ -47,6 +47,16 @@ def test_fetch():
     assert any(all(abs(a - b) < 1e-6 for a, b in zip(j, grasp)) for j in seen)
     assert all(abs(a - b) < 1e-6 for a, b in zip(arm.get_joints(), arm.load_pose("home")))
 
+    # put it down somewhere instead of handing it over: opens on the far-right cell, never visits handover
+    seen.clear()
+    assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 1.0, "to_v": 0.0}, stop) == {"ok": True, "reason": ""}
+    set_down = [20.0, 21.0, 22.0, 23.0, 24.0, fetch.GRIP_OPEN]
+    assert any(all(abs(a - b) < 1e-6 for a, b in zip(j, set_down)) for j in seen)
+    assert not any(abs(j[0] - 50.0) < 1e-6 for j in seen)
+    # a put-down spot off the grid is refused before any move
+    here = arm.get_joints()
+    assert fetch.run(arm, {"u": 0.5, "v": 0.5, "to_u": 3.0, "to_v": 0.0}, stop)["ok"] is False and arm.get_joints() == here
+
     # stop during the run: it reports stopped and does not go on to open the gripper at handover
     stop.set()
     assert fetch.run(arm, {"u": 0.5, "v": 0.5}, stop) == fetch.STOPPED

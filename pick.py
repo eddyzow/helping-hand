@@ -36,6 +36,7 @@ GRIP_OPEN = float(os.environ.get("GRIP_OPEN", "100"))      # fully open: at 60 t
 GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squeezing
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
+DROP_GAP = float(os.environ.get("DROP_GAP", "0.3"))  # how far beside an object to put something, as a share of the grid
 
 
 def to_uv(x: float, y: float, corners: list[list[float]]) -> tuple[float, float]:
@@ -72,8 +73,9 @@ def load(name: str):
 
 def locate(frame, command=None, audio=None):
     """Every object matching the request, as (u, v, label) on the taught grid.
-    Marks outputs/last.jpg. Returns (targets, said)."""
-    hits, said, boxes = see.find_all(frame, command, audio)
+    Marks outputs/last.jpg. Returns (targets, said, near): near lists any object the person
+    asked to have it put next to, in the same form."""
+    hits, said, boxes, beside = see.find_all(frame, command, audio)
     corners = json.loads(CORNERS.read_text())
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
@@ -82,9 +84,22 @@ def locate(frame, command=None, audio=None):
         u, v = to_uv(x, y, corners)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label))
+    near = []
+    for x, y, label in beside:
+        cv2.drawMarker(out, (x, y), (255, 0, 255), cv2.MARKER_TILTED_CROSS, 60, 6)
+        near.append((*to_uv(x, y, corners), label))
     Path("outputs").mkdir(exist_ok=True)
     cv2.imwrite("outputs/last.jpg", out)
-    return targets, said
+    return targets, said, near
+
+
+def drop_spot(picked: tuple, near: tuple) -> tuple[float, float]:
+    """A place on the taught grid beside `near`, on the side the picked object came from.
+    If `near` is outside the grid, this is the closest point the arm can reach."""
+    du, dv = picked[0] - near[0], picked[1] - near[1]
+    length = (du * du + dv * dv) ** 0.5 or 1.0
+    u, v = near[0] + DROP_GAP * du / length, near[1] + DROP_GAP * dv / length
+    return min(max(u, 0.05), 0.95), min(max(v, 0.05), 0.95)
 
 
 def grasp(robot, u: float, v: float) -> None:
@@ -122,7 +137,7 @@ def main() -> None:
             arm.move_to(robot, load("home"), 2.0)  # clear the camera's view before looking
         audio = None if command else see.record_wav()
         frame = cv2.imread(image) if image else see.grab_frame()
-        targets, said = locate(frame, command, audio)
+        targets, said, _ = locate(frame, command, audio)  # pick.py only hands over; putting down is in skills/fetch.py
         target = targets[0] if len(targets) == 1 else None
         if not targets:
             print(f"I can't see that. (heard: {said})")
@@ -149,4 +164,7 @@ if __name__ == "__main__":
         assert all(abs(a - b) < 1e-4 for a, b in zip(to_uv(*pixel, quad), uv)), pixel
     # a square-on view: the middle pixel is the middle of the grid
     assert all(abs(a - 0.5) < 1e-4 for a in to_uv(300, 250, [[100, 50], [500, 50], [500, 450], [100, 450]]))
+    # put it beside the other object, on the side it came from; an object off the grid clamps to the edge
+    assert all(abs(a - b) < 1e-9 for a, b in zip(drop_spot((0.2, 0.5), (0.8, 0.5)), (0.8 - DROP_GAP, 0.5)))
+    assert drop_spot((0.5, 0.5), (0.5, -0.9)) == (0.5, 0.05)
     main()

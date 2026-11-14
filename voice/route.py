@@ -88,8 +88,12 @@ def locate(thing: str) -> list[dict]:
 
     test_image = os.environ.get("TEST_IMAGE")  # a photo instead of the camera, for testing
     frame = cv2.imread(test_image) if test_image else see.grab_frame()
-    targets, _ = pick.locate(frame, command=f"pick up {thing}")
-    return [{"object": label, "u": round(u, 3), "v": round(v, 3)} for u, v, label in targets]
+    targets, _, near = pick.locate(frame, command=thing)
+    found = [{"object": label, "u": round(u, 3), "v": round(v, 3)} for u, v, label in targets]
+    if len(found) == 1 and len(near) == 1:  # "put it next to the car": add where to put it down
+        to_u, to_v = pick.drop_spot(targets[0], near[0])
+        found[0].update(to_u=round(to_u, 3), to_v=round(to_v, 3), beside=near[0][2])
+    return found
 
 
 def main() -> None:
@@ -120,7 +124,7 @@ def main() -> None:
         speak("I don't know how to do that.")
         return
     if name == "fetch":
-        thing = params.get("object") or text or "the object"
+        thing = text or params.get("object") or "the object"  # the whole sentence, so "next to the car" survives
         found = locate(thing)
         if not found:
             speak(f"I can't see {thing}.")
