@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 1:30 AM ET.
+Updated Sat Nov 14, 1:40 AM ET.
 
 ## Working on now
 
@@ -12,7 +12,8 @@ Next, in order:
 1. Team review of `docs/demo.md` (first draft pushed with this note).
 2. `skills/personality.py` is on `main` (merged in `c6a3418`). Originally `ben/personality`, cut from
    `daniel/arm-core` at `bbdfac5`. Mock only; see below. It adds one file and touches nothing else.
-3. `skills/draw.py` as a thin skill around Eddy's root `draw.py`, one fixed word first.
+3. `skills/draw.py` is on `main`, mock only; see below. Next for it: a taught paper grid and a
+   pen holder, then a first try in an arm slot.
 4. Pen holder: a person's job, not this agent's.
 
 ## Done and how it was tested
@@ -29,6 +30,17 @@ Next, in order:
   --mock`: listed, a bad move refused, nod completed, dance stopped by `stop`.
   Not known: the sign of each joint on the real arm, and whether these offsets clear the table and
   the keypad from `wave_up`. No fist bump: it needs its own taught pose.
+- `skills/draw.py` on `main`: `run draw` writes "HI", `run draw {"text": "BEN"}` writes a word of
+  up to 8 plain characters. It reuses root `draw.py` for strokes (`from_text`, `resample`,
+  `PEN_SQUEEZE`, `PEN_SPEED`) and `grid.py`, but moves the arm only through `arm.move_joints`, so
+  the dispatcher owns the arm and the stop key works. Root `draw.py --go` opens its own connection
+  and is not used. The whole word is planned and checked before the first move.
+  Tested 1:40 AM on Ben's laptop, no hardware: `python -m skills.draw` prints `draw ok` on a fake
+  arm and a made-up grid (no grid, bad text and a NaN in the grid each send nothing; a normal run
+  starts and ends at home with the pen grip unchanged; the pen is only ever down or up; a stop
+  mid-word sends nothing further). `core ok` and `personality ok` still print. In
+  `python -m core.dispatcher --mock` it is listed and refuses with "no paper grid".
+  Not known: everything physical. There is no `poses/paper.json`, so no real plan has been made.
 - Earlier code read of Eddy's root scripts. Eddy acted on it in `965bcea`. I read the `draw.py`
   change (pen squeeze) and it does what the note says; I have not read the `arm.py` and `pick.py`
   changes.
@@ -49,8 +61,17 @@ Next, in order:
   shoulder_pan by 10 to 12 degrees, which moves the whole arm sideways.
 - Daniel: `wave_up` was re-tuned for the wider wave. Personality moves start from the same pose, so
   if you re-teach `wave_up` again, the personality clearance check needs repeating.
-- Eddy: how long does `draw.py --go` take for a five-letter word at the default `PEN_SPEED`? An
-  estimate from the stroke length is enough for now; the script assumes it may exceed 25 seconds.
+- Eddy: planned drawing times at your default `PEN_SPEED` 0.15 are 31 to 54 seconds for names of 2
+  to 8 letters (table in `docs/demo.md`). About 1.8 seconds of each stroke is lift and lower. Is a
+  higher `PEN_SPEED` reasonable, or do you expect the pen to skip? That is yours to tune.
+- Eddy: `skills/draw.py` copies three lines of your squeeze logic from `draw.draw()`. If you move
+  that into a small function in root `draw.py`, I will call it and delete my copy.
+- Daniel: two things `skills/draw.py` assumes that need your eyes on the arm. First, it goes to the
+  home pose with the gripper kept at the pen grip, not home's closed gripper, so the motor does not
+  strain against the pen. Does home still rest safely with a pen sticking out? Second, the pen has
+  to be put in the gripper by a person before `run draw`; is that done with the motors on or off?
+- Daniel or whoever has the arm: `python arm.py teach paper` is needed once before the first try.
+  Note Daniel's reviewer found that connecting toggles torque before the hold-the-arm prompt.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
