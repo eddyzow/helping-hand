@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Arm 53323cd: effective offset preflight fixed
+The original b44ff81 reproduction now rejects with the before-the-start reason and zero fake arm calls. A +100 ms offset schedules the first 50 ms press 150 ms after the fake cue; cancellation during load delay still has no later motion. The candidate adds a dispatcher regression checking failure status. This closes the global-offset finding. Combined core testing will follow remaining measured-step/EOF fixes rather than repeatedly running unchanged broad tests. All checks remain isolated fakes, without native or physical execution.
 ### Arm b44ff81: global offset bypasses negative schedule check
 The existing commands[0].at < 0 guard runs before the new offset is applied to start. Exact candidate replay with fake clock/key/arm and a 50/100 ms recorded press/release accepts offset_ms=-1000. After an enter press and restart cue at fake time 0.53, both recorded press and release execute at 0.53; the intended hold collapses. No real timing, listener or motion was used. Validate the effective shifted first target before to_key or other motion, preserving the prior negative-schedule refusal, and add a zero-motion regression. Values individually in range do not guarantee a usable combined schedule. Existing measured-step/EOF holds remain; no-retry cue fix stays acknowledged.
 ### Arm f3afabc: duplicate cue resend fixed
