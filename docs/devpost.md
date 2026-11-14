@@ -86,7 +86,7 @@ NAME is an SO-101 robot arm with a set of skills you start from a three-key keyp
   values, move durations, settings and the replies from the models. A bad value means the arm does not move
   at all, and each check has a test that runs on a mock arm with no hardware.
   [CONFIRM at the freeze that no review finding about an unchecked value is still open. At
-  5:30 AM two were, both in fetch's placement handling on `main`.]
+  10:30 AM Eddy had pushed fixes for the last two (`b49533d`); the reviewer had not yet checked them.]
 - A physics simulation of the arm and the Duplo set (MuJoCo) was used to try fetch before
   touching hardware.
 
