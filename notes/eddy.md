@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 3:00 AM.
+Updated Sat Nov 14, 3:15 AM.
 
 ## Working on now
 
@@ -55,6 +55,8 @@ Update 2:45 AM: the simulated table now holds the Duplo set from `photos/duplo_a
 Update 2:55 AM: Eddy sent close-ups showing three simulated pieces were the wrong shape, and they are remodelled. The red "triangle" is a 2x4 ridge roof (two slopes meeting at a ridge, about 38 mm tall, no studs). The green piece is a 2x4 brick with studs on top and an underside that curves up at both ends. The car body is a hollow open-top shell with wheel arches, three studs and a hitch at the back. The roof and the green brick were each still carried to the handover in simulation. Their sizes are estimated from photos, not measured.
 
 Update 3:00 AM: the simulated car body is now a sculpted curved mesh (`sim_assets/car_body.stl`, built by `sim_assets/make_car_body.py`), not boxes. Blender was not reachable and no downloadable model of the real part turned up, so it is shaped by hand from Eddy's photos. The live window now starts zoomed in on the pieces and prints its mouse controls.
+
+Update 3:15 AM: on `eddy/fetch`, fetch can now put an object down beside another one. Say "put the red triangle next to the purple brick": the chooser returns both objects, `pick.drop_spot` picks a place beside the second one, and `skills/fetch.py` takes optional `to_u` and `to_v` and sets the object down there instead of handing it over. Mock tests cover it, and two requests ran in simulation (the triangle moved 4 cm toward the purple brick; a brick sent "near the car body", which is out of reach, went to the nearest edge of the grid). Also: `see.load_env` now lets `.env` override keys exported in the shell, after an expired `OPENAI_API_KEY` in Eddy's shell broke a run. Still open: in Eddy's live run the purple brick, which sits turned 45 degrees, was lifted and then dropped. The arm cannot turn its wrist to match a brick's angle yet.
 
 ## Done and how it was tested
 
