@@ -15,6 +15,35 @@ The team's current list, grouped by the mechanism each one uses. Build one skill
 
 Ping pong is a stretch. Where a skill can be hardcoded, hardcode it. The sections below were written before this list and still describe fetch, feeding and the schedule.
 
+### Notes on each skill
+
+- Feed food: one recorded scoop from a bowl in a fixed spot, stuck down so it does not slide. Dry food that scoops without precision (cereal, M&Ms, rice). The spoon stays in the gripper; a printed holder helps. The arm stops short of the face and the person leans in.
+- Feed water: a small lidded cup with a straw, about a third full. A full open cup is too heavy and a spill risk near the electronics.
+- Command-guided pick up: `see.py` finds the named object. Still needed: a taught grid over the table and the code that moves the arm to the pixel and grasps.
+- Duplo building: run the 30-minute press test in `context.md` section 3 first. If the arm cannot seat a brick, it hands bricks over in build order and a person presses.
+- Drawing: `draw.py` output is tested as preview images only. Database doodles look rough, text is clean, and generated drawings were the cleanest but took about 19 seconds, so generate ahead of time. The arm needs a pen that floats (spring, rubber band or foam sleeve) because its height is off by a few millimetres from place to place. Use a thick marker and a small area near the base. Start with `arm.py record` and `replay` of a drawing made with the leader, then try `draw.py --go`.
+- Stereo Madness: the level is identical every run, so record the key presses of a person playing it, then have the arm replay those timings with a finger resting just above the spacebar. The risk is timing jitter in the servos. Expect it to get partway through before expecting a full clear.
+- Ping pong: needs speed and ball tracking the arm does not have, and shares nothing with the other skills. Recommended to drop.
+
+Cheap extras if there is time, all reusing the code above: sort Duplo by colour into bins on "clean the table", wave or high-five the judge (one recorded motion), play a tune on a keyboard (same key press as Stereo Madness), tic-tac-toe against the judge, hand over the right pills from a labelled organizer, write the judge's name on a card they keep.
+
+### What is tested and what is not
+
+| Piece | State |
+|---|---|
+| `see.py` object finder | Works on a synthetic still image and a synthesized voice clip. Not tried on real photos, a live camera or a live microphone. |
+| `draw.py` strokes and preview | Works for database, text and generated drawings. |
+| `grid.py` | Self-check passes. |
+| `arm.py` teach, record, replay and `draw.py --go` | Never run on the arm. Written against LeRobot's GitHub source, so an import may differ on Daniel's install. |
+
+### Other things decided or learned tonight
+
+- The Gemini key is in `.env` on Eddy's laptop and is not in the repo. Each person needs their own copy.
+- The repo is private. It must be public for the Devpost submission.
+- The arm is weak: plan for objects of roughly one to two hundred grams at full reach, and confirm with the lift test.
+- A fetch vehicle with the arm on front was planned and dropped; that plan is in git history at commit 4a88835.
+- Idea changes stop at two thirds of the hacking period, about Saturday 8:50 PM.
+
 ## Status (Fri night, read this first)
 
 We are building fetch first. Target commands: "pick up the mouse", "pick up the lanyard", "pick up the red brick", "pick up the triangular brick". The bricks are Duplo, which are bigger than Lego and easier to grip.
