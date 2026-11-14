@@ -22,13 +22,14 @@ def scenario(mode):
             raise ConnectionError("fake lost leader")
         if mode == "stop_during_read" and reads[0] == 3:
             steady.command("stop")
-        return dict(zip(steady.KEYS, [50, 0, 0, 0, 0, 0]))
+        pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode == "slow_meter" else 50
+        return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 0]))
 
     def send(action):
         writes.append((steady.state["hold"], dict(action)))
         if mode == "hold_during_ease" and len(writes) == 2:
             steady.command("hold on")
-        if len(writes) >= (3 if mode == "hold_during_ease" else 2):
+        if len(writes) >= (205 if mode == "slow_meter" else 3 if mode == "hold_during_ease" else 2):
             steady.state["quit"] = True
 
     leader.get_action = read
@@ -43,12 +44,20 @@ def scenario(mode):
         return follower
 
     fake_follower = SimpleNamespace(SO101Follower=make_follower,
-        SO101FollowerConfig=lambda **kwargs: SimpleNamespace(disable_torque_on_disconnect=True, **kwargs))
+        SO101FollowerConfig=lambda **kwargs: SimpleNamespace(**{"disable_torque_on_disconnect": True, **kwargs}))
     fake_leader = SimpleNamespace(SO101Leader=lambda config: leader, SO101LeaderConfig=lambda **kwargs: kwargs)
     server = lambda *args, **kwargs: SimpleNamespace(serve_forever=lambda: None)
-    clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake",
-        sleep=lambda seconds: now.__setitem__(0, now[0] + (4 if mode == "stop_during_read" else 1)))
-    tip = SimpleNamespace(mm=lambda joints: np.zeros(3), chain=lambda joints: [])
+    sleeps = [0]
+
+    def sleep(seconds):
+        now[0] += .04 if mode == "slow_meter" else 4 if mode == "stop_during_read" else 1
+        sleeps[0] += 1
+        if sleeps[0] >= (210 if mode == "slow_meter" else 4):
+            steady.state["quit"] = True
+
+    clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake", sleep=sleep)
+    tip = SimpleNamespace(mm=lambda joints: np.array(joints[:3]) if mode == "slow_meter" else np.zeros(3),
+                          chain=lambda joints: [])
     with tempfile.TemporaryDirectory() as temporary:
         offsets = Path(temporary) / "offsets.json"
         values = dict.fromkeys(steady.KEYS, 0.0)
@@ -92,15 +101,21 @@ def test_invalid_offset():
     assert not writes, ("invalid offset reached send_action", writes)
 
 
+def test_meter_timestamps():
+    scenario("slow_meter")  # Six-Hz input sampled at 25 Hz, not the nominal 50 Hz.
+    assert abs(steady.shared["tremor_hz"] - 6) < .3, ("six-Hz input reported as", steady.shared["tremor_hz"])
+
+
 if __name__ == "__main__":
     normal, _ = scenario("normal")
     assert normal and all(math.isfinite(value) for _, action in normal for value in action.values())
     print("finite normal-loop control passes")
     failures = []
-    for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset):
+    for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
+                 test_meter_timestamps):
         try:
             test()
         except AssertionError as error:
-            failures.append((test.__name__, str(error)))
+            failures.append(test.__name__)
             print("FAIL", test.__name__, error)
     assert not failures, failures
