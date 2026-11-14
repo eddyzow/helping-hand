@@ -383,6 +383,53 @@ def test_tap_delay():
     key_down.clear()
 
 
+def test_gesture():
+    """Each gesture ends at home, a bad name never moves, next cycles, and a stop moves nothing more."""
+    from skills import gesture
+
+    core.arm.POSES = Path(tempfile.mkdtemp())
+    for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80]}.items():
+        (core.arm.POSES / f"{name}.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, joints)}))
+    arm = get_arm(mock=True)
+    arm._write(arm.load_pose("home"))
+    moves = []
+
+    def instant(joints, seconds):  # the mock's real moves take their full time; this keeps the test quick
+        moves.append((list(joints), seconds))
+        arm._write(core.arm._checked(joints))
+        return not arm.halt.is_set()
+
+    arm.move_joints = instant
+    played = {}
+    for name in gesture.GESTURES:
+        moves.clear()
+        assert gesture.run(arm, {"name": name}, arm.halt)["ok"] is True, name
+        assert close(arm.get_joints(), arm.load_pose("home")), name
+        assert sum(s for _, s in moves) < 6.1, (name, moves)    # starting from home
+        played[name] = list(moves)
+
+    moves.clear()
+    reply = gesture.run(arm, {"name": "moonwalk"}, arm.halt)
+    assert reply["ok"] is False and "nod" in reply["reason"] and moves == []
+    assert gesture.run(arm, {"name": ["nod"]}, arm.halt)["ok"] is False and moves == []
+
+    gesture._turn = 0
+    for name in gesture.GESTURES:                               # nod, shake, ... in order
+        moves.clear()
+        assert gesture.run(arm, {}, arm.halt)["gesture"] == name and moves == played[name]
+
+    def stops_on_third(joints, seconds):
+        moves.append(joints)
+        if len(moves) == 3:
+            arm.halt.set()
+        return not arm.halt.is_set()
+
+    arm.move_joints = stops_on_third
+    moves.clear()
+    assert gesture.run(arm, {"name": "dance"}, arm.halt) == gesture.STOPPED and len(moves) == 3
+    arm.halt.clear()
+
+
 def test_send_waits_for_its_own_result():
     """A failed run must not be reported as ok because a later run by someone else succeeded."""
     from core import send
@@ -461,6 +508,7 @@ def test_cli_cue():
 if __name__ == "__main__":
     test_core()
     test_tap_delay()
+    test_gesture()
     test_send_waits_for_its_own_result()
     test_cli_cue()
     print("core ok")

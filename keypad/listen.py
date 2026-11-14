@@ -2,7 +2,8 @@
 
 The keypad needs no configuring. The first run asks you to press its three keys once (wave,
 jump, stop) and saves what they send to keypad/keys.json. After that:
-    wave key  -> the arm waves
+    wave key  -> the arm does its next gesture (nod, shake, fist bump, high five, dance; type
+                 run wave at the dispatcher to wave)
     jump key  -> a left mouse click while the Geometry Dash window is in front (jump, or Play on the
                  level page), an Up arrow anywhere else. This is the key the arm taps.
     stop key  -> the arm stops at once. Test it at the start of every session.
@@ -167,7 +168,7 @@ def main() -> None:
             elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
-            print(f"wave -> {send('run wave')}", flush=True)
+            print(f"gesture -> {send('run gesture')}", flush=True)
         elif down and vk == keys["stop"]:
             print(f"STOP -> {send('stop')}", flush=True)  # the stop goes out first; nothing may delay or block it
             if recording.get("events"):
