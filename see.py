@@ -20,7 +20,7 @@ import cv2
 # gemini-3.8-flash timed out on Nov 13; the robotics-ER models are not on our key
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 CAMERA = int(os.environ.get("CAMERA", "0"))  # index of the overhead camera
-TIMEOUT_MS = 20000
+TIMEOUT_MS = 8000  # a normal answer takes 1 to 2 seconds; give up early and retry
 RETRY_SECONDS = 3
 SAMPLE_RATE = 16000
 
