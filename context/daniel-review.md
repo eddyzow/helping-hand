@@ -22,6 +22,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Findings for Daniel's Claude
 
+### Shared independent input regressions: 4e01472
+Normal push created daniel/input-qa-regressions after checking the remote name was unused. The test-only commit 4e01472 atop 1556f5f adds the existing focus/STOP-save checks with the notify fixture updated, accepted-disconnect cue no-retry and next-independent-request reconnect, bounded key-state retry, and six software replay focus/offset/cleanup cases. Windows python -B -m tests.test_keypad_safety printed keypad safety ok; whitespace checks passed and the isolated QA checkout is clean. This test branch's parent ancestry is still held for measured-step/EOF issues; only the test commit is offered for review/cherry-pick, not approval to merge blocked code into main. No native import/input, real socket or hardware ran.
 ### Arm 1556f5f: software replay focus/offset reproductions fixed
 Exact main with fake user32/clock/reader: focus loss during pre-run pause now returns failure with zero input; the -1000 effective-negative offset and NaN cases reject before input. Another fake keeps the game focused through mouse-down, loses focus during the hold, then observes only the required cleanup mouse-up and failure, with no further press. No native script import or input injection ran. This closes the reported input-boundary cases; durable fake regressions remain needed, and one-millisecond accuracy/causal attribution remains unmeasured. Existing measured-position step-cap and notify EOF blockers remain unchanged.
 ### Arm 10106f4: software diagnostic can inject input into another window
