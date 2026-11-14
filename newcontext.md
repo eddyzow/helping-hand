@@ -4,7 +4,61 @@ Read this before writing any code or prompting any agent. It replaces the earlie
 
 > Updated Sat Nov 14, 12:50 AM by Daniel: names assigned (Ben and Jonathan swapped at 1:00 AM: Jonathan had already built Geometry Dash), and each role now says what already exists so nobody rebuilds it. If you want a different role, say so in your `notes/<name>.md` and swap; do not just start on someone else's folder.
 
-## Who does what
+## PIVOT, Sat Nov 14, 8:30 PM: Steady Hand (read this first; it overrides the feature list below)
+
+Agreed by all four of us. Written by Daniel's agent.
+
+**What we are now building.** An assistive arm for people whose hands shake (tremor, Parkinson's). The person moves the small **leader** arm; the **follower** arm copies the movement **with the tremor filtered out**, and holds light things steady for them. A dashboard shows the hand's shake, the arm's shake and how much was removed. The buddy features that already work on the real arm stay as extras: gestures, "hold this / give it back", voice commands, and Geometry Dash as proof of precision.
+
+**Pitch in one line:** *your hand shakes, the arm does not.*
+
+**Why we pivoted.** Everything that worked on the real arm today used positions a person supplied (taught poses, a brick handed to the claw, the Geometry Dash tap). Everything that failed needed the camera to locate an object to within millimetres: four hours of attempts, no brick picked off the table. Steady Hand needs no object finding at all: the person does the aiming.
+
+**How it works.** Deliberate movement is slow (below about 2 Hz). Tremor is fast (about 4 to 12 Hz). A low-pass filter between the two arms passes the first and holds back the second. The follower's speed is capped.
+
+### What exists now
+
+| Piece | Where | State |
+|---|---|---|
+| Tremor-filtering teleoperation, standalone | `steady.py` on `daniel/arm-core` (`f865171`) | Synthetic tests pass (`tests.test_steady`): a 0.5 Hz reach passes at 94 %, a 6 Hz shake is cut by 90 %, the shake meter reads a 5 mm test shake as 3.54 mm RMS at 6.0 Hz. **Not yet run with a person on the leader.** |
+| The same idea as a dispatcher skill | `skills/steady.py` on `jonathan/tremor-assist` (`30c95fd`) | Passes its own self-check on a fake arm and fake leader. **Never run on hardware.** Held by review until a real run. |
+| Dashboard | `steady_dashboard.html`, served by `steady.py` at `http://127.0.0.1:8780` | Works against a simulated shaking hand (16 mm hand, 1.9 mm arm, 88 % removed). |
+| Plain teleoperation with a per-joint offset and a gliding start | `teleop_sync.py` on `daniel/arm-core` | Ran on both real arms. The two arms' zero points differ, so an offset is measured once with both arms folded against their end stops. |
+| Take / hold / give back | `skills/hand.py` on `daniel/arm-core` | Mock-tested. The underlying grasp of a handed brick worked 4 times out of 4 on the real arm (claw reads about 16 holding a brick, about 5 empty). |
+| Gestures on the middle key | `skills/gesture.py` on `daniel/arm-core` | Mock-tested only. |
+| Offline voice commands | `rubby_listen.ps1` on `daniel/arm-core` | Windows speech recognition with a fixed phrase list, no API key. Started once; phrases not yet tried on the real arm. |
+| Geometry Dash | `keypad/geometry_dash/arm_play.py`, `my_macro_full.csv` | One full clear of Stereo Madness in normal mode in 3 counted attempts (the other two reached 95 %). **Not through the 4-of-5 gate.** |
+
+### Facts about the real arm every lane needs
+
+- **The follower's elbow stops at about +65 degrees.** At calibration its elbow was swept through only part of its travel, and LeRobot stores that range as a limit inside the motor. Any pose that asks for more bend silently stops there (measured: 23 degrees short of its command, in free air). This is the cause of the "weak grip", "hovering claw" and wrong-distance reports from today. Fixing it means recalibrating that joint, which rewrites a motor setting and shifts every taught pose; **nobody does that without Daniel's go-ahead.**
+- **The arm can feel the table:** motor load jumps at contact (`Present_Load`). Use that instead of trusting a height.
+- **Only one program can hold the follower's serial port.** `steady.py`, `teleop_sync.py` and the dispatcher cannot run at the same time. On this laptop the follower is COM3 and the leader COM4, run natively on Windows (not WSL).
+- **Light objects only.** Do not test with anything heavier than a marker or a Duplo brick.
+
+### Lanes (from now until the final submission)
+
+| Lane | Owner | Does |
+|---|---|---|
+| **A. Real-arm bring-up** | Daniel | First real runs of the tremor filter with a person on the leader; the offset line-up; the elbow decision; a counted before/after measurement (shake in mm with steady mode off and on). Publishes the numbers. |
+| **B. One implementation** | Jonathan | `skills/steady.py` is the version that lives in the dispatcher. It should take the per-joint offsets (`poses/teleop_offset.json`), and share the filter and the shake meter with `steady.py` instead of having two copies. Daniel's agent is moving that shared maths into `core/tremor.py`. |
+| **C. Dashboard and tracking** | Daniel's agents, Ben for look and wording | Session history, a ten-second "hold still" test with a score, a trend chart. |
+| **D. Voice and buddy extras** | Eddy | "Steady on / off", "hold this", "let go", gestures. Pointing, drawing and writing stay as extras if they pass on the real arm. |
+| **E. Demo, pitch, Devpost** | Ben | Rebuild the script around Steady Hand. Keep the 4-of-5 rule for anything shown live. |
+| **QA** | Codex | Reviews every lane's branch as before. |
+
+### What we may and may not claim
+
+- Say: a **prototype** that removes a simulated tremor from a teleoperated arm, with measured numbers.
+- Say: tested with **us shaking the leader on purpose**. Not tested with patients.
+- Do **not** say it makes anyone stronger: the arm lifts light things only.
+- Do **not** say it measures force or torque. We have no force sensor. Grip effort and arm load are the motors' own load readings, and the dashboard labels them as estimates.
+- Do **not** say it treats or improves tremor, and do not call the tests "therapy" or "exercises that help". Say "steadiness tests that measure and track".
+- Geometry Dash stays "reported, pending the gate" until five counted attempts exist.
+
+---
+
+## Who does what (before the pivot; kept for the record)
 
 | Person | Name | Role | Start here |
 |---|---|---|---|

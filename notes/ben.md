@@ -1,21 +1,19 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 5:45 PM ET.
+Updated Sat Nov 14, 6:50 PM ET.
 
 ## Working on now
 
-Person 4: drawing, personality moves, status screen, demo, pitch, Devpost. Owns `skills/draw.py`,
-`skills/personality.py`, `skills/tictactoe.py`, `ui/`, `docs/`. Ben accepted the role at 12:49 AM.
+Lane E after the Steady Hand pivot (`newcontext.md`, 6:27 PM): demo, pitch, Devpost. Also the look
+and wording of the dashboard in lane C. Ben's agent rebuilt both documents at 6:50 PM; Ben himself
+has not yet reviewed them or confirmed the pivot to this agent.
 
-Next, in order:
-
-1. Team review of `docs/demo.md` (first draft pushed with this note).
-2. `skills/personality.py` is on `main` (merged in `c6a3418`). Originally `ben/personality`, cut from
-   `daniel/arm-core` at `bbdfac5`. Mock only; see below. It adds one file and touches nothing else.
-3. `skills/draw.py` is on `main`, mock only; see below. Next for it: a taught paper grid and a
-   pen holder, then a first try in an arm slot.
-4. Pen holder: Ben is building one now (4:15 PM), sprung so the pen can slide, per Eddy's simulator
-   findings. Then a first real try with Daniel; the checklist is under "Needs from others".
+1. `docs/demo.md`: the table script, built so the judge holds the leader. Needs the team's answer
+   on what counts as a passing run.
+2. `docs/devpost.md`: reworked, every unproven claim in [SQUARE BRACKETS], written inside the
+   "may and may not claim" list. Waiting for Daniel's real-arm numbers.
+3. Initial Devpost submission tonight by 11:00 PM (due 11:59 PM), by Ben.
+4. Earlier work on `main`, now extras at most: `skills/personality.py`, `skills/draw.py`. Mock only.
 
 ## Done and how it was tested
 
@@ -61,11 +59,32 @@ Next, in order:
 
 ## Needs from others
 
+- Daniel (lane A), 6:50 PM: three things the demo and the Devpost text are waiting on.
+  1. The counted before and after: shake in mm on the follower with steady mode off and on, with a
+     person shaking the leader. How many runs, and who shook it.
+  2. A definition of a passing run for the 4 of 5 rule. A suggestion is in `docs/demo.md`: ten
+     seconds, steady mode on, follower shake under an agreed number of mm, no stop needed.
+  3. A filmed take of the same shake with steady mode off and then on. That is the backup video
+     and the one clip that makes the case.
+- Daniel: for the judge-on-the-leader block, has the follower's speed cap been tried with someone
+  deliberately yanking the leader? Your reviewer found the start-up glide can ask for more than the
+  cap. A stranger will do exactly that.
+- Daniel's agents (lane C): send me the dashboard's text, or tell me when `steady_dashboard.html`
+  is on `main`, and I will check every label against the claims list ("estimate", not "force";
+  "steadiness test", not "exercise"). I have not seen the file; it is on `daniel/arm-core`.
+- Everyone: an untested idea for making the result visible on paper. Tape a marker to the follower
+  (in a sleeve, sliding against a rubber band, not gripped) and have the person trace a line or
+  sign a card through the leader, once with steady mode off and once on. The judge keeps the card.
+  It depends on the pen reaching the paper inside the elbow's 65 degree limit.
+- Everyone: is "Steady Hand" the Devpost title, and is the track Best Accessibility Hack? Both are
+  needed for tonight's submission.
+
 - Everyone (5:45 PM): `docs/demo.md` and `docs/devpost.md` are rebuilt around Eddy's 5:04 PM report
   that the real arm can press a button but cannot grip a pencil or place blocks. The script is now
   Geometry Dash, gestures, pointing, a name with a taped-on marker, and simulator video for the
   rest. It is his agent's suggested plan written up, not a decision; change it.
-- Daniel or Jonathan: block 2, Geometry Dash, is now the whole demo by the 4 of 5 rule. Please
+- Daniel or Jonathan: block 2, Geometry Dash, is the only block with a real run reported. It has
+  not passed the 4 of 5 rule either, because nobody has written down attempts. Please
   film one clean run today and write in your note how far it gets and out of how many attempts.
 - Daniel: ten minutes on the arm for the gestures would turn block 3 from mock into real. One at a
   time, gentlest first: `run personality {"move": "droop"}`, then `nod`, `shake`, `dance`,
@@ -164,6 +183,31 @@ Next, in order:
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`772c06a`, four requests): all applied at 6:50 PM. (1) "Tested by us shaking
+  the leader" is now conditional in both drafts, marked as not yet true. (2) The hold description
+  lists the current findings on both implementations, says they were reproduced with fake devices,
+  and says a hardware run does not close them. (3) It now says the cleanup requests torque-off and
+  could drop an unsupported arm, and that the NaN reached a fake send call. (4) The dashboard's
+  arm line and percent removed are described as computed from commands, not measured, and the
+  script tells the speaker to say so. A teammate on the leader is no longer offered as the safe
+  alternative.
+
+- Daniel's reviewer (`e2dbfe6`, four findings on standalone `steady.py`): `docs/demo.md` now lists
+  them and says no judge holds the leader until the missed stop and the limp-on-read-error cases
+  are fixed and tried; a teammate holds it and the judge watches. Daniel and Jonathan: whichever
+  of the two implementations is going to the table, please say which, so the script names one.
+
+- `newcontext.md` pivot (lane E, "rebuild the script around Steady Hand"): done at 6:50 PM in
+  `docs/demo.md` and `docs/devpost.md`, keeping the 4 of 5 rule and the claims list. Thank you for
+  the elbow diagnosis and the counted Geometry Dash attempts; both drafts now use them and drop the
+  "servos are the limit" line for good.
+
+- Daniel's reviewer (`ce0587c`, three overstatements in `d267796`): all corrected at 6:15 PM.
+  The drafts no longer say Geometry Dash passed the 4 of 5 rule; they say it is reported to run and
+  has no attempt count. They no longer say feeding exists in simulation; it was never built. And
+  they no longer name weak servos as the cause; they say gripping and placing did not work on the
+  arm and that nobody has recorded why. Re-run, no hardware: `point ok`, `personality ok`.
 
 - Eddy's `45294d4` (new `skills/write.py`): fine by me that names live in their own skill; it
   delegates to `skills/draw.py`, so every check there still applies. `draw {"text": ...}` (8

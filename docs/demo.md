@@ -1,140 +1,138 @@
 # Demo script and pitch outline
 
-Kept by Ben's agent (Person 4). Rebuilt Sat Nov 14, 5:45 PM after Eddy reported what the real arm
-can and cannot do. The plan below is his agent's suggestion "for the team to decide"; it is written
-up here so there is one script to argue with. The previous version is in git at `46a839e`.
+Kept by Ben's agent (lane E: demo, pitch, Devpost). Rebuilt Sat Nov 14, 6:30 PM around the Steady
+Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"). Ben has not reviewed
+this version. The previous script is in git at `dabdbb1`.
 
-## What the real arm can do (Eddy, reported 5:04 PM)
+## What we are showing
 
-"The real arm is only strong enough to press a button (Geometry Dash). It cannot grip a pencil, and
-it is not accurate enough to place blocks."
+Steady Hand: a person whose hand shakes moves the small leader arm, and the follower arm copies the
+movement with the shake filtered out. One line: "your hand shakes, the arm does not."
 
-This is the first report from the arm about anything other than tapping. It has not been written
-up with numbers by whoever ran it. Until it is, treat it as the working assumption: the demo is
-built from skills that need neither grip strength nor millimetre accuracy.
+Why this and not the earlier plans, from `newcontext.md`: everything that worked on the real arm
+used positions a person supplied; everything that failed needed the camera to find an object to
+within millimetres. Here the person does the aiming.
 
-## Skills, by whether they fit the real arm
+## State of each piece at 6:45 PM (from `newcontext.md`; nothing here was run by Ben's agent)
 
-| Skill | Needs | State at 5:45 PM |
+| Piece | Evidence so far | Passed 4 of 5 on the arm? |
 |---|---|---|
-| Geometry Dash (Jonathan, Daniel) | A light tap, good timing | Has run on the real arm. A 1:27 PM commit on Daniel's branch says "the arm completes Stereo Madness"; that is the owner's report, and no note says how many attempts or whether it was filmed. Replay skill is on `main`; the newer Windows-timed version is on his branch, held in review |
-| Gestures: wave, nod, shake, celebrate, droop, dance (Daniel, Ben) | Free movement only | `skills/wave.py` and `skills/personality.py` on `main`, mock only. Never run on the arm. Joint directions and clearance around the taught `wave_up` pose are unchecked |
-| Voice picks the skill (Eddy) | Network, Anthropic key | "play Geometry Dash", "wave", "stop". Works on a laptop; not run against the real dispatcher |
-| Point at a named object (Eddy) | Camera, taught table grid; a couple of centimetres of accuracy; no grip | New `skills/point.py`, 5:36 PM. Mock and simulation only (three requests, each within 5 mm). Needs an overhead camera mounted, the table grid taught and its corners clicked. None of that exists yet |
-| Teach by demonstration (Eddy, Daniel) | Leader arm | `arm.py record` and `replay`. Untested on hardware |
-| Write a name with a taped-on marker (Ben, Eddy) | A felt tip that slides and springs back, taped to the jaw, not gripped; a taught paper grid | `skills/draw.py` and `skills/write.py` on `main`, mock and simulation only. Eddy rates this the riskiest and says to try it last. A first-try checklist is in `notes/ben.md` |
-
-Cut from the live demo, per the same plan: picking up and stacking Duplo, feeding, anything that
-grips a pencil. They exist in the simulator and can be shown as video, saying plainly that the
-servos are the limit.
+| Plain leader-to-follower teleoperation (`teleop_sync.py`) | Ran on both real arms | Not counted |
+| Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests with nominal timing: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Both versions are held in review at 6:38 PM, on findings reproduced with fake devices, not observed on the arm. Dispatcher skill: the start-up move can request more than the speed cap; the leader can be opened on the follower's port. Standalone `steady.py`: a stop arriving during a leader read is missed for one more command; "hold" still changes its target during start-up; after a leader read error the cleanup requests torque-off with no confirmation, which could drop an unsupported arm; a NaN in the saved offset reaches the (fake) send call unchecked. A hardware run does not close these | No |
+| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Two limits found in review: the "arm" line and the percent removed are computed from the commands sent to the follower, not from the follower's observed motion; and the shake frequency is wrong when samples do not arrive at the assumed rate (a 6 Hz test read as 12 Hz) | No |
+| Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
+| Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
+| Gestures, offline voice phrases | Mock-tested; voice started once | No |
+| Pointing, drawing, writing by the arm alone | Mock and simulation only | No |
 
 ## The one rule
 
-A skill is in the table demo only if it passes 4 runs out of 5 on the real arm at the Saturday
-8:50 PM freeze. Anything that does not pass is cut from the script, not rehearsed harder. By that
-rule, at 5:45 PM, only Geometry Dash is in.
+A piece is shown live only if it passes 4 runs out of 5 on the real arm. The freeze is 8:50 PM
+tonight. For Steady Hand a "run" should be defined before counting; a suggestion: a teammate shakes
+the leader on purpose for ten seconds while holding a marker tip over a target, steady mode on, and
+the run passes if the follower's shake reads under a set number of millimetres and nothing has to
+be stopped. Daniel's lane publishes the counted numbers.
+
+## What we may and may not say (from `newcontext.md`; these bind the pitch and the Devpost text)
+
+- May say, once it is true: a prototype that removes a simulated tremor from a teleoperated arm,
+  with numbers. Say which numbers are computed from commands and which are measured.
+- May say, once it is true: tested with us shaking the leader on purpose. At 6:45 PM the filter has
+  not been run with a person, so this cannot be said yet. Never: tested with patients.
+- Do not say it makes anyone stronger. The arm lifts light things only.
+- Do not say it measures force or torque. Load readings are the motors' own estimates.
+- Do not say it treats or improves tremor, and do not call the tests therapy. Say "steadiness
+  tests that measure and track".
+- Geometry Dash is "reported, one clear in three attempts" until five counted attempts exist.
 
 ## Open decisions for the four of you
 
-1. Whether to adopt this plan. It is a suggestion from Eddy's agent, not a team decision.
-2. The track, due with the initial submission at 11:59 PM tonight. Without fetching and feeding the
-   Accessibility pitch has little behind it. The honest fit now is Best Hardware Hack, with the
-   known weakness that the arm is a kit. This is Ben's agent's opinion and it reverses what this
-   file said before, because the facts changed. All 28 prizes are in `docs/tracks.md`.
-3. The name. Eddy says it will not be "Helping Hand". The Devpost draft uses NAME.
-4. What we say we built. The fallback pitch in Eddy's note is "we printed and assembled the arm,
-   built the leader and follower pair". `context.md` says the kit came pre-assembled. Whichever is
-   true is what goes in the pitch, and the Devpost rules bar work done before the hacking period,
-   so be exact about what was done this weekend.
+1. The track, due with the initial submission at 11:59 PM tonight. Steady Hand is an accessibility
+   project in a way none of the earlier plans were, so Best Accessibility Hack fits. Best MedTech
+   Hack is the alternative, but `PLAN.md` warned its judges may expect clinical grounding, and the
+   claims list above rules that out. Ben's agent leans Accessibility. That reverses the 5:45 PM
+   lean toward Hardware, because the project changed. All 28 prizes are in `docs/tracks.md`.
+2. The name. `newcontext.md` uses "Steady Hand". Is that the name on Devpost?
+3. What counts as a passing run for Steady Hand (see "The one rule").
+4. What we say we built with our own hands. `context.md` says the kit came pre-assembled; an
+   earlier note said "we printed and assembled the arm". The rules bar work done before the
+   hacking period, so the pitch has to be exact.
 
-## Pitch outline (about 20 seconds of talking, the rest is the arm)
+## Pitch (about 20 seconds; then the judge does the demo themself)
 
-1. What it is, in one sentence. Draft: "A desk robot arm you talk to: it plays a rhythm game by
-   itself, points at what you name, and reacts, all through one dispatcher with a stop key."
-2. What is real: Geometry Dash is the arm physically pressing a key in time. Say that first.
-3. What is honest: the arm's servos are too weak to grip and not accurate enough to place things,
-   so picking, stacking and drawing are shown in simulation. Say it before a judge asks. Judges
-   score Functionality on what they see work.
-4. Cost line, only if it helps: the bare motor kit for this arm launched at $240 (source in
-   `docs/devpost.md`). Do not compare it with assistive devices now that fetching and feeding are out.
+1. "Millions of people have hands that shake, from essential tremor or Parkinson's. Writing, or
+   holding a cup, gets hard." [Check any number before saying one. None is sourced yet.]
+2. "You move this small arm. The big arm copies you, with the shake filtered out."
+3. [ONLY ONCE A FILTERED RUN WITH A PERSON HAS HAPPENED] "It is a weekend prototype. We tested it by shaking our own hands on purpose, not with
+   patients, and it only handles light things."
 
-## Table script (blocks stand alone; drop any that failed the gate)
+## Table script (the judge is the demo)
 
-| # | Trigger | What the judge sees | If it fails | Owner |
-|---|---|---|---|---|
-| 1 | Teammate speaks | The one-sentence pitch | | Ben |
-| 2 | Teammate says or types "play Geometry Dash" | The arm taps through Stereo Madness on the keypad, holds included. A teammate presses stop (Z) once on purpose and the arm freezes | Show the recorded clip | Jonathan, Daniel |
-| 3 | Judge presses the wave key (X), or says "wave" | The arm waves; after a Geometry Dash run it celebrates or droops | Skip it | Daniel, Ben |
-| 4 | Judge says "point at the red brick" | The arm reaches over and points at it, and the laptop says "That's the red brick" | Typed request; then skip it | Eddy |
-| 5 | Judge gives a first name | The arm writes it on a card with a taped-on marker | Hand over a card made earlier, or skip it | Ben, Eddy |
-| 6 | Laptop screen | Simulator video: picking, stacking and drawing, with the line "this is what the same code does when the motors are strong enough" | | Eddy |
-| 7 | Teammate speaks | What is next | | Ben |
+| # | Who | What happens | If it fails |
+|---|---|---|---|
+| 1 | Teammate | The three pitch sentences | |
+| 2 | Teammate | Steady mode OFF. Holds the leader and shakes it on purpose; the follower shakes too. The dashboard shows both lines moving | Skip to 3 |
+| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the shake in what we send the arm", not "the arm's measured shake", unless the follower's own readings are plotted by then | Stop key, one retry, then show the recorded clip |
+| 4 | Judge | Takes the leader, shakes it, and watches the arm hold still. Then makes a slow deliberate move, and the arm follows | Teammate takes over |
+| 5 | Teammate | "Hold this": hands the claw a marker or a Duplo brick; it holds it steady and gives it back | Skip |
+| 6 | Teammate | Extras, only those that passed: Geometry Dash as proof of precise timing, a gesture, a voice command | Skip |
+| 7 | Teammate | What it is not: not tested with patients, light objects only. What is next | |
 
-Notes on the blocks:
+Notes:
 
-- Block 2 is the demo. Everything else is extra. Get one clean run filmed today: it is both the
-  backup video and the proof of the claim. Block 2 also shows the stop key on purpose; a judge who
-  sees the arm stop on command trusts the rest.
-- Block 3 needs ten minutes on the arm: try the moves one at a time, gentlest first (`droop`,
-  `nod`, `shake`, `dance`, `celebrate`), with someone on the stop key, and tell Ben's agent which
-  joints go the wrong way. The tables at the top of `skills/personality.py` are one-line edits.
-- Block 4 needs the most setup of anything left: an overhead camera fixed about 50 cm above the
-  table, a taught table grid, and the grid's corners clicked (`notes/eddy.md`, 1:08 PM). It needs
-  the network: sentences go to the Anthropic API to pick the skill and the object, and the boxes
-  come from OpenAI. With no network, the fallback is a typed `run point {"u": 0.5, "v": 0.5}`.
-- Block 5: the marker is taped to the fixed jaw in a loose sleeve with a rubber band so it can
-  slide about 5 mm and spring back; the gripper does not hold it (`PEN_SQUEEZE=0`). Ask for a first
-  name: a name of four or more words is cut short by a known bug. Times from the stroke plan, not
-  the arm: "HI" 31 s, "BEN" 42 s. Eddy's simulator suggests sketches fall apart once the pen is
-  more than about 5 mm off the line; the first real square drawn on the arm will say where we are.
-- Block 6 is the simulator. Say it is a simulator. `sim.py` and `sim_draw.py` produce the videos.
+- Blocks 2 and 3 are the whole argument: the same shake with the filter off and on. Run them back
+  to back every time. If only one thing is filmed tonight, film these two.
+- Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the
+  follower's speed cap and the stop key have to be tested with someone who is trying to break it.
+  Do not put a judge on the leader while the review findings above are open: a missed stop, and a
+  cleanup that asks the motors to switch off after a read error, are what a stranger is most
+  likely to trigger. Putting a teammate on the leader instead does not close those findings or
+  make a hardware run safe; they need fixing first. That call is Daniel's and his reviewer's.
+- An idea, untested, that makes the result visible without a screen: tape a marker to the follower
+  and have the person trace a line or sign a card through the leader, once with steady mode off
+  and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
+  Ben was building for drawing (taped to the jaw, sliding against a rubber band, not gripped) and a
+  check that the pen reaches the paper inside the elbow's limit.
+- Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
+  dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
+  that switch, or drop block 6.
+- Latency is part of the feel: a low-pass filter makes the follower trail the hand slightly. Say
+  so if a judge notices; do not call it instant.
 
-## Time budget
+## Facts about the real arm that the demo has to respect (from `newcontext.md`)
 
-| Block | Rough time | Where the number comes from |
-|---|---|---|
-| Geometry Dash | 20 s for the opening, about 85 s for the whole level | The recorded macros end at 83 to 86 s. Jonathan or Daniel to say how much to show |
-| Gestures | 5 to 10 s each | From the move tables; not timed on the arm |
-| Pointing | about 20 s | 13 s for the models in simulation, plus the reach. Not timed on the arm |
-| Writing a first name | 30 to 45 s | Stroke plan at the default pen speed |
-| Simulator video | 20 s | Cut to fit |
-
-A short script is blocks 1, 2 and 7. Nobody has confirmed how long a judge stays at a table.
+- The follower's elbow stops at about +65 degrees, because its calibration recorded only part of
+  its travel. This, not weak motors, is the recorded cause of today's "weak grip" and
+  wrong-distance reports. Recalibrating shifts every taught pose and needs Daniel's go-ahead.
+- Light objects only: nothing heavier than a marker or a Duplo brick.
+- On the arm laptop the follower is COM3 and the leader COM4, run on Windows, not WSL.
 
 ## When something breaks at the table
 
-Press the stop key (Z) and say what failed in one sentence. Then it depends on the failure:
-
-- Understood and harmless (missed the object, the judge spoke too quietly): a teammate types `home`
-  at the dispatcher, and the block runs once more. Home is a typed command, not a keypad key.
-- Not understood, or the stop key did not stop it: use the power switch with someone supporting the
-  arm, and move to the next block. Do not home and retry a failure nobody can explain.
-
-If a block fails twice, move on. The backup video stays open in a browser tab.
+Press the stop key and say what failed in one sentence. If it is understood and harmless, reset
+and run the block once more. If it is not understood, or the stop key did not stop it, use the
+power switch with someone supporting the arm, and move on. Do not retry a failure nobody can
+explain. If a block fails twice, move on. The backup video stays open in a browser tab.
 
 ## Table setup checklist
 
-- Arm clamped to the table, keypad taped down under it, mat taped down. Nothing that was
-  calibrated may move.
-- Stop key within reach of a teammate at all times, and one person on the power switch.
-- Game open and focused on the laptop the keypad is plugged into.
-- For pointing: overhead camera fixed, table grid taught, corners clicked; three or four pieces
-  that differ in colour, well apart.
-- For writing: cards, a felt-tip marker in its holder, a taught paper grid, tape.
-- A lamp, a power strip, and a phone hotspot for the model calls.
-- `.env` on the demo machine with the OpenAI and Anthropic keys. Dispatcher started and `home` run
-  before the first judge arrives.
-- Backup video and simulator video loaded.
+- Both arms clamped, facing the same way, with room around the follower for a stranger's elbow.
+- Leader on its 5 V supply, follower on 12 V. Never the 12 V supply on the leader.
+- Stop key within a teammate's reach at all times, and one person on the power switch.
+- Dashboard open on a screen the judge can see from the leader.
+- A marker and a Duplo brick for "hold this". Cards and tape if the two-lines idea is used.
+- A power strip. No network is needed for the core demo; a hotspot only if voice extras are shown.
+- Backup video loaded.
 
 ## Submission checklist
 
 | When | What | Owner |
 |---|---|---|
-| Sat 8:50 PM | Feature freeze. Track and name decided. Script cut down to skills that passed the gate | Everyone |
+| Sat 8:50 PM | Feature freeze. Track and name decided. Script cut to what passed the rule | Everyone |
 | Sat by 11:00 PM | Initial Devpost submission (due 11:59 PM): title, one track, draft text, public repo link under "Try it out" | Ben |
-| Sat night | Backup video of a real Geometry Dash run, filmed during the hacking period; under 3 minutes if it is uploaded | Ben |
-| Sun by 8:00 AM | Final Devpost text, open source list, all four teammates listed as contributors | Ben |
-| Sun 9:00 AM to 12:30 PM | Table set up, script rehearsed out loud with a timer, three times | Everyone |
+| Sat night | Backup video: the same shake with steady mode off and on, filmed during the hacking period; under 3 minutes if uploaded | Ben |
+| Sun by 8:00 AM | Final Devpost text with the real numbers, each labelled measured or computed, open source list, all four listed as contributors | Ben |
+| Sun 9:00 AM to 12:30 PM | Table set up, script rehearsed out loud with a timer, three times, once with an outsider on the leader | Everyone |
 
 Still to confirm with an organizer: whether the final deadline is 9:00 AM or 10:00 AM, and how long
 each judge spends at a table.
