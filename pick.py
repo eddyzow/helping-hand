@@ -38,10 +38,19 @@ GRIP_CLOSED = float(os.environ.get("GRIP_CLOSED", "5"))   # gripper.pos when squ
 HOLD_SECONDS = float(os.environ.get("HOLD_SECONDS", "3"))  # how long it holds the object out
 EDGE = 0.05  # how far outside the taught grid a target may be
 GRID_ASPECT = float(os.environ.get("GRID_ASPECT", "1.0"))  # the taught grid's width divided by its depth
+BRICK_MM = 19.0   # a Duplo brick's height, for the camera correction
+CENTRED = 0.03    # a place this close to an object's middle (share of the grid's width) means its middle
 SQUARE_BELOW = 1.25  # an object less stretched than this counts as square
 # Where the robot's base is, in grid coordinates (u, v), so "closest" can be worked out. v above 1 is nearer
 # than the grid's near edge. Measure it: how many grid depths the base sits in front of the far edge.
 ROBOT_UV = tuple(float(n) for n in os.environ.get("ROBOT_UV", "0.5,1.6").split(","))
+# The camera sees a tall object's top further from the middle of the picture than its base. Give the camera's
+# height above the table in mm to correct for it (the camera must look straight down). 0 = no correction.
+CAMERA_HEIGHT_MM = float(os.environ.get("CAMERA_HEIGHT_MM", "0"))
+# A gripped brick hangs lower in the jaws than where they closed on it. Letting go this many mm higher sets
+# it down instead of pressing it into what is underneath. Measure: grip a brick, see how far its bottom sits
+# below where it sat when the jaws closed.
+HELD_DROP_MM = float(os.environ.get("HELD_DROP_MM", "0"))
 LAYER_GAP_MM = float(os.environ.get("LAYER_GAP_MM", "40"))  # how far the taught lifted layer is above the taught
 # table layer, in mm. Measure it on the real grid: stacking heights are worked out from it.
 
@@ -95,12 +104,20 @@ def locate(frame, command=None, audio=None):
         return (f"centre u={u:.2f} v={v:.2f}; spans u {min(us):.2f} to {max(us):.2f}, "
                 f"v {min(vs):.2f} to {max(vs):.2f}; distance from the robot {away:.2f}")
 
+    def spot_of(box, middle_mm):
+        """Where this object stands on the grid: the middle of its outline, moved towards the middle of
+        the picture by how high its middle is, because the camera sees it leaning outwards."""
+        x, y = see.centre_of(frame, box)
+        lean = middle_mm / CAMERA_HEIGHT_MM if CAMERA_HEIGHT_MM > 0 else 0.0
+        height, width = frame.shape[:2]
+        return to_uv(x - lean * (x - width / 2), y - lean * (y - height / 2), corners)
+
     hits, said, boxes, placing, place, pick_height = see.find_all(frame, command, audio, describe, GRID_ASPECT)
     out = see.numbered(frame, boxes)
     cv2.polylines(out, [np.int32(corners)], True, (255, 0, 0), 3)
     targets = []
     for x, y, label, box in hits:
-        u, v = to_uv(x, y, corners)
+        u, v = spot_of(box, pick_height + BRICK_MM / 2)
         cv2.drawMarker(out, (x, y), (0, 0, 255), cv2.MARKER_CROSS, 60, 6)
         targets.append((u, v, label, jaw_turn(frame, box, corners)))
     Path("outputs").mkdir(exist_ok=True)
@@ -115,7 +132,16 @@ def locate(frame, command=None, audio=None):
     spot = None
     if placing and not problem:  # on another piece: jaws lined up with it. On the table: as it was picked up.
         turn = jaw_turn(frame, place["box"], corners) if "box" in place else (targets[0][3] if targets else 0.0)
-        spot = (place["u"], place["v"], place["height_mm"] / LAYER_GAP_MM, turn)
+        u, v = place["u"], place["v"]
+        if "box" in place:  # the model worked from the detector's box; move its answer onto the measured centre
+            box = place["box"]
+            seen = to_uv((box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2, corners)
+            du, dv = u - seen[0], v - seen[1]
+            if abs(du) < CENTRED and abs(dv) < CENTRED * GRID_ASPECT:
+                du = dv = 0.0  # it meant the middle; its rounding should not move the brick
+            real = spot_of(box, place["height_mm"] / 2)
+            u, v = real[0] + du, real[1] + dv
+        spot = (u, v, min((place["height_mm"] + HELD_DROP_MM) / LAYER_GAP_MM, 1.0), turn)
     return targets, said, spot, problem, pick_height / LAYER_GAP_MM
 
 

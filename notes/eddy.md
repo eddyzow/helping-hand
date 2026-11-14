@@ -1,6 +1,6 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 12:49 PM.
+Updated Sat Nov 14, 1:01 PM.
 
 ## Working on now
 
@@ -200,3 +200,13 @@ Measured in the simulator by logging the gripper and the bricks step by step. Da
 - Result: blue on purple on the white plate stood at five wrist angles with exact positions (landing within 3 mm), and in 4 of 5 runs through the camera.
 - The chooser prompt now lists the measured height of each piece in our set (white 2x4 is a 10 mm plate, bricks 19 mm). Eddy asked for this after it took the plate for a brick. It still said 19 instead of 29 for a brick on the plate once in five runs.
 - All ten modules in `tests/` print ok.
+
+## Placement accuracy, Sat Nov 14, 1:01 PM
+
+Eddy: bricks landed a little off and then slid or jumped into place. Measured in the simulator:
+
+- The detector's box centre was 2.8 mm from the piece's true centre on average (3.9 worst). The middle of the piece's outline, moved towards the middle of the picture to allow for the piece's height, is 0.6 mm off (1.1 worst). `pick.py` now uses that for the piece picked up and the piece it goes onto. It needs `CAMERA_HEIGHT_MM` (camera straight above the table; 0 = off). In a crowded layout the outline can swallow a neighbour, so if it strays from the box the box centre is used.
+- Claude's place is rounded to 0.01 of the grid (3 mm) and comes from the loose box. When it means the middle of a piece, the code now uses the measured middle; when it means a part of a piece (an end), its offset from the box centre is kept.
+- The jumping: a gripped brick hangs about 8 mm lower in the jaws than where it was gripped, so the arm was pressing it into the brick below and it sprang out on release. New knob `pick.HELD_DROP_MM` (0 = off) lets go that much higher.
+- Result, two runs of four stacking requests through the camera: bricks landed 1.7 to 5.2 mm from the centre of the piece below, and every stack stood when built. Not better than that yet: the leftover depends on the wrist turn, so `HELD_SHIFT_MM` and `JAW_ARM_MM` are not quite right as fixed numbers.
+- New limit found: a stack three bricks high is as tall as the lifted layer, and carrying a brick past an existing two-brick stack knocked it over in both runs. The arm only lifts about 5 cm.
