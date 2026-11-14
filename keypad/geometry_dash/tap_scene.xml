@@ -1,0 +1,61 @@
+<mujoco model="SO-101 and SayoDevice O3C">
+  <include file="robotstudio_so101/so101.xml"/>
+  <compiler meshdir="robotstudio_so101/assets"/>
+  <option timestep="0.001"/>
+  <visual>
+    <global azimuth="145" elevation="-23"/>
+  </visual>
+  <statistic center="0.18 0 0.12" extent="0.32"/>
+
+  <default>
+    <default class="o3c_switch">
+      <!-- Linear fit to the KS-20 White force curve. Damping and moving mass are estimates. -->
+      <joint type="slide" axis="0 0 -1" range="0 0.0041"
+             stiffness="80" damping="0.4" springref="-0.0034"/>
+      <geom type="box" size="0.007 0.007 0.003" pos="0 0 -0.003"
+            mass="0.004" rgba="0 0 0 0"/>
+    </default>
+  </default>
+  <asset>
+    <mesh name="o3c_body" file="../../sayodevice_o3c/main-body.obj"/>
+    <mesh name="o3c_key" file="../../sayodevice_o3c/key-middle.obj"/>
+    <mesh name="o3c_knob" file="../../sayodevice_o3c/scroll.obj"/>
+    <texture name="o3c_body" type="2d" file="sayodevice_o3c/main-body.png"/>
+    <texture name="o3c_key" type="2d" file="sayodevice_o3c/key-middle.png"/>
+    <texture name="o3c_knob" type="2d" file="sayodevice_o3c/scroll.png"/>
+    <material name="o3c_body" texture="o3c_body"/>
+    <material name="o3c_key" texture="o3c_key"/>
+    <material name="o3c_knob" texture="o3c_knob"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.15 -0.25 0.55" dir="0 0.45 -1" directional="true"/>
+    <geom name="table" type="plane" size="0.7 0.5 0.01" rgba="0.22 0.25 0.29 1"/>
+    <!-- The keypad is fixed to the table with the middle key under the wrist. -->
+    <body name="o3c" pos="0.2826 0 0">
+      <geom name="keypad_case" type="box" pos="0 0 0.00675"
+            size="0.025 0.0325 0.00675" rgba="0 0 0 0"/>
+      <geom type="mesh" mesh="o3c_body" material="o3c_body" contype="0" conaffinity="0"/>
+      <geom name="knob_collision" type="cylinder" pos="0.0111 0.020 0.021"
+            size="0.00985 0.0075" rgba="0 0 0 0"/>
+      <geom type="mesh" mesh="o3c_knob" material="o3c_knob" pos="0.0111 0.020 0.0135"
+            contype="0" conaffinity="0"/>
+      <body name="left_key" pos="-0.0126 0.020 0.0235">
+        <joint name="left_key_travel" class="o3c_switch"/>
+        <geom class="o3c_switch" name="left_key_collision"/>
+        <geom type="mesh" mesh="o3c_key" material="o3c_key" mass="0" contype="0" conaffinity="0"/>
+      </body>
+      <body name="space_key" pos="-0.0126 0 0.0235">
+        <joint name="key_travel" class="o3c_switch"/>
+        <geom class="o3c_switch" name="keycap_collision"/>
+        <geom name="keycap" type="mesh" mesh="o3c_key" material="o3c_key"
+              mass="0" contype="0" conaffinity="0"/>
+      </body>
+      <body name="right_key" pos="-0.0126 -0.020 0.0235">
+        <joint name="right_key_travel" class="o3c_switch"/>
+        <geom class="o3c_switch" name="right_key_collision"/>
+        <geom type="mesh" mesh="o3c_key" material="o3c_key" mass="0" contype="0" conaffinity="0"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
