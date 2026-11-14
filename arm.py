@@ -29,8 +29,13 @@ Pose = dict[str, float]
 
 
 def follower():
+    """Connect to the follower. Every script that moves the arm comes through here.
+    LeRobot switches the motors off and on again while it connects, so an arm that is not
+    resting can drop: the warning comes first. ARM_NO_PROMPT=1 skips it for unattended runs."""
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
 
+    if not os.environ.get("ARM_NO_PROMPT"):
+        input("Connecting switches the motors off and on. Support the arm or check it is resting, then Enter. ")
     robot = SO101Follower(SO101FollowerConfig(
         port=FOLLOWER_PORT, id="follower", max_relative_target=MAX_STEP))
     robot.connect()
