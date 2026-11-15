@@ -368,3 +368,19 @@ Proposal for the arm laptop: use the record and replay that are already in the r
 - Replay is blind. The Cheeto and the person have to be where they were during the recording, so tape two marks. Record it slowly.
 - Film both halves in one take: the hand guiding it, then the arm alone. That replaces the shaky Cheeto clip.
 - Pitch line if it works: "When you want something new, you show it. Guide it once with the second arm and RobTop does it again without you."
+
+## Sun 15 Nov, 4:20 AM: Eddy says build is over, the rest of the night is the demo
+
+Eddy accepted the teach-by-showing piece and wants the team on the demo from now. Plan he was given (times are targets, final Devpost is 9:00 AM, working to 8:00):
+
+| When | Arm laptop | Eddy |
+|---|---|---|
+| now to 4:45 | Second Geometry Dash level, hard stop at 4:45 whether or not it clears | Record the voiceover, start cutting the clips that exist |
+| 4:45 to 5:15 | Test record and replay with a Cheeto or brick between two taped marks; film the hand guiding, then the arm alone | Keep cutting |
+| 5:15 to 5:45 | Unplug the camera and try each piece; time one fresh camera setup; photograph the rig | Drop in the last two clips |
+| 5:45 to 6:45 | Rehearse switching between programs (only one can hold the arm) | Captions, export, watch it once all the way through, upload |
+| 6:45 to 8:00 | Working code onto `main` | Devpost text, repo public, submit |
+
+Video order: opening, drawing, tic-tac-toe, Geometry Dash, teach by showing, close. Closing line: "Everything you just saw was the same arm, and it's less than two days old. What would you teach it?"
+
+Table: the reviewer's 4:08 AM finding stands. Record and replay do not listen for the keypad stop, so the replayed motion moves an object between two spots on the table and never toward a person, with one teammate on the power switch.
