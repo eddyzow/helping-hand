@@ -64,9 +64,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
   returns "not found" to a visitor who is not signed in, so the repo is still private. The Devpost
   rules require a public GitHub link under "Try it out", and the initial submission is due at
   11:59 PM tonight. Making it public is a setting only you can change. I have not touched Devpost
-  or the repo's settings. One thing to check before you flip it: nothing secret is committed. I
-  have never seen a key in the files on `main`, and `.env` is ignored, but I have not searched the
-  whole history of every branch.
+  or the repo's settings. One thing to check before you flip it: nothing secret is committed. At
+  10:15 PM I searched the full history of every branch on GitHub for the usual key shapes
+  (Anthropic, OpenAI, Google, GitHub tokens, and anything like `API_KEY=...`) and for committed
+  `.env`, `.pem` or `.key` files, and found none. That is a pattern search, not a guarantee; the
+  one filename it flagged, `keypad/geometry_dash/my_ship_secret.csv`, looks like a game recording.
 
 - Daniel (8:35 PM), on the wrist-roll motor your note reports overheating: two things from the
   demo side. `skills/wave.py` is entirely a wrist-roll swing (plus or minus 45 degrees, eight
