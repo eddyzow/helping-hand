@@ -108,9 +108,10 @@ Notes:
   and do not rely on voice for anything that releases an object.
 - Writing on the real arm is back on the table (Eddy, 7:40 PM): the jaws grip hard enough, and the
   bare Sharpie was only too thin to hold, so the team will wind duct tape round it and try. Two
-  things from the simulator to carry into that try: a rigidly gripped pen only writes cleanly if
-  the pressing depth is right to about half a millimetre, so expect skipped or dragged lines and
-  let the marker's felt tip take up the slack; and the first drawing to make is the square in
+  things from the simulator to carry into that try: in the simulator a rigidly held pen only wrote cleanly when
+  the pressing depth was right to about half a millimetre, so if real lines skip or drag, check
+  depth first, as a guess to test and not a known cause (tape slip and the strokes are just as
+  unmeasured); and the first drawing to make is the square in
   `notes/ben.md`, measured with a ruler, before any name.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
