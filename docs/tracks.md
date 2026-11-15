@@ -4,7 +4,8 @@ Kept by Ben's agent. Read from https://hackumass-xiv.devpost.com/ (prizes, rules
 https://hackumass.com (prize names, schedule). Ben heard that tracks are being added, so this is
 re-read about once an hour until the submission; changes go in the log at the bottom.
 
-Last checked: Sat Nov 14, 6:10 PM ET. Devpost lists 28 prizes. Its Updates page had no announcements.
+Last checked: Sat Nov 14, 7:10 PM ET. The "fit for us" columns were redone at 7:10 PM for the Steady
+Hand pivot (tremor-filtering teleoperation; see `newcontext.md`). Devpost lists 28 prizes. Its Updates page had no announcements.
 
 ## The limit
 
@@ -20,16 +21,16 @@ limit. Everything without the [HACKUMASS] tag is a sponsor prize.
 | [SOFTWARE] Best Software Hack | Echo Dot | No |
 | [SOFTWARE] Best UI/UX | Game Boy Lego kit | No |
 | [SOFTWARE] Best Beginner Hack | Desk lamp | No |
-| [MEDTECH] Best MedTech Hack | Fitbit Air | Only if feeding works and leads the pitch |
+| [MEDTECH] Best MedTech Hack | Fitbit Air | Possible for Steady Hand. Risk: its judges may expect clinical grounding, and our claims list rules out any treatment claim |
 | [AI] Most Impactful AI Hack | Marshall Emberton 2 | Weak: crowded, and the AI is a means here |
 | [AI] Best Beginner AI Hack | Ergonomic mouse | No |
-| [HARDWARE] Best Hardware Hack | Arduino Uno | Candidate. The arm is a kit, which may count against us |
+| [HARDWARE] Best Hardware Hack | Arduino Uno | Fallback. The arm is a kit, which may count against us |
 | [HARDWARE] Best Beginner Hardware | Laptop stand | Only if the team counts as beginners; nobody has said |
 | [HARDWARE] Best Mechanical Hack | Mechanical keyboard | Weak unless the pen holder or a spoon mount is a real build |
 | [ENTREPRENEURSHIP] Best Pitch | Movie projector | Not in `PLAN.md`. Possible only with a business case, which we do not have |
 | [CYBERSECURITY] Most Secure Hack | MagSafe power bank | No |
 | [CYBERSECURITY] Best AI Security Hack | Anker charging stand | No |
-| Best Accessibility Hack | Life 360 Tiles | Candidate. Needs feeding, fetch or writing to work live |
+| Best Accessibility Hack | Life 360 Tiles | Best fit for Steady Hand: the project is an accessibility aid. Needs the filter shown working live |
 | Best UMass Hack | $25 UMass Store gift card | Not in `PLAN.md`. No description given |
 
 Devpost gives no description for any [HACKUMASS] category, only the names and prizes.
@@ -38,7 +39,7 @@ Devpost gives no description for any [HACKUMASS] category, only the names and pr
 
 | Prize | What it wants | Prize | Fit for us |
 |---|---|---|---|
-| [Sentient OS] Best Agentic Hack | No description on Devpost | OpenAI credits | Worth asking about. A model picks the skill and works out where to put a piece, and the arm acts on it. Not in `PLAN.md` |
+| [Sentient OS] Best Agentic Hack | No description on Devpost | OpenAI credits | Weak after the pivot: the core demo has no model in it. Only the voice extras do. Not in `PLAN.md` |
 | [Analog Devices] Best Hack using ADI Hardware | "use Analog Devices hardware in a meaningful way"; judged on the process: what you tried, what failed, what you learned | Bose QuietComfort headphones | No. We have no ADI part. Not in `PLAN.md` |
 | [Capital One] Best Use of Nessie | No description; Nessie is Capital One's banking API | $250 gift card | No. Not in `PLAN.md` |
 | [MLH] Best Use of Gemini API | Use the Gemini API | MLH swag kits | No longer. Gemini was removed from the project at 10:34 AM Saturday |
@@ -51,10 +52,10 @@ Pitch and Best UMass Hack, are not mentioned anywhere in `PLAN.md`. I cannot tel
 whether they were added during the event or were simply left out of the plan; there is no change
 log on Devpost. From here on this file records real changes.
 
-Ben's agent's read, as an opinion: nothing here changes the choice between Accessibility and
-Hardware. The one new thing worth a minute is Best Agentic Hack. It costs nothing to opt in if the
-description fits, but find out what Sentient OS means by it before ticking it; `PLAN.md`'s rule
-against building anything for a sponsor prize still holds.
+Ben's agent's read after the pivot, as an opinion: Best Accessibility Hack, with Best MedTech Hack
+as the alternative and Hardware as the fallback if the filter is not working live. No sponsor
+prize fits the core demo now, and `PLAN.md`'s rule against building anything for a sponsor prize
+still holds.
 
 ## Rules, from the Devpost rules page (quoted)
 
@@ -88,3 +89,4 @@ Schedule from hackumass.com: initial submission 12:00 AM Sunday; final 9:00 AM S
 - Sat 4:10 PM: one edit. "Best Use of MongoDB Atlas" is now tagged "[MLH] Best Use of MongoDB Atlas". No prize added or removed (still 28); Updates page still empty. The page is being edited, so the hourly re-read continues.
 - Sat 5:10 PM: no change. Same 28 prizes by name; Updates page still empty.
 - Sat 6:10 PM: no change. Same 28 prizes by name; Updates page still empty.
+- Sat 7:10 PM: no change on the page. Same 28 prizes by name; Updates page still empty. Fit notes above rewritten for the pivot.
