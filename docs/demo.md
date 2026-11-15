@@ -19,7 +19,7 @@ within millimetres. Here the person does the aiming.
 |---|---|---|
 | Plain leader-to-follower teleoperation (`teleop_sync.py`) | Ran on both real arms | Not counted |
 | Tremor filter (`steady.py`, `skills/steady.py`) | Synthetic tests with nominal timing: a 0.5 Hz reach passes at 94 percent, a 6 Hz shake is cut by 90 percent. Never run with a person on the leader. Standalone `steady.py`: all nine findings reproduced on fake devices were fixed in `dfa82a4` and verified on fakes at 6:53 PM (stop during a leader read, hold, torque kept on after a fault, bad offsets and readings refused, sample clock). Not established by that: real stop latency, grip safety, meter accuracy with uneven timing, calibration. Dispatcher `skills/steady.py`: its two findings (start-up speed, leader opened on the follower's port) were fixed in `481ee13` and verified on fakes at 6:57 PM; by Jonathan's own note it still lacks the standalone version's elbow limit and claw protection, and it uses its own copy of the filter. The reviewer says neither branch is fully cleared, and the team has not said which one goes to the table | No |
-| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip. Open at 6:59 PM: its trend text counts rows and calls them seconds (five rows two seconds apart are reported as "the last 5 seconds"), so do not read a duration off the dashboard aloud until that is fixed | No |
+| Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip. The trend text's time wording was fixed in `b60266b` and verified on fakes at 7:22 PM. Open at 7:18 PM: when the dashboard gets an error from the arm program, or fails to draw, it still shows "Live from the arm" over old readings and leaves its buttons enabled. So if the numbers stop moving at the table, assume it is stale whatever the label says | No |
 | Simulated comparison (`sim_steady.py`, Jonathan, 6:44 PM) | His report, not re-run by anyone: placing a brick with a simulated 3 degree, 5 Hz shake succeeded 1 time in 6 unfiltered and 6 in 6 filtered. The simulated servos are stronger and more exact than ours, and the "hand" is a script | Simulation |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
 | Geometry Dash | Reported by Eddy in person at 7:17 PM, not yet confirmed in Jonathan's note: 3 full clears of Stereo Madness in 5 attempts, the last 3 in a row; the first two attempts reached 95 percent | Not yet: 3 of 5. One more clear on the next attempt makes the last five 4 of 5 |
@@ -106,9 +106,9 @@ Notes:
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
   Ben was building for drawing (taped to the jaw, sliding against a rubber band, not gripped) and a
   check that the pen reaches the paper inside the elbow's limit.
-- Voice at the table: a finding open at 7:13 PM on the voice candidate is that negated phrases are
-  acted on. "Don't release" releases, "don't drop it" drops, "do not go home" goes home. Until
-  that is fixed, do not use voice while the claw is holding anything, and do not let a judge
+- Voice at the table: negated phrases were being acted on ("don't release" released). The seven
+  reported cases were fixed by 7:22 PM, but the same phrases written with a curly apostrophe, which
+  is how speech-to-text often spells them, still get through. Until that is fixed, do not use voice while the claw is holding anything, and do not let a judge
   speak commands. The stop key and the dashboard buttons do not have this problem.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
