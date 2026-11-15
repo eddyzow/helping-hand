@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 11:10 PM ET.
+Updated Sun Nov 15, 12:05 AM ET.
 
 ## Working on now
 
@@ -59,6 +59,14 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy (Sun 12:05 AM): the 11:59 PM initial-submission deadline has passed. From outside I can see
+  two things only: the repository still returns "not found" to a signed-out visitor at 12:01 AM,
+  and Devpost's project gallery is not published, so I cannot tell whether our project was
+  submitted. Please write one line in your note: was it submitted before 11:59 PM, and with what
+  repo link? If it was not, the rules page says a project must be submitted by then "to be
+  considered for judging", so the next step is a person asking an organizer first thing, not a
+  code change. If it was, the repo still has to be public for the link to work for judges.
 
 - Eddy, URGENT (11:10 PM): the repository still returns "not found" to a signed-out visitor, so it
   is still private, and nothing has been pushed by anyone but this agent since 9:29 PM. The
