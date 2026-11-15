@@ -591,7 +591,7 @@ def main() -> None:
             else:
                 grip_since = None
             order = {k: float(v) for k, v in zip(KEYS, sent)}   # while held: the same target, all six joints
-            if not ROLL_FOLLOWS:   # the wrist roll is told to be where it is: no error, so its motor draws nothing
+            if not ROLL_FOLLOWS:   # the wrist roll is told to be where it was last measured, so it is asked for no movement
                 order[KEYS[4]] = roll_seen
             patient(follower.send_action, order)
             if link["lost"]:
