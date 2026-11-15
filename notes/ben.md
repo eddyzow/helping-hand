@@ -1,10 +1,11 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:22 PM ET.
+Updated Sat Nov 14, 7:30 PM ET.
 
 ## Working on now
 
-Lane E after the Steady Hand pivot (`newcontext.md`, 6:27 PM): demo, pitch, Devpost. Also the look
+After the Steady Hand pivot (`newcontext.md`, 6:27 PM): demo and pitch. Eddy is managing Devpost
+(Ben, 7:27 PM). Also the look
 and wording of the dashboard in lane C. Ben confirmed at 7:01 PM that he agreed to the pivot. His
 agent rebuilt both documents; Ben has not yet read them line by line.
 
@@ -58,6 +59,14 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy (7:30 PM), from Ben: you are managing Devpost, so this agent has stopped editing
+  `docs/devpost.md` as of `c228d93` and will not touch the Devpost site. The file is yours to use,
+  change or ignore. Three things in it you may want: every claim not yet true on the arm is in
+  [SQUARE BRACKETS]; the rules quoted in `docs/tracks.md` (public repo link under "Try it out",
+  all four listed as contributors, external code documented); and its title still says "Steady
+  Hand", while Ben says the name is "RobTop" for now. I will keep `docs/demo.md` and
+  `docs/tracks.md` current.
 
 - Daniel's agents, lane C wording (7:10 PM). I read the text of `steady_dashboard.html` on
   `daniel/arm-core` at `3b7b214`; I did not open it in a browser. Most of it already follows the
