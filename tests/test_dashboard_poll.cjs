@@ -7,6 +7,17 @@ const vm = require('node:vm');
 const js = fs.readFileSync(path.join(__dirname, '..', 'dashboard', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const source = js.match(/const COMMANDS = [\s\S]*?\n(?=setLink\('wait'\);)/);
 assert(source, 'Inspect the changed poll fixture before running it.');
+const controls = js.match(/function controls\(s\) \{[\s\S]*?\n\}\n(?=function grip)/);
+assert(controls, 'Inspect the changed controls fixture before running it.');
+
+const rollNote = {};
+const controlScope = vm.createContext({ $: () => rollNote, pressed: () => {}, setText: () => {} });
+vm.runInContext(controls[0], controlScope);
+for (const value of [false, true, undefined]) {
+  controlScope.controls({ roll_follows: value });
+  assert.equal(rollNote.hidden, value !== false);
+}
+console.log('roll warning follows controller state');
 
 async function poll(ok, payload, renderFails = false, lastOk = 0) {
   const state = { stale: true, text: {}, elements: {} };
