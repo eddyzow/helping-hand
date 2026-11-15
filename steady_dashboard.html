@@ -116,7 +116,7 @@ Design system: docs/steady-design.md. Brief: docs/steady-ui-brief.md. Data: docs
           <button class="opt" id="hold-off" data-cmd="hold off">Follow</button>
           <button class="opt" id="hold-on" data-cmd="hold on">Hold</button>
         </div>
-        <p class="method">Hold freezes the arm where it is. The wrist roll is not powered to follow or to hold (its motor is faulty), so it stays put only by its own friction.</p>
+        <p class="method">Hold freezes the arm where it is.<span id="roll-note"> The wrist roll does not follow the hand and is not held at a fixed target (its motor is reported faulty).</span></p>
       </div>
       <div class="ctl">
         <div class="row"><label class="label" for="gain">Sensitivity</label><span class="value num" id="gainv">–</span></div>
