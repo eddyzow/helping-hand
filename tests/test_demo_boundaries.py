@@ -1,5 +1,7 @@
 """Extracted source and fake devices only; never import a demo's startup code."""
 import ast
+import math
+import queue
 import runpy
 import sys
 import time
@@ -86,6 +88,48 @@ def test_camera_wait_stop():
     assert not failures, ("camera wait ignores an already-set Stop", failures)
 
 
+def test_typed_moves():
+    path = ROOT / "demo" / "ttt2.py"
+    tree = ast.parse(path.read_text())
+    loop = next(node for node in ast.walk(tree) if isinstance(node, ast.While)
+                and isinstance(node.test, ast.Compare) and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == "steady")
+    for text, expected in (("1 1", 4), ("2,0", 6), ("", None), ("a b", None),
+                           ("-1 0", None), ("3 0", None), ("0 0", None)):
+        typed = queue.Queue()
+        typed.put(text)
+
+        def stop_wait(_):
+            raise TimeoutError("end fake camera iteration")
+
+        scope = dict(typed=typed, queue=queue, board=["X"] + [None] * 8, view=list(range(9)),
+                     steady=0, choice=None, halt=SimpleNamespace(is_set=lambda: False),
+                     print=lambda *args, **kwargs: None, root=SimpleNamespace(update=lambda: None),
+                     time=SimpleNamespace(sleep=stop_wait))
+        try:
+            exec(compile(ast.Module(body=[loop], type_ignores=[]), str(path), "exec"), scope)
+        except TimeoutError:
+            pass
+        assert scope["choice"] == expected, (text, scope["choice"])
+
+
+def test_first_line_orientation():
+    path = ROOT / "demo" / "ttt2.py"
+    tree = ast.parse(path.read_text())
+    block = next(node for node in ast.walk(tree) if isinstance(node, ast.If)
+                 and any(isinstance(item, ast.Name) and item.id == "first_line"
+                         for item in ast.walk(node.test)))
+    for angle in (0, math.pi / 2, math.pi, -math.pi / 2):
+        turn = np.array([[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]])
+        prior = np.diag([1.0, -1.0])
+        expected = turn @ prior
+        scope = dict(np=np, math=math, resume=False, first_line=-11 * expected[:, 0],
+                     ink=np.array([[-10.0, 0.0], [10.0, 0.0]]), R=prior,
+                     print=lambda *args, **kwargs: None)
+        exec(compile(ast.Module(body=[block], type_ignores=[]), str(path), "exec"), scope)
+        assert np.allclose(scope["R"], expected), (angle, scope["R"])
+
+
 def test_tracked_sheet_shift():
     path = ROOT / "demo" / "ttt2.py"
     tree = ast.parse(path.read_text())
@@ -144,7 +188,8 @@ def test_grip_validation_and_cleanup():
 
 if __name__ == "__main__":
     failures = []
-    for test in (test_game_search, test_demo_saved_depth, test_demo_teach_stop,
+    for test in (test_game_search, test_typed_moves, test_first_line_orientation,
+                 test_demo_saved_depth, test_demo_teach_stop,
                  test_camera_wait_stop, test_tracked_sheet_shift, test_grip_validation_and_cleanup):
         try:
             test()
