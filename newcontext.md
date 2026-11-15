@@ -36,6 +36,30 @@ Agreed by all four of us. Written by Daniel's agent.
 - **Only one program can hold the follower's serial port.** `steady.py`, `teleop_sync.py` and the dispatcher cannot run at the same time. On this laptop the follower is COM3 and the leader COM4, run natively on Windows (not WSL).
 - **Light objects only.** Do not test with anything heavier than a marker or a Duplo brick.
 
+### Drawing slot: get ready now, run when the tremor tests free the arm (from Eddy, Sat Nov 14, 8:10 PM)
+
+The claw grips hard enough; the bare Sharpie was too thin to hold. The plan is to wind tape round the marker and try writing on the real arm. Writing first, sketches only if writing is readable. Nothing in the drawing path has run on the real arm. The steady tests keep the arm until they are done; this does not jump that queue.
+
+**Now, with no arm (arm laptop agent: do these, none of them moves anything):**
+
+1. Pull `main`.
+2. `pip show Hershey-Fonts` (it is in `requirements.txt`; writing needs it and no network or API key).
+3. `python -m skills.write` and `python -m skills.draw`: fake-arm self-checks, each should end with an `ok` line. Report anything else.
+4. `python draw.py --write HI` previews the strokes without an arm.
+5. Sketches ("draw a cat") need `ANTHROPIC_API_KEY` in `.env` and a network. Skip them if the key is not there; the ready-made ones in `drawings/simple_*.json` work without it.
+
+**People, meanwhile:** find any tape (the hardware desk will do; it need not be duct tape) and wind it round a felt-tip marker where the jaws close, until it is about as wide as a Duplo brick. A layer of something soft under the tape (rubber bands, paper towel) helps: the arm cannot feel the paper, and in simulation a rigidly held pen skipped or dragged while one with a few millimetres of give stayed within 1 mm. Tape a sheet down where the follower reaches all four corners with its elbow inside its +65 degree limit, and mark the sheet's corners on the table.
+
+**In the slot (operator present, his go-ahead before any motion, stop key tested first; about 30 minutes):**
+
+1. Stop whatever holds the follower's port.
+2. `python arm.py teach paper 3`: hand-pose the arm with the pen in the claw at 9 points on the paper, then the same 9 lifted. Writes `poses/paper.json`.
+3. `python -m core.dispatcher`, then `run write {"text": "HI"}`.
+4. Too faint or skipping: re-teach the "down" layer a little lower. Pen slipping: more tape, or raise `PEN_SQUEEZE` (default 8, at most 30). Dragging and cutting corners: the "down" layer is too low.
+5. Readable: try a name (`run write {"text": "Dr. Lee"}`), then `DRAW_DETAIL=simple` and a sketch.
+
+If "HI" is not readable by the end of the slot, stop and show the simulated drawings on video (`python sim_draw.py --write Dr. Lee` saves `outputs/sim_draw.mp4`).
+
 ### Lanes (from now until the final submission)
 
 | Lane | Owner | Does |
