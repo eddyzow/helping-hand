@@ -9,6 +9,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Standalone fixes verified: dfa82a4
 
+**New optional latch hold at fa66e03 / cd47ac2:** GripLatch initializes closed=False/open_to=60 instead of the current follower grip. The actual-main fake `test_latch_start` begins with gripper=7 and leader trigger=80, never squeezes, and observes commands 7 then 24.667 toward open. An existing grasp can therefore be released on latch activation without a toggle. Preserve initial grip until a deliberate trigger event or require explicit supported-release setup. Physical object loss was not observed. The ten earlier control regressions and synthetic latch debounce/toggle tests pass; default latch-off behavior remains green. No devices/rendering were run.
+
 **Reporting follow-up e85e530 / QA 9985152:** `tests.test_steady_reporting` passes four in-memory static-file handler cases (allowed JS with query, traversal, disallowed extension, missing file) but fails elapsed-time wording for calm and grip summaries. Five rows timestamped 0,2,4,6,8 are called five seconds. Main emits trend every 50 ticks, so slower IO makes this a real mismatch with the supplied timestamps. Calculate time-based claims from elapsed timestamps or say samples; do not equate threshold counts/time percentages with measured duration. This is a reporting finding, not a reopened failure of the nine passing control checks. `tests.test_steady` and `tests.test_standalone_steady_safety` pass at e85e530. No live HTTP server or browser rendering was used.
 
 Combined QA e792fad (including Jonathan 481ee13) additionally completed WSL `python -B -m tests.test_core`: `core ok`, exit 0. This is mock integration evidence only.
