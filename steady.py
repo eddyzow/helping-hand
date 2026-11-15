@@ -388,7 +388,9 @@ def main() -> None:
     # one garbled serial reply must not end the session (it did, on the first real run of v2: "motor 5:
     # Parsing error"): every read retries. A read that still fails stops the loop, motors holding.
     for bus in (b for b in (leader.bus, follower.bus) if hasattr(b, "sync_read")):
-        bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{"num_retry": 5, **k}))(bus.sync_read)
+        bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{**k, "num_retry": 12}))(bus.sync_read)
+        # 12, whatever the caller asks: measured 14 Nov, the follower's wrist roll garbles about 3 replies in 10
+        # while the whole arm is powered (none with the motors off), so 3 tries still failed within a second
     tip = Fingertip()
     OUT.mkdir(parents=True, exist_ok=True)
     log = (OUT / f"session_{time.strftime('%Y%m%d_%H%M%S')}.csv").open("w")
