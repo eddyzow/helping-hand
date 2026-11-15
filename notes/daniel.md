@@ -1,6 +1,8 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-15, arm reviewed through 5ad5d53. Snapshot, not a live hardware reservation.
+Updated 2026-11-15, arm reviewed through 940684b. Snapshot, not a live hardware reservation.
+
+**Recording-only follow-up 940684b / QA 18641e2:** `god_yeeter.csv` passes the existing `read_pattern` parser: 134 alternating events, 67 complete presses, last event 46.911634 s. Shortest recorded press is 22.106 ms; shortest released gap is 46.586 ms. The existing `command_times` function accepts the demo defaults of 106/114 ms press/release lead, leaving a shortest command interval of 14.106 ms. This is file/timing validation only: no replay, native input, arm action, game-clear result or physical feasibility test. No runtime logic changed; the prior holds and QA outcomes remain unchanged.
 
 **Record/replay proposal review after main a985787 (source only):** do not present the two recording commands as interchangeable. Main `arm.py record feed` saves timestamp/action pairs to `motions/feed.json`, and `arm.py replay feed` reads that file. `teleop_sync.py` is present on arm-core/QA, absent from main, and its `--record feed` saves `{hz, joints, frames}` to `poses/taught/feed.json`; the named `arm.py replay feed` does not consume it. The operator needs an explicitly matching recording/replay pair, not a renamed or moved incompatible JSON file.
 
