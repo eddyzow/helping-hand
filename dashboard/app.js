@@ -425,8 +425,8 @@ function setLink(next) {
   const phase = lastState.calibration && lastState.calibration.phase, calibrating = phase === 'rest' || phase === 'move';
   const reason = link === 'down' ? 'Controls are off: not connected to the controller.'
     : link === 'broken' ? 'Controls are off: the page is not updating, so it could not show what a command did.'
-    : link === 'live' && calibrating ? 'Controls wait while calibration runs. Cancel it from the bar above.' : '';
-  if (link !== 'live' || calibrating) for (const el of COMMANDS()) if (el.id !== 'status-act') el.disabled = true;  // the strip's own action is drawStatus()'s
+    : link === 'live' && calibrating ? 'Controls wait while calibration runs. Cancel it from the bar above, or press Hold to keep the arm held afterwards.' : '';
+  if (link !== 'live' || calibrating) for (const el of COMMANDS()) if (el.id !== 'status-act' && !(link === 'live' && el.id === 'hold-on')) el.disabled = true;  // Hold stays available in calibration, so the arm can stay held when it ends;  // the strip's own action is drawStatus()'s
   setText('locked', reason); $('locked').hidden = !reason;
   if (link === 'down' || link === 'broken') {  // never leave old numbers looking live
     const s = lastState;
