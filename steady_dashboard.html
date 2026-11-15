@@ -1,271 +1,224 @@
 <!doctype html>
 <!--
-THESIS: one page that proves "your hand shakes, the arm does not" in two seconds: the hand's trace and the arm's
-trace, drawn on the same scale, side by side with their numbers, like the rows of a bedside monitor. It refuses the
-row of equal number tiles.
-OWN-WORLD: warm paper ground, opaque cream cards, ink type, rust for the hand, plum for RobTop's arm, nothing else.
-STORY: a judge or a physiotherapist sees the shake go in and not come out, then reads what RobTop noticed.
-FIRST VIEWPORT: header with the tremor filter and Hold; hero (two traces, two numbers, the share removed) left, the 3D arm right;
-the 30-second chart and the grip readings beneath.
-FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, right column is RobTop.
+THESIS: a live clinical record sheet: every value is a labelled field with its unit and method, and one status
+strip says in words what the arm is doing. It refuses the floating-card dashboard and the hero statistic.
+OWN-WORLD: form-stock ground, flat sheets on hairline rules, value boxes with units outside, tick-box option pairs,
+ink type, plum for the arm and for choices, rust only for the hand, a three-class status palette with glyphs.
+STORY: a judge sees the hand's shake and the arm's shake on one scale and reads why the arm is still when it is.
+FIRST VIEWPORT: device header row; full-width status strip; measurement sheet | 3D robot | control rail.
+FORM: candidate 7 of 7 (clinical case report form), seed 995b0df8; staging: status first, then measured comparison.
+Design system: docs/steady-design.md. Brief: docs/steady-ui-brief.md. Data: docs/steady-contract.md.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Steady Hand</title>
-<style>
-  :root {
-    --paper:#f3ede2; --card:#fbf8f2; --ink:#2a2227; --soft:#6f6468; --line:#e2d9cb;
-    --plum:#6b2d5c; --raw:#b8552f; --ok:#2f6b4f;
-    --plum-wash:#efe4ea; --raw-wash:#f5e4da; --track:#ebe3d6;
-    --shadow:0 1px 2px rgba(42,34,39,.05), 0 10px 28px -18px rgba(42,34,39,.28);
-    --radius:18px;
-  }
-  * { box-sizing:border-box; }
-  html { -webkit-text-size-adjust:100%; }
-  body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
-  main { max-width:1400px; margin:0 auto; padding:26px 32px 36px; }
-  h1, h2, p { margin:0; }
-  [hidden] { display:none !important; }
-  .num { font-variant-numeric:tabular-nums; }
-
-  /* header */
-  header { display:flex; align-items:center; justify-content:space-between; gap:20px 32px; flex-wrap:wrap; margin-bottom:22px; }
-  h1 { font-size:30px; line-height:1.1; font-weight:700; letter-spacing:-0.015em; }
-  .tagline { font-size:19px; margin-top:4px; }
-  .sub { color:var(--soft); font-size:14px; margin-top:2px; }
-  .controls { display:flex; align-items:center; gap:12px; }
-  .link { color:var(--soft); font-size:13px; margin-right:6px; text-align:right; line-height:1.3; }
-  button { font:inherit; color:inherit; cursor:pointer; }
-  button:focus-visible, input:focus-visible { outline:3px solid var(--plum); outline-offset:3px; }
-  .toggle { min-height:54px; min-width:148px; padding:0 20px; border-radius:14px; border:1.5px solid var(--line); background:var(--card);
-            display:flex; flex-direction:column; align-items:flex-start; justify-content:center; line-height:1.15; text-align:left;
-            box-shadow:var(--shadow); transition:background-color .18s, border-color .18s, color .18s; }
-  .toggle b { font-size:17px; font-weight:650; }
-  .toggle span { font-size:13px; color:var(--soft); }
-  .toggle:hover { border-color:var(--plum); }
-  .toggle[aria-pressed="true"] { background:var(--plum); border-color:var(--plum); color:#fff; }
-  .toggle[aria-pressed="true"] span { color:#eadbe5; }
-
-  #lost { background:var(--raw-wash); border:1px solid #e3b9a2; border-radius:14px; padding:12px 16px; margin:-6px 0 18px; }
-  #lost b { color:#8a3a1c; }
-  #lost .note { margin-top:2px; }
-  .toggle:disabled, input:disabled { cursor:default; opacity:.6; }
-  .stale .grid { opacity:.5; filter:grayscale(.5); }
-
-  /* grid and cards */
-  .grid { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:16px; transition:opacity .2s; }
-  .c5 { grid-column:span 5; } .c7 { grid-column:span 7; } .c12 { grid-column:span 12; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); min-width:0; }
-  .card h2 { font-size:16px; font-weight:650; line-height:1.3; }
-  .head { display:flex; align-items:baseline; justify-content:space-between; gap:6px 16px; flex-wrap:wrap; margin-bottom:12px; }
-  .note { color:var(--soft); font-size:14px; }
-  .empty { color:var(--soft); font-size:15px; padding:18px 0 6px; max-width:44ch; }
-  .legend { display:flex; gap:6px 18px; flex-wrap:wrap; font-size:13px; color:var(--soft); }
-  .legend i { display:inline-block; width:18px; height:3px; border-radius:2px; vertical-align:middle; margin-right:7px; }
-  .legend i.hand { background:var(--raw); } .legend i.arm { background:var(--plum); height:4px; }
-  .legend i.grip { background:#cbbfb0; height:8px; }
-  canvas { display:block; width:100%; }
-
-  /* hero: the hand row, the arm row, then the share removed */
-  .hero { padding:22px 26px 20px; display:flex; flex-direction:column; }
-  .lane { display:grid; grid-template-columns:150px minmax(0, 1fr) 176px; align-items:center; gap:20px; padding:14px 0; border-top:1px solid var(--line); }
-  .hero .lane { flex:1; }
-  .lane-name b { display:block; font-size:18px; font-weight:650; }
-  .lane-name span { color:var(--soft); font-size:14px; }
-  .trace { height:96px; }
-  .lane-num { text-align:right; white-space:nowrap; font-size:62px; font-weight:650; line-height:1; letter-spacing:-0.02em; }
-  .lane-num small, .removed small { font-size:20px; font-weight:450; color:var(--soft); margin-left:4px; letter-spacing:0; }
-  .hand .lane-num { color:var(--raw); } .arm .lane-num { color:var(--plum); }
-  .lane-name .freq { display:block; margin-top:2px; }
-  .result { display:flex; align-items:flex-end; justify-content:space-between; gap:8px 20px; flex-wrap:wrap; border-top:2px solid var(--ink); padding-top:14px; margin-top:auto; }
-  .result .lane-name span { display:block; max-width:44ch; }
-  .removed { font-size:76px; font-weight:700; line-height:.95; letter-spacing:-0.03em; white-space:nowrap; }
-
-  /* 3D view */
-  .view { display:flex; flex-direction:column; }
-  #arm3d { position:relative; flex:1; min-height:340px; border-radius:12px; overflow:hidden; background:var(--paper); }
-  #arms { flex:1; min-height:340px; height:340px; border-radius:12px; background:var(--paper); }
-  .view .note { margin-top:10px; }
-
-  /* readings */
-  .readings { display:flex; flex-direction:column; gap:18px; }
-  .reading .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
-  .reading .row b { font-size:22px; font-weight:650; }
-  .reading .note { margin-top:4px; }
-  #testbar { margin-top:18px; }
-  .bar { height:10px; background:var(--track); border-radius:6px; overflow:hidden; margin-top:8px; }
-  .bar i { display:block; height:100%; background:var(--plum); transform:scaleX(0); transform-origin:left; transition:transform .2s ease-out; }
-  .reading + .reading { border-top:1px solid var(--line); padding-top:16px; }
-  input[type=range] { width:100%; margin:12px 0 2px; accent-color:var(--plum); height:28px; }
-  .ends { display:flex; justify-content:space-between; color:var(--soft); font-size:13px; }
-
-  #chart { height:320px; }
-  #trendchart { height:300px; }
-  .card > .legend { margin-top:10px; }
-
-  /* observations */
-  .obs { list-style:none; margin:0; padding:0; }
-  .obs li { padding:12px 0; border-top:1px solid var(--line); }
-  .obs li:first-child { border-top:0; padding-top:2px; }
-  .obs .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
-  .obs .row b { font-weight:650; }
-  .obs .row span { font-size:20px; font-weight:650; white-space:nowrap; }
-  .obs p { color:var(--soft); font-size:14px; margin-top:2px; max-width:60ch; }
-
-  /* hold-still test */
-  .test-body { display:grid; grid-template-columns:200px minmax(0, 1fr); gap:24px; align-items:center; }
-  .test-num { font-size:68px; font-weight:700; line-height:1; letter-spacing:-0.02em; }
-  .test-num small { display:block; font-size:15px; font-weight:450; color:var(--soft); letter-spacing:0; margin-top:6px; }
-  .test-num.idle { color:var(--soft); }
-  #testnote { font-size:16px; max-width:52ch; }
-  #testscale { margin-top:6px; }
-  .action { margin-top:14px; min-height:48px; padding:0 22px; border-radius:12px; border:1.5px solid var(--plum); background:var(--card); color:var(--plum);
-            font-weight:650; transition:background-color .18s; }
-  .action:hover:not(:disabled) { background:var(--plum-wash); }
-  .action:disabled { color:var(--soft); border-color:var(--line); cursor:default; }
-
-  /* voice */
-  .said { display:grid; gap:12px; }
-  .said div { background:var(--paper); border-radius:12px; padding:10px 14px; }
-  .said dt { color:var(--soft); font-size:13px; }
-  .said dd { margin:2px 0 0; font-size:17px; }
-
-  /* sessions */
-  .sessions { display:grid; grid-template-columns:minmax(0, 5fr) minmax(0, 7fr); gap:28px; align-items:start; }
-  #sessionchart { height:170px; }
-  .tablewrap { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
-  th, td { text-align:right; padding:8px 6px; border-top:1px solid var(--line); white-space:nowrap; }
-  th { font-weight:600; font-size:13px; color:var(--soft); border-top:0; vertical-align:bottom; white-space:normal; }
-  th:first-child, td:first-child { text-align:left; }
-
-  footer { color:var(--soft); font-size:14px; margin-top:22px; max-width:90ch; line-height:1.55; }
-
-  @media (max-width:1100px) {
-    .lane { grid-template-columns:120px minmax(0, 1fr) 150px; gap:16px; }
-    .lane-num { font-size:52px; } .removed { font-size:64px; }
-  }
-  @media (max-width:900px) {
-    main { padding:18px 16px 28px; }
-    .c5, .c7 { grid-column:span 12; }
-    header { align-items:stretch; }
-    .controls { width:100%; flex-wrap:wrap; }
-    .link { order:3; width:100%; text-align:left; }
-    .toggle { flex:1; min-width:0; }
-    .lane { grid-template-columns:minmax(0, 1fr) auto; gap:4px 12px; }
-    .trace { grid-column:1 / -1; grid-row:2; height:60px; }
-    .lane-num { font-size:46px; }
-    .removed { font-size:56px; }
-    .sessions, .test-body { grid-template-columns:1fr; gap:14px; }
-    #arm3d, #arms { min-height:280px; height:280px; }
-  }
-  @media (prefers-reduced-motion:reduce) {
-    *, *::before, *::after { transition:none !important; animation:none !important; }
-  }
-</style>
+<title>Steady Hand console</title>
+<link rel="stylesheet" href="/dashboard/app.css">
 </head>
 <body>
+<header class="sheethead">
+  <div class="brand">
+    <h1>Steady Hand</h1>
+    <p>Operator console. A prototype, not a medical device.</p>
+  </div>
+  <dl class="fields">
+    <div><dt>Profile</dt><dd id="f-user">–</dd></div>
+    <div><dt>Calibration</dt><dd id="f-cal">–</dd></div>
+    <div><dt>Session</dt><dd class="num" id="f-session">–</dd></div>
+    <div><dt>Link</dt><dd id="f-link">Connecting…</dd></div>
+  </dl>
+</header>
+
+<section class="status" id="status" data-class="stop" aria-live="polite" aria-atomic="true">
+  <svg class="glyph" id="glyph" viewBox="0 0 24 24" aria-hidden="true"></svg>
+  <p><b id="status-word">Connecting</b> <span id="status-text">Waiting for the first numbers from the controller.</span></p>
+  <button class="btn" id="status-act" hidden></button>
+</section>
+
 <main>
-  <header>
-    <div>
-      <h1>Steady Hand</h1>
-      <p class="tagline">Your hand shakes, the arm does not.</p>
-      <p class="sub">Move the small leader arm. RobTop, the robot buddy, copies the movement with the shake filtered out.<br>A prototype, tested only with people shaking the arm on purpose, not with patients.</p>
-    </div>
-    <div class="controls">
-      <p class="link" id="link" role="status">Connecting to the arm…</p>
-      <button class="toggle" id="steady" aria-pressed="true" title="Middle key on the keypad"><b>Tremor filter</b><span>on</span></button>
-      <button class="toggle" id="hold" aria-pressed="false" title="Jump key on the keypad"><b>Hold</b><span>off</span></button>
-    </div>
-  </header>
-
-  <div id="lost" hidden><p role="alert"><b>Connection lost.</b> No new numbers from the arm. The figures below are the last ones received. Start the arm with: python steady.py</p><p class="note num" id="lostfor"></p></div>
-
-  <div class="grid">
-    <section class="card hero c7" aria-labelledby="h-hero">
-      <div class="head"><h2 id="h-hero">Shake right now</h2><span class="note">last 6 seconds, both drawn to the same scale</span></div>
-      <div class="lane hand">
-        <div class="lane-name"><b>Your hand</b><span>the leader arm</span><span class="note freq" id="freq">no tremor found</span></div>
-        <canvas class="trace" id="tracehand" aria-hidden="true"></canvas>
-        <div class="lane-num num"><span id="hand">0.0</span><small>mm</small></div>
+  <section class="sheet procedure" id="procedure" aria-labelledby="h-proc" hidden>
+    <div class="sec"><h2 id="h-proc">Calibration for <span id="cal-who">this profile</span></h2>
+      <span class="method" id="cal-note">The arm is held while this runs.</span></div>
+    <ol class="steps" id="cal-steps">
+      <li data-step="rest"><b>Rest</b><span>3 seconds</span></li>
+      <li data-step="move"><b>Move</b><span>12 seconds</span></li>
+      <li data-step="done"><b>Result</b><span>gains and ranges</span></li>
+    </ol>
+    <div class="proc-body">
+      <div class="countdown"><span class="num" id="cal-left">3</span><small id="cal-unit">seconds left</small></div>
+      <div class="proc-main">
+        <p class="instr" id="cal-instr">Hold the leader arm still in a comfortable pose, hand relaxed.</p>
+        <div class="coverage" id="cal-cover" hidden></div>
+        <table class="result" id="cal-result" hidden>
+          <thead><tr><th>Joint</th><th>Comfortable range</th><th>Gain</th></tr></thead>
+          <tbody id="cal-rows"></tbody>
+        </table>
+        <p class="method" id="cal-trigger"></p>
       </div>
-      <div class="lane arm">
-        <div class="lane-name"><b>RobTop's arm</b><span>measured at the claw</span></div>
-        <canvas class="trace" id="tracearm" aria-hidden="true"></canvas>
-        <div class="lane-num num"><span id="arm">0.0</span><small>mm</small></div>
+      <div class="proc-actions">
+        <button class="btn secondary" id="cal-close" hidden>Close</button>
       </div>
-      <div class="result">
-        <div class="lane-name"><b>Tremor removed</b><span id="mode">Tremor filter on: RobTop leaves the shake out.</span></div>
-        <div class="removed num"><span id="removed">0</span><small>%</small></div>
+    </div>
+  </section>
+
+  <div class="board">
+    <section class="sheet measure" aria-labelledby="h-measure">
+      <div class="sec"><h2 id="h-measure">Shake, measured now</h2>
+        <span class="method">fingertip movement in the 3 to 12 Hz band, RMS over the last 4 s</span></div>
+      <div class="channel hand">
+        <div class="ch-name"><b>Hand</b><span>leader arm</span><span class="num" id="freq">no tremor found</span></div>
+        <div class="plot trace"><canvas id="tracehand" aria-hidden="true"></canvas></div>
+        <div class="vbox"><span class="num" id="hand">–</span><small>mm</small></div>
+      </div>
+      <div class="channel arm">
+        <div class="ch-name"><b>Arm</b><span>follower, measured</span><span id="armnote"></span></div>
+        <div class="plot trace"><canvas id="tracearm" aria-hidden="true"></canvas></div>
+        <div class="vbox"><span class="num" id="arm">–</span><small>mm</small></div>
+      </div>
+      <p class="method scale-note" id="scalenote">Both traces: last 6 s, drawn to the same scale.</p>
+      <div class="compare">
+        <div class="scale" aria-hidden="true">
+          <div class="bar-row"><span>Hand</span><div class="track"><i class="m-hand" id="m-hand"></i></div></div>
+          <div class="bar-row"><span>Arm</span><div class="track"><i class="m-arm" id="m-arm"></i></div></div>
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <div class="removed">
+          <span class="label">Share removed</span>
+          <div class="vbox l"><span class="num" id="removed">–</span><small>%</small></div>
+          <span class="method" id="mode">1 − arm ÷ hand</span>
+        </div>
       </div>
     </section>
 
-    <section class="card view c5" aria-labelledby="h-view">
-      <div class="head"><h2 id="h-view">RobTop's arm, live</h2>
-        <div class="legend"><span><i class="hand"></i>your hand</span><span><i class="arm"></i>RobTop's arm</span></div></div>
+    <section class="sheet view" aria-labelledby="h-view">
+      <div class="sec"><h2 id="h-view">The robot, live</h2>
+        <div class="legend"><span><i class="hand"></i>hand (leader)</span><span><i class="arm"></i>arm (follower)</span></div></div>
       <div id="arm3d"></div>
-      <canvas id="arms" hidden aria-label="Side view of the hand's arm and RobTop's arm"></canvas>
-      <p class="note" id="viewnote" hidden>A simple side view: the 3D view could not start in this browser.</p>
+      <canvas id="arms" hidden aria-label="Side view of the hand's arm and the robot's arm"></canvas>
+      <p class="method" id="viewnote" hidden>A simple side view: the 3D view could not start in this browser.</p>
+      <p class="viewstale" id="viewstale" hidden>Last known pose, not live</p>
     </section>
 
-    <section class="card c7" aria-labelledby="h-chart">
-      <div class="head"><h2 id="h-chart">Fingertip height, last 30 seconds</h2>
-        <div class="legend"><span><i class="hand"></i>your hand</span><span><i class="arm"></i>RobTop's arm</span></div></div>
-      <canvas id="chart" aria-hidden="true"></canvas>
-    </section>
-
-    <section class="card readings c5" aria-label="Readings and filter">
-      <div class="reading">
-        <div class="row"><h2>Grip effort</h2><b class="num" id="gripv">0%</b></div>
-        <div class="bar"><i id="grip"></i></div>
-        <p class="note">The claw motor's own load reading, an estimate. <span id="claw"></span></p>
+    <aside class="rail" aria-label="Controls">
+      <p class="locked" id="locked" role="status" hidden></p>
+      <div class="ctl">
+        <span class="label" id="l-filter">Tremor filter</span>
+        <div class="pair" role="group" aria-labelledby="l-filter">
+          <button class="opt" id="filter-on" data-cmd="filter on">On</button>
+          <button class="opt" id="filter-off" data-cmd="filter off">Off</button>
+        </div>
+        <p class="method">Off lets the shake through, for comparison.</p>
       </div>
-      <div class="reading">
-        <div class="row"><h2>Arm load</h2><b class="num" id="loadv">0%</b></div>
-        <div class="bar"><i id="load"></i></div>
-        <p class="note">Hardest-working joint, from the motors' own load readings, an estimate. <span id="speed"></span></p>
+      <div class="ctl">
+        <span class="label" id="l-hold">Arm</span>
+        <div class="pair" role="group" aria-labelledby="l-hold">
+          <button class="opt" id="hold-off" data-cmd="hold off">Follow</button>
+          <button class="opt" id="hold-on" data-cmd="hold on">Hold</button>
+        </div>
+        <p class="method">Hold freezes all six joints where they are.</p>
       </div>
-      <div class="reading">
-        <div class="row"><h2><label for="cut">Filter</label></h2><b class="num" id="cutv">2.0 Hz</b></div>
+      <div class="ctl">
+        <div class="row"><label class="label" for="gain">Sensitivity</label><span class="value num" id="gainv">–</span></div>
+        <input id="gain" type="range" min="1" max="3" step="0.1" value="1" aria-describedby="gainnote">
+        <div class="ends"><span>1.0×</span><span>3.0×</span></div>
+        <p class="method" id="gainnote">The arm moves this many times as far as your hand, around the neutral pose.</p>
+      </div>
+      <div class="ctl">
+        <div class="row"><label class="label" for="cut">Response</label><span class="value num" id="cutv">–</span></div>
         <input id="cut" type="range" min="0.5" max="8" step="0.1" value="2" aria-describedby="cutnote">
         <div class="ends"><span>steadier</span><span>follows sooner</span></div>
-        <p class="note" id="cutnote">Lets through movement slower than this. Lower is steadier but follows the hand a little later.</p>
+        <p class="method" id="cutnote">Filter cut-off. Higher follows the hand sooner and removes less shake.</p>
+      </div>
+      <div class="ctl">
+        <button class="btn secondary wide" id="neutral" data-cmd="neutral">Set neutral pose</button>
+        <p class="method" id="neutralnote">Your hand's pose now becomes the centre that sensitivity scales around.</p>
+      </div>
+      <p class="method cmdnote" id="cmdnote" aria-live="polite"></p>
+    </aside>
+
+    <section class="grip" aria-labelledby="h-grip">
+        <div class="sec"><h2 id="h-grip">Grip</h2></div>
+        <div class="meter"><div class="row"><span class="label">Squeeze now</span><span class="value num" id="g-squeeze">–</span></div><div class="track"><i class="m-hand" id="gm-squeeze"></i></div></div>
+        <div class="meter"><div class="row"><span class="label">Grip being held</span><span class="value num" id="g-held">–</span></div><div class="track"><i id="gm-held"></i></div></div>
+        <div class="meter"><div class="row"><span class="label">Claw opening</span><span class="value num" id="g-claw">–</span></div><div class="track"><i id="gm-claw"></i></div>
+          <div class="ends"><span>shut</span><span>open</span></div></div>
+        <div class="grip-actions">
+          <button class="btn primary" id="letgo" data-cmd="grip release">Let go</button>
+          <button class="switch" id="griphold" role="switch" aria-checked="false"><span class="knob" aria-hidden="true"></span>Grip hold</button>
+        </div>
+        <p class="method" id="gripnote">The claw keeps your tightest squeeze until you open your hand wide or press Let go.</p>
+        <p class="method" id="loads"></p>
+    </section>
+
+    <section class="sheet c-chart" aria-labelledby="h-chart">
+      <div class="sec"><h2 id="h-chart">Fingertip height, last 30 seconds</h2>
+        <div class="legend"><span><i class="hand"></i>hand</span><span><i class="arm"></i>arm</span></div></div>
+      <div class="plot chartbox"><canvas id="chart" aria-hidden="true"></canvas></div>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="sheet profile" aria-labelledby="h-profile">
+      <div class="sec"><h2 id="h-profile">Profile and calibration</h2></div>
+      <p class="empty" id="noprofile" hidden>This controller has no user profiles. Every movement uses gain 1.0.</p>
+      <div id="profilebox">
+        <div class="ctl">
+          <label class="label" for="userpick">Person using the arm</label>
+          <select id="userpick"></select>
+        </div>
+        <form class="adduser" id="adduser">
+          <label class="label" for="newname">Add a person</label>
+          <div class="inline"><input id="newname" maxlength="24" autocomplete="off" placeholder="Name" aria-describedby="namenote">
+            <button class="btn secondary" type="submit">Add</button></div>
+          <p class="method" id="namenote">Letters, digits, spaces and dashes; up to 24 characters.</p>
+        </form>
+        <p class="calstate" id="calstate"></p>
+        <table class="result" id="gains" hidden>
+          <thead><tr><th>Joint</th><th>Range</th><th>Gain</th></tr></thead>
+          <tbody id="gainrows"></tbody>
+        </table>
+        <button class="btn primary wide" id="calibrate" data-cmd="calibrate">Start calibration</button>
+        <p class="method">15 seconds: 3 s at rest, then 12 s moving every joint as far as is comfortable. The arm is held meanwhile.</p>
       </div>
     </section>
 
-    <section class="card c7" aria-labelledby="h-trend">
-      <div class="head"><h2 id="h-trend">Shake and grip effort over time</h2><span class="note" id="trendspan">one point a second</span></div>
-      <p class="empty" id="notrend">Nothing yet. This fills in while the arm runs, one point a second, up to the last 10 minutes.</p>
+    <section class="sheet activities" aria-labelledby="h-act">
+      <div class="sec"><h2 id="h-act">Activities</h2><span class="method">measured; scores are a display scale, not a clinical measure</span></div>
+      <p class="empty" id="noact">No activities yet. The hold-still test and the calibration fill this in.</p>
+      <table class="acts" id="acts" hidden>
+        <thead><tr><th>Activity</th><th>Last</th><th>Best</th><th>Runs</th><th><span class="sr">Action</span></th></tr></thead>
+        <tbody id="actrows"></tbody>
+      </table>
+      <div class="testrun" id="testrun" hidden>
+        <div class="countdown"><span class="num" id="testleft">10</span><small>seconds left</small></div>
+        <div><p class="instr">Hold the leader arm as still as you can.</p><div class="track"><i id="testbar"></i></div></div>
+      </div>
+      <p class="method" id="testlast" aria-live="polite"></p>
+    </section>
+
+    <section class="sheet session" aria-labelledby="h-session">
+      <div class="sec"><h2 id="h-session">This session</h2></div>
+      <dl class="summary" id="summary"></dl>
+    </section>
+
+    <section class="sheet c-trend" aria-labelledby="h-trend">
+      <div class="sec"><h2 id="h-trend">Shake and grip effort over time</h2><span class="method" id="trendspan">about one point a second</span></div>
+      <p class="empty" id="notrend">Nothing yet. This fills in while the arm runs, about one point a second, up to the last 10 minutes.</p>
       <div id="trendbox" hidden>
         <canvas id="trendchart" aria-hidden="true"></canvas>
-        <div class="legend" style="margin-top:10px"><span><i class="hand"></i>hand shake</span><span><i class="arm"></i>arm shake</span><span><i class="grip"></i>grip effort</span></div>
+        <div class="legend"><span><i class="hand"></i>hand shake</span><span><i class="arm"></i>arm shake</span><span><i class="effort"></i>grip effort (motor load estimate)</span></div>
       </div>
     </section>
 
-    <section class="card c5" aria-labelledby="h-obs">
-      <div class="head" style="margin-bottom:4px"><h2 id="h-obs">What RobTop noticed</h2></div>
-      <p class="note" style="margin-bottom:12px">Observations for a physiotherapist to look at, not advice.</p>
-      <p class="empty" id="noobs">No observations yet. They appear here once RobTop has watched enough of the session.</p>
+    <section class="sheet c-obs" aria-labelledby="h-obs">
+      <div class="sec"><h2 id="h-obs">What RobTop noticed</h2><span class="method">observations for a physiotherapist to look at, not advice</span></div>
+      <p class="empty" id="noobs">No observations yet. They appear once RobTop has watched enough of the session.</p>
       <ul class="obs" id="obs"></ul>
     </section>
 
-    <section class="card c7" aria-labelledby="h-test">
-      <div class="head"><h2 id="h-test">Hold-still test</h2></div>
-      <div class="test-body">
-        <div class="test-num num idle" id="testbig"><span id="testval">10</span><small id="testunit">second test</small></div>
-        <div>
-          <p id="testnote" aria-live="polite">Measures how much the hand shakes while holding the leader arm still for 10 seconds.</p>
-          <p class="note" id="testscale" hidden>100 means no shake. The score is a display scale, not a clinical measure.</p>
-          <button class="action" id="test">Start the 10-second test</button>
-        </div>
-      </div>
-      <div class="bar" id="testbar" hidden><i></i></div>
-    </section>
-
-    <section class="card c5" aria-labelledby="h-voice">
-      <div class="head"><h2 id="h-voice">RobTop's voice</h2><span class="note num" id="voiceago"></span></div>
+    <section class="sheet c-voice" aria-labelledby="h-voice">
+      <div class="sec"><h2 id="h-voice">RobTop's voice</h2><span class="method num" id="voiceago"></span></div>
       <p class="empty" id="novoice">Voice is off.</p>
       <dl class="said" id="voice" hidden>
         <div><dt>Heard</dt><dd id="heard"></dd></div>
@@ -273,13 +226,13 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
       </dl>
     </section>
 
-    <section class="card c12" aria-labelledby="h-sessions">
-      <div class="head"><h2 id="h-sessions">Past sessions</h2></div>
+    <section class="sheet c-past" aria-labelledby="h-sessions">
+      <div class="sec"><h2 id="h-sessions">Past sessions</h2></div>
       <p class="empty" id="nosessions">No sessions recorded yet. Each session is saved here while the arm runs.</p>
       <div class="sessions" id="sessions" hidden>
         <div>
           <canvas id="sessionchart" aria-hidden="true"></canvas>
-          <div class="legend" style="margin-top:10px"><span><i class="hand"></i>hand shake (mean)</span><span><i class="arm"></i>arm shake (mean)</span></div>
+          <div class="legend"><span><i class="hand"></i>hand shake (mean)</span><span><i class="arm"></i>arm shake (mean)</span></div>
         </div>
         <div class="tablewrap">
           <table>
@@ -291,224 +244,10 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
     </section>
   </div>
 
-  <footer>Prototype. Tested only with people shaking the leader arm on purpose, not with patients. Grip effort and arm load are the motors' own load readings, estimates. The hold-still score is a display scale, not a clinical measure. The arm holds light objects only.</footer>
+  <footer>Prototype. Tested only with people shaking the leader arm on purpose, not with patients. It measures and
+    describes; it does not diagnose or treat. Grip effort and arm load are the motors' own load readings, estimates.
+    Scores are a display scale, not a clinical measure. The arm holds light objects only.</footer>
 </main>
-<script>
-const $ = id => document.getElementById(id);
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const fixed = (v, d) => Number.isFinite(v) ? v.toFixed(d) : '–';
-const send = line => fetch('/cmd?' + encodeURIComponent(line)).catch(() => {});
-const FONT = '12px "Segoe UI", system-ui, sans-serif';
-let steady = true, hold = false, dragging = false, cutSentAt = 0, lastOk = 0, sessions = [];
-const timeout = ms => AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;  // Safari before 16 has no AbortSignal.timeout
-$('steady').onclick = () => send('filter ' + (steady ? 'off' : 'on'));  // /state.steady is "the filter is on"
-$('hold').onclick = () => send('hold ' + (hold ? 'off' : 'on'));
-$('cut').oninput = e => { dragging = true; $('cutv').textContent = (+e.target.value).toFixed(1) + ' Hz'; };
-$('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; cutSentAt = Date.now(); };
-$('test').onclick = () => send('test');
-
-// the 3D view comes from the 3D lane's module; without it (or without WebGL) the 2D side view below is drawn instead
-let view = null;
-function fallback() { try { view && view.dispose && view.dispose(); } catch (e) {} view = null; $('arm3d').hidden = true; $('arms').hidden = false; $('viewnote').hidden = false; }
-const webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
-(webgl ? import('/dashboard/arm3d.js') : Promise.reject())
-  .then(m => { view = m.mount($('arm3d')); if (!view || typeof view.update !== 'function') throw 0; })
-  .catch(fallback);
-
-function fit(canvas) {  // sharp lines on high-density screens; the CSS decides the size
-  const ratio = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
-  if (canvas.width !== Math.round(w * ratio) || canvas.height !== Math.round(h * ratio)) { canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio); }
-  const ctx = canvas.getContext('2d'); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, w, h);
-  return [ctx, w, h];
-}
-function line(ctx, points, colour, width) {
-  ctx.strokeStyle = colour; ctx.lineWidth = width; ctx.lineJoin = ctx.lineCap = 'round'; ctx.beginPath();
-  points.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke();
-}
-function shake(values) {  // take away a one-second running average: the slow reach goes, the shake stays
-  return values.map((v, i) => { const part = values.slice(Math.max(0, i - 5), i + 6); return v - part.reduce((a, b) => a + b, 0) / part.length; });
-}
-function traces(history) {  // the hero's two rows: both on one scale, so a flat arm line means a still arm
-  const end = history.length ? history[history.length - 1][0] : 0, recent = history.filter(p => p[0] >= end - 6.5), hand = shake(recent.map(p => p[1])).slice(5, -5), arm = shake(recent.map(p => p[2])).slice(5, -5);
-  const reach = Math.max(3, ...hand.map(Math.abs), ...arm.map(Math.abs)) * 1.1;
-  for (const [id, values, colour, width] of [['tracehand', hand, css('--raw'), 2], ['tracearm', arm, css('--plum'), 2.6]]) {
-    const [ctx, w, h] = fit($(id));
-    ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-    if (values.length > 1) line(ctx, values.map((v, i) => [i / (values.length - 1) * w, h / 2 - v / reach * (h / 2 - 3)]), colour, width);
-  }
-}
-function chart(history) {
-  const [ctx, w, h] = fit($('chart')), left = 52, top = 8, bottom = h - 22;
-  ctx.fillStyle = css('--soft'); ctx.font = FONT;
-  ctx.fillText('30 s ago', left, h - 4); ctx.textAlign = 'right'; ctx.fillText('now', w, h - 4); ctx.textAlign = 'left';
-  if (history.length < 2) return;
-  const t1 = history[history.length - 1][0], t0 = t1 - 30;
-  history = history.filter(p => p[0] >= t0);
-  const values = history.flatMap(p => [p[1], p[2]]);
-  let lo = Math.min(...values), hi = Math.max(...values);
-  if (hi - lo < 20) { const mid = (hi + lo) / 2; lo = mid - 10; hi = mid + 10; }
-  const x = t => left + (t - t0) / 30 * (w - left), y = v => bottom - (v - lo) / (hi - lo) * (bottom - top);
-  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
-  for (let i = 0; i < 4; i++) { const v = top + (bottom - top) * i / 3; ctx.beginPath(); ctx.moveTo(left, v); ctx.lineTo(w, v); ctx.stroke(); }
-  ctx.fillText(Math.round(hi) + ' mm', 0, top + 4); ctx.fillText(Math.round(lo) + ' mm', 0, bottom + 4);
-  line(ctx, history.map(p => [x(p[0]), y(p[1])]), css('--raw'), 1.4);
-  line(ctx, history.map(p => [x(p[0]), y(p[2])]), css('--plum'), 2.4);
-}
-function arms(raw, out) {  // the 2D fallback
-  const [ctx, w, h] = fit($('arms'));
-  if (!raw || !raw.length) return;
-  // a side view tilted a little toward the viewer: x runs out from the base, z is up, y adds depth
-  const scale = Math.min(w / 520, h / 420), px = p => [w * 0.22 + (p[0] - 0.45 * p[1]) * scale, h - 26 - (p[2] + 0.25 * p[1]) * scale];
-  ctx.strokeStyle = css('--line'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(8, h - 26); ctx.lineTo(w - 8, h - 26); ctx.stroke();
-  for (const [chain, colour, width, alpha] of [[raw, css('--raw'), 3, 0.55], [out || [], css('--plum'), 6, 1]]) {
-    ctx.globalAlpha = alpha; ctx.fillStyle = colour; line(ctx, chain.map(px), colour, width);
-    chain.forEach(p => { const [a, b] = px(p); ctx.beginPath(); ctx.arc(a, b, width * 0.75, 0, 7); ctx.fill(); });
-  }
-  ctx.globalAlpha = 1;
-}
-function trendChart(trend) {  // shake in the top band, grip effort in the bottom band, one shared time axis
-  const has = Array.isArray(trend) && trend.length > 1;
-  $('notrend').hidden = has; $('trendbox').hidden = !has;
-  if (!has) { $('trendspan').textContent = 'one point a second'; return; }
-  const [ctx, w, h] = fit($('trendchart')), left = 52, top = 8, split = Math.round(h * 0.6), gtop = split + 22, bottom = h - 22;
-  const t1 = trend[trend.length - 1][0], span = Math.max(60, t1 - trend[0][0]), x = t => left + (t - (t1 - span)) / span * (w - left);
-  const hi = Math.max(1, ...trend.flatMap(p => [p[1], p[2]])) * 1.15, y = v => split - v / hi * (split - top);
-  const g = v => bottom - Math.min(100, Math.max(0, v)) / 100 * (bottom - gtop);
-  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
-  for (const v of [top, split, gtop, bottom]) { ctx.beginPath(); ctx.moveTo(left, v); ctx.lineTo(w, v); ctx.stroke(); }
-  ctx.fillStyle = '#e4dacd'; ctx.beginPath(); ctx.moveTo(x(trend[0][0]), bottom);
-  trend.forEach(p => ctx.lineTo(x(p[0]), g(p[3] || 0))); ctx.lineTo(x(t1), bottom); ctx.closePath(); ctx.fill();
-  line(ctx, trend.map(p => [x(p[0]), g(p[3] || 0)]), '#b3a596', 1.2);
-  line(ctx, trend.map(p => [x(p[0]), y(p[1])]), css('--raw'), 1.6);
-  line(ctx, trend.map(p => [x(p[0]), y(p[2])]), css('--plum'), 2.4);
-  ctx.fillStyle = css('--soft'); ctx.font = FONT;
-  ctx.fillText(hi.toFixed(1) + ' mm', 0, top + 8); ctx.fillText('0 mm', 0, split + 4);
-  ctx.fillText('100% grip', 0, gtop + 8); ctx.fillText('0%', 0, bottom + 4);
-  const minutes = Math.round(span / 60);
-  ctx.fillText(minutes + ' min ago', left, h - 4); ctx.textAlign = 'right'; ctx.fillText('now', w, h - 4); ctx.textAlign = 'left';
-  $('trendspan').textContent = 'one point a second, last ' + (minutes > 1 ? minutes + ' minutes' : 'minute');
-}
-let obsKey = '';
-function observations(list) {  // rebuilt only when the server's list changes
-  list = Array.isArray(list) ? list.filter(o => o && o.title) : [];
-  const key = JSON.stringify(list); if (key === obsKey) return; obsKey = key;
-  $('noobs').hidden = list.length > 0;
-  $('obs').replaceChildren(...list.map(o => {
-    const li = document.createElement('li'), row = document.createElement('div'), b = document.createElement('b'), v = document.createElement('span'), p = document.createElement('p');
-    row.className = 'row'; b.textContent = o.title; v.textContent = o.value || ''; v.className = 'num'; p.textContent = o.text || '';
-    row.append(b, v); li.append(row); if (o.text) li.append(p); return li;
-  }));
-}
-function voice(v, now) {
-  const on = !!(v && (v.heard || v.said));
-  $('novoice').hidden = on; $('voice').hidden = !on;
-  if (!on) { $('voiceago').textContent = ''; return; }
-  $('heard').textContent = v.heard ? '“' + v.heard + '”' : '–'; $('said').textContent = v.said ? '“' + v.said + '”' : '–';
-  const ago = Number.isFinite(v.at) && Number.isFinite(now) ? now - v.at : NaN;  // assumes "at" is on the same clock as /state's t
-  $('voiceago').textContent = ago >= 0 && ago < 3600 ? (ago < 60 ? Math.round(ago) + ' s ago' : Math.round(ago / 60) + ' min ago') : '';
-}
-function holdTest(t) {  // t is missing when the server has no test: shows "not run yet"
-  const running = !!(t && t.running), done = !!(t && !running && t.score != null);
-  $('test').disabled = running; $('test').textContent = running ? 'Test running' : done ? 'Run the test again' : 'Start the 10-second test';
-  $('testbig').classList.toggle('idle', !(running || done)); $('testscale').hidden = !done; $('testbar').hidden = !running;
-  if (running) {
-    const left = Math.max(0, Math.ceil(t.seconds_left));
-    $('testval').textContent = left; $('testunit').textContent = 'seconds left';
-    $('testbar').firstElementChild.style.transform = 'scaleX(' + Math.min(1, Math.max(0, (10 - t.seconds_left) / 10)) + ')';
-    setText('testnote', 'Hold the leader arm as still as you can.');
-  } else if (done) {
-    $('testval').textContent = t.score; $('testunit').textContent = 'out of 100';
-    setText('testnote', t.tremor_mm != null ? 'Hand shake during the test: ' + fixed(t.tremor_mm, 1) + ' mm.' : 'Test finished.');
-  } else {
-    $('testval').textContent = '10'; $('testunit').textContent = 'second test';
-    setText('testnote', 'Measures how much the hand shakes while holding the leader arm still for 10 seconds.');
-  }
-}
-function setText(id, text) { if ($(id).textContent !== text) $(id).textContent = text; }  // keeps the live region quiet
-function sessionChart(list) {
-  const [ctx, w, h] = fit($('sessionchart'));
-  const hi = Math.max(1, ...list.flatMap(s => [s.mean_tremor_mm, s.mean_arm_mm])) * 1.15;
-  const left = 46, top = 10, bottom = h - 22;
-  const x = i => list.length < 2 ? (left + w) / 2 : left + 6 + i / (list.length - 1) * (w - left - 12), y = v => bottom - v / hi * (bottom - top);
-  ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
-  for (const v of [top, bottom]) { ctx.beginPath(); ctx.moveTo(left, v); ctx.lineTo(w, v); ctx.stroke(); }
-  for (const [key, colour] of [['mean_tremor_mm', css('--raw')], ['mean_arm_mm', css('--plum')]]) {
-    line(ctx, list.map((s, i) => [x(i), y(s[key])]), colour, 2); ctx.fillStyle = colour;
-    list.forEach((s, i) => { ctx.beginPath(); ctx.arc(x(i), y(s[key]), 3.5, 0, 7); ctx.fill(); });  // one mark per session
-  }
-  ctx.fillStyle = css('--soft'); ctx.font = FONT;
-  ctx.fillText(hi.toFixed(1) + ' mm', 0, top + 4); ctx.fillText('0 mm', 0, bottom + 4);
-  ctx.fillText('oldest', left, h - 4); ctx.textAlign = 'right'; ctx.fillText('newest', w, h - 4); ctx.textAlign = 'left';
-}
-function sessionRow(s) {
-  const tr = document.createElement('tr'), best = Math.max(-1, ...(s.tests || []).map(t => t.score));
-  const when = new Date(s.start), today = when.toDateString() === new Date().toDateString(), length = s.duration_s < 60 ? Math.round(s.duration_s) + ' s' : Math.round(s.duration_s / 60) + ' min';
-  tr.title = when.toLocaleString();
-  for (const text of [today ? when.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}) : when.toLocaleDateString([], {month: 'short', day: 'numeric'}), length, fixed(s.mean_tremor_mm, 1),
-                      fixed(s.mean_arm_mm, 1), fixed(s.removed_pct, 0) + '%', Number.isFinite(s.steady_share_pct) ? Math.round(s.steady_share_pct) + '%' : '–', best < 0 ? '–' : best])
-    tr.insertCell().textContent = text;
-  return tr;
-}
-function showSessions() {
-  $('nosessions').hidden = sessions.length > 0; $('sessions').hidden = !sessions.length;
-  if (!sessions.length) return;
-  sessionChart(sessions);
-  $('rows').replaceChildren(...sessions.slice(-5).reverse().map(sessionRow));
-}
-async function loadSessions() {  // a failed fetch keeps what is shown; an older server (which answers with the page) counts as no sessions
-  try {
-    const r = await fetch('/sessions', {cache: 'no-store', signal: timeout(3000)});
-    if (!r.ok) return;
-    const list = await r.json().catch(() => []);
-    sessions = Array.isArray(list) ? list : [];
-    showSessions();
-  } catch (e) {}
-}
-function render(s) {
-  steady = s.steady; hold = s.hold;
-  $('steady').setAttribute('aria-pressed', steady); $('steady').lastChild.textContent = steady ? 'on: shake filtered out' : 'off: shake passes through';
-  $('hold').setAttribute('aria-pressed', hold); $('hold').firstChild.textContent = hold ? 'Holding' : 'Hold';
-  $('hold').lastChild.textContent = hold ? 'arm stays put' : 'off';
-  $('hand').textContent = fixed(s.tremor_mm, 1); $('arm').textContent = fixed(s.out_mm, 1);
-  $('removed').textContent = hold ? '–' : fixed(s.removed_pct, 0);  // a frozen arm is not a filtered one
-  $('freq').textContent = s.tremor_mm >= 0.3 ? 'tremor at ' + fixed(s.tremor_hz, 1) + ' Hz' : 'no tremor found';
-  $('mode').textContent = hold ? 'Holding: the arm stays where it is, so nothing is being filtered.' : steady ? 'Tremor filter on: RobTop leaves the shake out.' : 'Tremor filter off: RobTop copies the shake, for comparison.';
-  const grip = Number(s.grip_effort) || 0, load = Number(s.arm_load) || 0, claw = s.follower && s.follower[5];
-  $('grip').style.transform = 'scaleX(' + Math.min(100, grip) / 100 + ')'; $('gripv').textContent = Math.round(grip) + '%';
-  $('load').style.transform = 'scaleX(' + Math.min(100, load) / 100 + ')'; $('loadv').textContent = Math.round(load) + '%';
-  $('claw').textContent = Number.isFinite(claw) ? 'Claw ' + Math.round(claw) + '% open.' : '';
-  $('speed').textContent = Number.isFinite(s.speed_mm_s) ? 'Claw speed ' + Math.round(s.speed_mm_s) + ' mm/s.' : '';
-  if (!dragging && Date.now() - cutSentAt > 1000 && Number.isFinite(s.cutoff)) {  // the poll after a change may still carry the old value
-    $('cut').value = s.cutoff; $('cutv').textContent = s.cutoff.toFixed(1) + ' Hz'; }
-  const history = Array.isArray(s.history) ? s.history : [];
-  traces(history); chart(history);
-  if (view) { try { view.update(s); } catch (e) { fallback(); } }
-  if (!$('arms').hidden) arms(s.raw_chain, s.out_chain);
-  trendChart(s.trend); observations(s.insights); voice(s.voice, s.t); holdTest(s.test);
-}
-function stale(on) {
-  document.body.classList.toggle('stale', on); $('lost').hidden = !on;
-  for (const id of ['steady', 'hold', 'cut']) $(id).disabled = on;
-  if (on) $('test').disabled = true;
-}
-async function tick() {
-  let s = null;
-  try { s = await (await fetch('/state', {cache: 'no-store', signal: timeout(1000)})).json(); } catch (e) {}
-  if (s && typeof s === 'object') {
-    lastOk = Date.now(); stale(false); setText('link', 'Live from the arm');
-    try { render(s); } catch (e) { console.warn('dashboard: could not draw this state', e); }
-  } else {
-    const gone = lastOk ? (Date.now() - lastOk) / 1000 : Infinity;
-    if (gone > 2) {
-      stale(true); setText('link', 'Not connected');
-      setText('lostfor', lastOk ? 'Last numbers ' + Math.round(gone) + ' s ago.' : 'No numbers from the arm yet.');
-    }
-  }
-  setTimeout(tick, document.body.classList.contains('stale') ? 1000 : 100);  // one request at a time; slower while the arm is gone
-}
-tick();
-setInterval(loadSessions, 5000); loadSessions();
-addEventListener('resize', showSessions);
-</script>
+<script src="/dashboard/app.js"></script>
 </body>
 </html>
