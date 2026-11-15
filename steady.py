@@ -250,7 +250,7 @@ def main() -> None:
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
         smooth = LowPass(read_leader())
-        latch = GripLatch(closed_to=GRIP_FLOOR)
+        latch, latch_was = None, False
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
@@ -272,7 +272,10 @@ def main() -> None:
             if not hold:   # while held, the target does not change at all: no easing, no stepping
                 want = (filtered if steady else raw).copy()
                 if latch_on:   # the trigger is a click, not a hold: one squeeze closes and keeps, the next opens
+                    if not latch_was:   # just switched on (or just started): keep the claw exactly as it is
+                        latch = GripLatch(closed_to=GRIP_FLOOR, start=float(sent[5]))   # until a deliberate squeeze
                     want[5] = latch.step(now, filtered[5])   # always the filtered trigger: a tremor must not click it
+                latch_was = latch_on
                 if was_hold:  # coming out of a hold: glide back to the hand, do not jump
                     ease_from, ease_start = now, sent.copy()
                 share = min(1.0, (now - ease_from) / EASE_S)
@@ -334,7 +337,7 @@ def main() -> None:
                         shared["insights"] = insights(shared["trend"], hold_test.view(now))
                     done = hold_test.feed(now, tremor_mm)
                     shared["test"] = hold_test.view(now)
-                    shared["latch"] = {"on": latch_on, "closed": bool(latch_on and latch.closed)}
+                    shared["latch"] = {"on": latch_on, "closed": bool(latch_on and latch is not None and latch.closed)}
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
                 if done:
                     session.tests.append(done)
