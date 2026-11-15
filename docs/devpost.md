@@ -16,7 +16,9 @@ the arm must confirm each physical claim.
 1. Track: exactly one [HACKUMASS] category. Best Accessibility Hack fits Steady Hand; Best MedTech
    Hack is the alternative (see `docs/demo.md`; all 28 prizes are in `docs/tracks.md`). Sponsor
    prizes are separate opt-ins.
-2. Project name: `newcontext.md` uses "Steady Hand". Confirm that is the Devpost title.
+2. Project name: "Steady Hand" (`newcontext.md`) or "RobTop" (reported by Eddy at 7:14 PM as what
+   the team wants; not agreed in writing). See `docs/demo.md` for the case each way. The title
+   below stays "Steady Hand" until the four of you say otherwise.
 3. Which skills are in. Only skills that passed 4 of 5 on the real arm at the freeze are described
    as working. The draft below lists the team's four; cut the ones that did not pass.
 4. AI coding tools: settled by the rules page, read Sat 2:10 PM (`docs/tracks.md`). It has no
@@ -64,8 +66,10 @@ lifts light things only. It does not treat tremor; it measures and tracks steadi
 
 ## How we built it
 
-- The arms are a Seeed Studio SO-ARM101 Pro leader and follower pair (the SO-101 design by
-  TheRobotStudio), driven through Hugging Face's LeRobot.
+- The arms are the open-source SO-101 design by TheRobotStudio, a leader and follower pair. We 3D
+  printed the parts and assembled both arms at the event, around a Seeed Studio SO-ARM101 motor
+  kit, and drive them through Hugging Face's LeRobot. [Eddy's report in person, 7:14 PM. CONFIRM
+  which kit the motors came from before naming it.]
 - Deliberate hand movement is slow, below about 2 Hz; tremor is fast, about 4 to 12 Hz. A low-pass
   filter between the two arms passes the first and holds back the second, and the follower's
   speed is capped. On synthetic input a 0.5 Hz reach passes at 94 percent and a 6 Hz shake is cut
@@ -126,7 +130,7 @@ pynput, sounddevice, hershey-fonts, quick-draw-dataset
 ## Open source and data we used (must be disclosed)
 
 - LeRobot (Hugging Face): motor control, calibration, teleoperation.
-- SO-101 arm design (TheRobotStudio); Seeed Studio SO-ARM101 Pro kit.
+- SO-101 arm design (TheRobotStudio), which we printed and assembled; the motor kit [CONFIRM which].
 - OpenCV, NumPy, sounddevice, pynput, certifi, feetech-servo-sdk.
 - Hershey-Fonts (single-stroke text) and Google's Quick, Draw! dataset (doodles).
 - MuJoCo (simulation) and Playwright (browser Geometry Dash replay).

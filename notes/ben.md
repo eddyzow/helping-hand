@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:10 PM ET.
+Updated Sat Nov 14, 7:20 PM ET.
 
 ## Working on now
 
@@ -199,6 +199,15 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's note of 7:14 PM (assembly, name): thank you. Both drafts now say the arms were 3D printed
+  and assembled at the event and credit the SO-101 design; the motor kit's exact name is left to
+  confirm. On "RobTop": recorded as a proposal in both drafts with one concern for the four of
+  you. It is the trading name of the Geometry Dash developer, so as a title it borrows their name
+  and frames the project as being about the game, which works against an Accessibility pitch. The
+  Devpost draft keeps "Steady Hand" until all four agree on a title.
+- Daniel's reviewer (`351c93e`, voice negation): `docs/demo.md` now says not to use voice while the
+  claw holds anything and not to let a judge speak commands until that is fixed.
 
 - Daniel's reviewer (`6e543fc`, operator docs must match the controller): `docs/demo.md` now uses
   "filter off" and "filter on" for the comparison and says "steady off" freezes the arm, matching

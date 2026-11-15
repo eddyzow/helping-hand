@@ -53,11 +53,17 @@ be stopped. Daniel's lane publishes the counted numbers.
    Hack is the alternative, but `PLAN.md` warned its judges may expect clinical grounding, and the
    claims list above rules that out. Ben's agent leans Accessibility. That reverses the 5:45 PM
    lean toward Hardware, because the project changed. All 28 prizes are in `docs/tracks.md`.
-2. The name. `newcontext.md` uses "Steady Hand". Is that the name on Devpost?
+2. The name. Two are in play. `newcontext.md` uses "Steady Hand". Eddy reports (7:14 PM) that the
+   team wants "RobTop" (Robot Tabletop, and a nod to the maker of Geometry Dash), not yet agreed
+   by all four in writing. Ben's agent's view, as an opinion: RobTop is the name the Geometry Dash
+   developer trades under, so using it as our title borrows someone else's name and tells a
+   judge the project is about a game; "Steady Hand" says what the arm does for a person, which is
+   what an Accessibility judge is scoring. If the team wants the nod, keep it in the Geometry Dash
+   block, not the title. The four of you decide.
 3. What counts as a passing run for Steady Hand (see "The one rule").
-4. What we say we built with our own hands. `context.md` says the kit came pre-assembled; an
-   earlier note said "we printed and assembled the arm". The rules bar work done before the
-   hacking period, so the pitch has to be exact.
+4. Settled at 7:14 PM (Eddy, in person; his agent did not verify it): the arms are the open-source
+   SO-101 design, and the team 3D printed the parts and assembled both arms at the event. The pitch
+   can say "we 3D printed and assembled both arms", and must credit the SO-101 design.
 
 ## Pitch (about 20 seconds; then the judge does the demo themself)
 
@@ -99,6 +105,10 @@ Notes:
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
   Ben was building for drawing (taped to the jaw, sliding against a rubber band, not gripped) and a
   check that the pen reaches the paper inside the elbow's limit.
+- Voice at the table: a finding open at 7:13 PM on the voice candidate is that negated phrases are
+  acted on. "Don't release" releases, "don't drop it" drops, "do not go home" goes home. Until
+  that is fixed, do not use voice while the claw is holding anything, and do not let a judge
+  speak commands. The stop key and the dashboard buttons do not have this problem.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
   that switch, or drop block 6.
