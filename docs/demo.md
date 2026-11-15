@@ -52,8 +52,8 @@ consecutive runs on the arm.
   Say "about a millimetre from the planned shape".
 - "The best you can do is a draw": needs a filmed game with no misread square. What the reviewer
   checked is narrower than "cannot lose": every legal reply by the person from an empty board,
-  against the program's own choice of moves (521 reachable positions, 123 finished games per
-  version), with no win for the person. It did not test arbitrary or broken board states, and
+  against the program's own choice of moves (521 reachable positions, 123 distinct
+  finished boards per version), with no win for the person. It did not test arbitrary or broken board states, and
   the camera can misread a square.
 - "It finishes the level" is fine. "Every time" is not.
 - "Ask for a skill in plain words" covers the dispatcher's skills. Tic-tac-toe and the drawing loop
@@ -270,7 +270,10 @@ Notes:
   dispatcher skill, gestures, Geometry Dash and writing included, still sends a target to all six
   joints, wrist roll among them, and the controller's leave-it-out policy applies only to the
   standalone Steady Hand program. Whether any dispatcher skill should run while that motor is
-  faulty is Daniel's call.
+  faulty is Daniel's call. Update, Sun 3:45 AM: on `daniel/arm-core` (`5ad5d53`) the dispatcher's
+  arm now switches the wrist-roll motor's torque off when it connects, unless `ROLL_POWER=1` is
+  set; checked by the reviewer on a fake. That is not on `main` yet. The same branch has ten
+  gestures of Daniel's that pass his reviewer's mock checks, home to home.
 
 - The follower's elbow stops at about +65 degrees, because its calibration recorded only part of
   its travel. This, not weak motors, is the recorded cause of today's "weak grip" and
