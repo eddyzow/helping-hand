@@ -6,7 +6,7 @@
 [![Arm: SO-101](https://img.shields.io/badge/arm-SO--101%2C%203D%20printed-F2A97C?style=flat-square&labelColor=17141F)](https://github.com/TheRobotStudio/SO-ARM100)
 [![Simulator](https://img.shields.io/badge/simulator-runs%20without%20the%20arm-7CF2C8?style=flat-square&labelColor=17141F)](#quick-start)
 
-**[Results](#results)** · [How it works](#how-it-works) · [Hardware](#hardware) · [Quick start](#quick-start) · [What's next](#whats-next-for-robtop)
+**[Devpost](https://devpost.com/software/robtop)** · [Results](#results) · [How it works](#how-it-works) · [Hardware](#hardware) · [Quick start](#quick-start) · [What's next](#whats-next-for-robtop)
 
 Robot arms that can do many different jobs usually sit in labs and cost thousands of dollars. The ones you can print at home tend to do one trick.
 
@@ -123,7 +123,3 @@ RobTop picked up every job above in one weekend. Next we want a new job to take 
 - **Write anything.** Any sentence you type, in single-stroke lettering. It already runs in our simulator.
 - **Pick things up by sight.** The webcam already finds the paper and the ink on it. Next it finds the object.
 - **A kit anyone can build.** Print the parts, clone the repo, and have a desk arm that draws and plays games by the end of the day.
-
-## Contributing
-
-Run `git pull --rebase` before every push, and never force-push `main`.
