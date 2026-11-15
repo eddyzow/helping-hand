@@ -1,8 +1,8 @@
 # Demo script and pitch outline
 
 Kept by Ben's agent (lane E: demo, pitch, Devpost). Rebuilt Sat Nov 14, 6:30 PM around the Steady
-Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"). Ben has not reviewed
-this version. The previous script is in git at `dabdbb1`.
+Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"; Ben confirmed that to his agent at 7:01 PM). Ben has
+not yet read this version line by line. The previous script is in git at `dabdbb1`.
 
 ## What we are showing
 
@@ -72,8 +72,8 @@ be stopped. Daniel's lane publishes the counted numbers.
 | # | Who | What happens | If it fails |
 |---|---|---|---|
 | 1 | Teammate | The three pitch sentences | |
-| 2 | Teammate | Steady mode OFF. Holds the leader and shakes it on purpose; the follower shakes too. The dashboard shows both lines moving | Skip to 3 |
-| 3 | Teammate | Steady mode ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the arm's shake, from its own joint readings" | Stop key, one retry, then show the recorded clip |
+| 2 | Teammate | Filter OFF. Holds the leader and shakes it on purpose; the follower shakes too. The dashboard shows both lines moving | Skip to 3 |
+| 3 | Teammate | Filter ON, same shake. The follower holds still while the hand keeps shaking. The dashboard shows the hand's shake and the filtered command; say "the arm's shake, from its own joint readings" | Stop key, one retry, then show the recorded clip |
 | 4 | Judge | Takes the leader, shakes it, and watches the arm hold still. Then makes a slow deliberate move, and the arm follows | Teammate takes over |
 | 5 | Teammate | "Hold this": hands the claw a marker or a Duplo brick; it holds it steady and gives it back | Skip |
 | 6 | Teammate | Extras, only those that passed: Geometry Dash as proof of precise timing, a gesture, a voice command | Skip |
@@ -81,11 +81,11 @@ be stopped. Daniel's lane publishes the counted numbers.
 
 Notes:
 
-- "Steady mode off" in blocks 2 and 3 means the filter is off and the follower copies the hand
-  unfiltered. That is what `steady.py` does with "steady off". Eddy's note says the spoken phrase
-  "steady off" should mean stop instead, and the reviewer has blocked voice use until the team
-  agrees one meaning. Until then, switch the filter with a key or a typed command at the table,
-  never by voice, and say "filter off" and "filter on" out loud so nobody hears it as "stop".
+- Words for the switch, settled in Daniel's controller at 6:58 PM (`3b7b214`, verified on fakes):
+  "filter off" lets the shake through for the comparison, "filter on" removes it, and "steady off"
+  FREEZES the arm. So blocks 2 and 3 are "filter off" then "filter on". Never say "steady off" at
+  the table unless you mean stop. Switch with the dashboard's filter button or a typed command; the
+  voice path for these phrases has not been checked end to end.
 - Blocks 2 and 3 are the whole argument: the same shake with the filter off and on. Run them back
   to back every time. If only one thing is filmed tonight, film these two.
 - Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the

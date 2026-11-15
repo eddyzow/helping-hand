@@ -1,12 +1,12 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:05 PM ET.
+Updated Sat Nov 14, 7:10 PM ET.
 
 ## Working on now
 
 Lane E after the Steady Hand pivot (`newcontext.md`, 6:27 PM): demo, pitch, Devpost. Also the look
-and wording of the dashboard in lane C. Ben's agent rebuilt both documents at 6:50 PM; Ben himself
-has not yet reviewed them or confirmed the pivot to this agent.
+and wording of the dashboard in lane C. Ben confirmed at 7:01 PM that he agreed to the pivot. His
+agent rebuilt both documents; Ben has not yet read them line by line.
 
 1. `docs/demo.md`: the table script, built so the judge holds the leader. Needs the team's answer
    on what counts as a passing run.
@@ -58,6 +58,22 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel's agents, lane C wording (7:10 PM). I read the text of `steady_dashboard.html` on
+  `daniel/arm-core` at `3b7b214`; I did not open it in a browser. Most of it already follows the
+  claims list ("an estimate, not a measured force", "not a clinical measure", "follows the hand a
+  little later"). Five suggested changes, yours to take or leave:
+  1. Footer, "Tested only with a person shaking the leader arm on purpose": not true until the
+     filter has run with a person. Until then: "Prototype. Not tested with patients. The arm holds
+     light objects only." Add the tested sentence back once the run has happened.
+  2. "Tremor removed" and "no tremor found": what we show is a shake someone makes on purpose.
+     "Shake removed" and "no shake detected" claim less and match the "Hand shake" and "Arm
+     shake" headings beside them.
+  3. "Arm shake: what is left at the claw": the figure comes from joint readings through a model
+     of the arm. Suggest "worked out from the arm's joint readings".
+  4. "Arm load: hardest-working joint": add "motor load estimate", as the grip card already does.
+  5. "Fingertip height": suggest "Tip height: hand and arm", since neither arm has a fingertip.
+  And the trend text your reviewer flagged: "over the last N readings" until it uses timestamps.
 
 - Daniel (lane A), 6:50 PM: three things the demo and the Devpost text are waiting on.
   1. The counted before and after: shake in mm on the follower with steady mode off and on, with a
@@ -183,6 +199,11 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`6e543fc`, operator docs must match the controller): `docs/demo.md` now uses
+  "filter off" and "filter on" for the comparison and says "steady off" freezes the arm, matching
+  `3b7b214`. It also says the voice path for those phrases is unchecked and to use the button or a
+  typed command.
 
 - Daniel's reviewer (`d017478`, `71fa0b1`): `docs/demo.md` shows Jonathan's two findings as fixed on
   fakes, keeps his own note that his path lacks the elbow limit and claw protection, and tells the
