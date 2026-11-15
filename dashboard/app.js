@@ -224,6 +224,7 @@ function measure(s) {
 function controls(s) {
   pressed('filter-on', s.steady === true); pressed('filter-off', s.steady === false);
   pressed('hold-on', s.hold === true); pressed('hold-off', s.hold === false);
+  $('roll-note').hidden = s.roll_follows !== false;  // shown only when the controller says the roll is not followed
   for (const [id, label, key, d, unit, sentence] of [['gain', 'gainv', 'gain', 1, '×', 'sensitivity'], ['cut', 'cutv', 'cutoff', 1, ' Hz', 'the filter cut-off']]) {
     const has = Number.isFinite(s[key]); $(id).disabled = !has;
     if (!has) { setText(label, '–'); continue; }
