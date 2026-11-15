@@ -41,7 +41,7 @@ from pathlib import Path
 import numpy as np
 
 from core import tremor
-from core.tremor import (CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, GripLatch, HoldStillTest, LowPass, Session,
+from core.tremor import (CUTOFF_HZ, GRIP_CUTOFF_HZ, TRIGGER, Fingertip, GripHold, HoldStillTest, LowPass, Session,
                          band_rms_and_peak, insights)
 
 HERE = Path(__file__).parent
@@ -64,7 +64,7 @@ TABLE_Z = -12.0          # mm, the table top in the model's frame: measured by t
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
-state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "latch": False}
+state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "grip_hold": True, "release": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
           "arm_load": 0.0, "speed_mm_s": 0.0, "leader": [0.0] * 6, "follower": [0.0] * 6, "raw_tip": [0.0] * 3,
           "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [], "robot": [], "hand": [], "table_z": TABLE_Z,
@@ -128,8 +128,14 @@ def command(line: str) -> dict:
             shared["test"] = hold_test.view(time.perf_counter())
         elif word == "quit":
             state["quit"] = True
-        elif word == "latch" and rest in ("on", "off", "", "toggle"):   # grip latch: see core.tremor.GripLatch
-            state["latch"] = (not state["latch"]) if rest in ("", "toggle") else rest == "on"
+        elif (word == "grip" and rest in ("hold on", "hold off")) or (word == "latch" and rest in ("on", "off", "", "toggle")):
+            # grip hold: see core.tremor.GripHold. "latch" is the old name, kept so older callers still work
+            on = rest.split()[-1] if rest else "toggle"
+            state["grip_hold"] = (not state["grip_hold"]) if on == "toggle" else on == "on"
+        elif line == "grip release":
+            if state["hold"]:   # a held arm does not move, the claw included
+                return {"ok": False, "reason": "the arm is held; say 'steady on' first, then 'let go'"}
+            state["release"] = True
         elif word == "voice":   # RobTop's voice script reports what it heard and said, for the dashboard
             try:
                 said = json.loads(rest)
@@ -140,8 +146,9 @@ def command(line: str) -> dict:
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
-            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, latch on|off, cutoff <Hz>, test, status, quit"}
-        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff", "latch")}}
+            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, cutoff <Hz>, grip hold on|off, "
+                                           "grip release, test, status, quit"}
+        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff", "grip_hold")}, "latch": state["grip_hold"]}
 
 
 STATIC = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
@@ -201,7 +208,7 @@ def main() -> None:
     ask = (lambda text: None) if "--yes" in sys.argv else input
     shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
     seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
-    state["latch"] = "--no-latch" not in sys.argv   # the grip latch is on unless asked otherwise
+    state["grip_hold"] = "--no-latch" not in sys.argv   # grip hold is on unless asked otherwise
     measure = "--measure" in sys.argv or not OFFSETS.exists()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
@@ -263,7 +270,7 @@ def main() -> None:
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
         smooth = LowPass(read_leader())
-        latch, latch_was = None, False
+        grip, grip_was, trigger_args = None, False, {"rest": TRIGGER["rest"], "squeezed": TRIGGER["squeezed"], "opened": TRIGGER["open"]}
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
@@ -279,16 +286,21 @@ def main() -> None:
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
                 raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             with lock:
-                steady, hold, cutoff, latch_on = state["steady"], state["hold"], state["cutoff"], state["latch"]
+                steady, hold, cutoff, grip_on = state["steady"], state["hold"], state["cutoff"], state["grip_hold"]
+                release, state["release"] = state["release"] and not hold, False
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
+            if grip is None or (grip_on and not grip_was):
+                # starting, or hold mode just switched on: start from the claw's last target (at start-up the
+                # follower's own reading), so nothing held is dropped or squeezed harder by switching
+                grip = GripHold(closed_to=GRIP_FLOOR, start=float(sent[5]), **trigger_args)
+            grip_was = grip_on
+            if release:
+                grip.release()
             if not hold:   # while held, the target does not change at all: no easing, no stepping
                 want = (filtered if steady else raw).copy()
-                if latch_on:   # the trigger is a click, not a hold: one squeeze closes and keeps, the next opens
-                    if not latch_was:   # just switched on (or just started): keep the claw exactly as it is
-                        latch = GripLatch(closed_to=GRIP_FLOOR, start=float(sent[5]))   # until a deliberate squeeze
-                    want[5] = latch.step(now, filtered[5])   # always the filtered trigger: a tremor must not click it
-                latch_was = latch_on
+                # always the filtered trigger: a tremor must neither tighten nor release the grip
+                want[5] = grip.step(now, filtered[5]) if grip_on else grip.copy(filtered[5])
                 if was_hold:  # coming out of a hold: glide back to the hand, do not jump
                     ease_from, ease_start = now, sent.copy()
                 share = min(1.0, (now - ease_from) / EASE_S)
@@ -351,7 +363,9 @@ def main() -> None:
                         shared["insights"] = insights(shared["trend"], hold_test.view(now))
                     done = hold_test.feed(now, tremor_mm)
                     shared["test"] = hold_test.view(now)
-                    shared["latch"] = {"on": latch_on, "closed": bool(latch_on and latch is not None and latch.closed)}
+                    shared["grip"] = {"hold": grip_on, "squeeze_pct": round(100 * grip.squeeze),
+                                      "held_pct": round(100 * max(0.0, grip.held)) if grip_on else 0,
+                                      "claw_pct": round(float(seen[5]))}   # measured, not commanded
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
                 if done:
                     session.tests.append(done)

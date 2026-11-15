@@ -1,6 +1,7 @@
 """The tremor maths shared by steady.py and skills/steady.py: the filter, the shake meter, the
 fingertip model, the hold-still test and the session summary. Nothing here touches the arms or
 imports LeRobot, so anything (tests included) can import it."""
+import collections
 import math
 import statistics
 from pathlib import Path
@@ -229,47 +230,73 @@ def insights(trend, test=None):
     return out
 
 
-class GripLatch:
-    """One squeeze of the leader's trigger closes the claw and KEEPS it closed; the next squeeze opens it.
+TRIGGER = {"rest": 43.0, "squeezed": 0.0, "open": 100.0}   # the real leader's trigger, 0..100: it rests mid-range
+                                                           # and opens wider than rest (seen 14 Nov)
 
-    Why: copying the trigger means holding a squeeze for as long as you hold the object, which is what
-    a weak or trembling hand does worst (Eddy's suggestion, 14 Nov).
 
-    A squeeze is measured against where the trigger RESTS, not against fixed numbers: the real
-    leader's trigger was seen resting at about 43 of 100, so a fixed "released above 45" would never
-    have been reached and the claw could never have opened again. The resting level follows the
-    trigger up at once and down slowly, and stands still while the trigger is squeezed.
-    A squeeze counts once the trigger has stayed `depth` below rest for `dwell_s` (a 5 Hz tremor
-    crosses a line for well under 0.1 s), and the next one only after it has come back to within
-    half of `depth` (so a hand hovering at the threshold cannot make it chatter)."""
+class GripHold:
+    """The claw closes as far as the hand squeezes, STAYS there when the hand relaxes, tightens on a
+    later, deeper squeeze, and opens when the hand opens wide (or on "grip release").
 
-    def __init__(self, closed_to, open_to=60.0, depth=15.0, dwell_s=0.2, settle=3.0, start=None):
-        """start: where the claw is now. Until the first deliberate squeeze the latch asks for exactly
-        that, so switching it on (or starting up) never opens a claw that is holding something."""
+    Why: holding a squeeze for as long as you hold the object is what a weak or trembling hand does
+    worst (Eddy, 14 Nov), and the on/off latch before this needed the trigger's full travel and jumped
+    between fully open and fully shut (first real test, 14 Nov).
+
+    Tremor safety: it is fed the already filtered trigger; `held` only rises to the smallest squeeze of
+    the last `dwell_s`, so the hand must KEEP a squeeze for it to count and a spike cannot tighten the
+    grip; opening wide must last `release_s` (a 5 Hz tremor stays past a line for well under 0.1 s)."""
+
+    def __init__(self, closed_to, open_to=60.0, rest=43.0, squeezed=0.0, opened=100.0, start=None,
+                 dwell_s=0.1, release_s=0.2):
+        """start: where the claw is now. `held` starts from it, so starting (or switching hold on) neither
+        drops nor crushes anything: a claw at 7 stays at 7 until the person acts. A claw found wider than
+        open_to gives a held below 0 and stays that wide too."""
         self.closed_to, self.open_to = closed_to, open_to
-        self.depth, self.dwell_s, self.settle = depth, dwell_s, settle   # settle: units a second the rest level may fall
-        self.keep = start        # the grip to leave alone until the first squeeze; None once one has happened
-        self.closed = start is not None and start < (closed_to + open_to) / 2   # is the claw (nearer to) shut
-        self.rest = None         # where the trigger sits when nobody squeezes it
-        self._armed = True       # has the trigger been released since the last squeeze
-        self._since = None       # when this squeeze began
-        self._last = None
+        self.rest = rest
+        self.span = max(5.0, rest - squeezed)              # a calibration that saw almost no squeeze must not divide by ~0
+        self.wide = rest + 0.4 * max(5.0, opened - rest)  # beyond this the hand is "open wide"
+        self.dwell_s, self.release_s = dwell_s, release_s
+        claw = open_to if start is None else min(100.0, max(closed_to, start))
+        self.held = min(1.0, (open_to - claw) / (open_to - closed_to))   # 0 open_to .. 1 closed_to
+        self.squeeze = 0.0
+        self.from_hand = False   # True once a squeeze (not the start-up) set the grip; for the grip_hold activity
+        self._recent = collections.deque()   # (t, squeeze) covering the last dwell_s
+        self._wide_since = None
+        # a hand found already squeezing, or already open wide, at the start has not acted yet: each
+        # counts only after the trigger has been back on the near side of it once
+        self._armed_squeeze = self._armed_wide = False
+
+    def squeeze_of(self, trigger):
+        return min(1.0, max(0.0, (self.rest - trigger) / self.span))
+
+    def claw(self):
+        return self.open_to - self.held * (self.open_to - self.closed_to)
+
+    def copy(self, trigger):
+        """Hold mode off: the claw simply follows how far the hand squeezes now."""
+        self.squeeze = self.squeeze_of(trigger)
+        return self.open_to - self.squeeze * (self.open_to - self.closed_to)
+
+    def release(self):
+        self.held, self.from_hand = min(self.held, 0.0), False
 
     def step(self, t, trigger):
-        """Feed the trigger's position (0 shut .. 100 open) at time t; returns the claw target."""
-        if self.rest is None:
-            self.rest, self._last = trigger, t
-        dt, self._last = max(0.0, t - self._last), t
-        if trigger < self.rest - self.depth:
-            if self._since is None:
-                self._since = t
-            if self._armed and t - self._since >= self.dwell_s:
-                self.closed, self._armed, self.keep = not self.closed, False, None
+        """Hold mode on: feed the filtered trigger (0 shut .. 100 open) at time t; returns the claw target."""
+        self.squeeze = self.squeeze_of(trigger)
+        self._armed_squeeze |= self.squeeze <= max(0.0, self.held)
+        self._armed_wide |= trigger <= self.wide
+        self._recent.append((t, self.squeeze))
+        while len(self._recent) > 1 and self._recent[1][0] <= t - self.dwell_s:
+            self._recent.popleft()
+        if self._armed_squeeze and self._recent[0][0] <= t - self.dwell_s:   # covered: the hand has KEPT at least this
+            kept = min(s for _, s in self._recent)
+            # 0.05: the trigger's reading wanders a unit or two at rest; that is not a squeeze
+            if kept >= 0.05 and kept > self.held:
+                self.held, self.from_hand = kept, True
+        if trigger > self.wide and self._armed_wide:
+            self._wide_since = t if self._wide_since is None else self._wide_since
+            if t - self._wide_since >= self.release_s:
+                self.release()
         else:
-            self._since = None
-            self.rest = max(trigger, self.rest - self.settle * dt)
-            if trigger > self.rest - self.depth / 2:
-                self._armed = True
-        if self.keep is not None:
-            return self.keep
-        return self.closed_to if self.closed else self.open_to
+            self._wide_since = None
+        return self.claw()

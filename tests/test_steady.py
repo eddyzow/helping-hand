@@ -127,53 +127,73 @@ def test_insights():
     assert steady.shared["voice"]["heard"] == "hold this" and steady.command("voice nonsense")["ok"] is False
 
 
-def test_grip_latch():
+def test_grip_hold():
     from core import tremor
 
-    def play(latch, trigger_at, seconds, start=0.0, hz=50):
-        """Feed the latch a trigger signal; returns the claw target at each tick."""
-        return [latch.step(start + i / hz, trigger_at(i / hz)) for i in range(int(seconds * hz))]
+    def play(grip, trigger_at, seconds, start=0.0, hz=50):
+        """Feed the grip a trigger signal (time from 0 within this call); returns the claw target at each tick."""
+        return [grip.step(start + i / hz, trigger_at(i / hz)) for i in range(int(seconds * hz))]
 
-    latch = tremor.GripLatch(closed_to=7.0)
-    assert set(play(latch, lambda t: 80.0, 1.0)) == {60.0} and not latch.closed          # an open hand: the claw stays open
-    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=1.0)             # one squeeze, then let go
-    assert out[-1] == 7.0 and latch.closed, "the claw must stay closed after the hand lets go"
-    assert out.count(7.0) > 100 and out[30] == 60.0                                          # it closed only after the dwell
-    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=4.0)             # the next squeeze opens it
-    assert out[-1] == 60.0 and not latch.closed
-    # a 6 Hz tremor on the trigger around the threshold must not click it (each dip lasts under 0.1 s)
-    latch = tremor.GripLatch(closed_to=7.0)
-    out = play(latch, lambda t: 28.0 + 12.0 * math.sin(2 * math.pi * 6 * t), 5.0)
-    assert set(out) == {60.0} and not latch.closed, "a tremor toggled the latch"
-    # a squeeze that is held does not toggle twice, and a hand that only half lets go does not re-arm it
-    latch = tremor.GripLatch(closed_to=7.0)
-    play(latch, lambda t: 80.0, 0.5)
-    out = play(latch, lambda t: 10.0, 3.0, start=0.5)
-    assert latch.closed and out[-1] == 7.0
-    play(latch, lambda t: 68.0, 0.3, start=3.5)   # a brief half release, 12 below rest: not released yet
-    play(latch, lambda t: 10.0, 1.0, start=3.8)   # (held there for seconds it would become the new rest)
-    assert latch.closed, "a half release must not allow a second toggle"
-    # the REAL leader's trigger rests at about 43 of 100 and closes to about 0: squeeze, release, squeeze
-    latch = tremor.GripLatch(closed_to=7.0)
-    real = lambda t: 2.0 if (1.0 < t < 1.6 or 3.0 < t < 3.6) else 43.0
-    out = play(latch, real, 5.0)
-    assert out[int(2.5 * 50)] == 7.0 and out[-1] == 60.0, "with a trigger resting at 43 it must close and open again"
-    # starting with the trigger already squeezed does not count as a squeeze; the first real one does
-    latch = tremor.GripLatch(closed_to=7.0)
-    out = play(latch, lambda t: 5.0 if t < 1.0 else (45.0 if t < 2.0 else (5.0 if t < 2.6 else 45.0)), 4.0)
-    assert out[40] == 60.0 and out[-1] == 7.0
-    # switching the latch on must not let go of what the claw holds: it keeps the grip it finds
-    # (here a claw closed at 7 on an object, the hand's trigger open at 80) until a deliberate squeeze
-    latch = tremor.GripLatch(closed_to=7.0, start=7.0)
-    assert set(play(latch, lambda t: 80.0, 3.0)) == {7.0} and latch.closed, "the latch opened a claw nobody asked to open"
-    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=3.0)
-    assert out[-1] == 60.0 and not latch.closed          # the first squeeze opens it, as the person asked
-    latch = tremor.GripLatch(closed_to=7.0, start=33.0)   # a claw found half open stays exactly there
-    assert set(play(latch, lambda t: 80.0, 2.0)) == {33.0}
-    # the command
-    steady.state.update(latch=False)
-    assert steady.command("latch on")["latch"] is True and steady.command("latch")["latch"] is False
-    assert steady.command("latch maybe")["ok"] is False
+    # rest 43, squeezed 0, open 100; the claw spans 60 (open) .. 7 (shut)
+    grip = tremor.GripHold(closed_to=7.0)
+    assert set(play(grip, lambda t: 43.0, 1.0)) == {60.0}                         # a relaxed hand: open
+    out = play(grip, lambda t: 21.5, 1.0, start=1.0)                               # half a squeeze ...
+    assert out[2] == 60.0 and abs(out[-1] - 33.5) < 1e-9, out[-1]                  # ... closes half way, after 0.1 s
+    out = play(grip, lambda t: 43.0, 2.0, start=2.0)                               # the hand relaxes
+    assert set(out) == {33.5}, "the claw must stay where the squeeze left it"
+    out = play(grip, lambda t: 40.0, 1.0, start=4.0)                               # a smaller squeeze does nothing
+    assert set(out) == {33.5}
+    out = play(grip, lambda t: 10.75, 1.0, start=5.0)                              # a deeper one tightens it
+    assert abs(out[-1] - 20.25) < 1e-9 and grip.from_hand
+    small = tremor.GripHold(closed_to=7.0)
+    assert abs(play(small, lambda t: 43.0 - 4.3 * min(1.0, t), 2.0)[-1] - 54.7) < 0.01, "a small squeeze must close a little"
+    # opening wide (beyond 43 + 0.4 * 57 = 65.8) for 0.2 s releases; a shorter flick does not
+    out = play(grip, lambda t: 90.0, 0.15, start=6.0)
+    assert out[-1] == 20.25, "0.15 s of open hand released the grip"
+    play(grip, lambda t: 43.0, 0.2, start=6.15)
+    out = play(grip, lambda t: 90.0, 0.4, start=6.35)
+    assert out[5] == 20.25 and out[-1] == 60.0 and not grip.from_hand
+    # a 6 Hz tremor on the trigger, swinging past both the squeeze and the open-wide lines, neither
+    # tightens nor releases the grip (each swing lasts under 0.1 s past a line)
+    grip = tremor.GripHold(closed_to=7.0, start=33.5)
+    out = play(grip, lambda t: 43.0 + 30.0 * math.sin(2 * math.pi * 6 * t), 5.0)
+    assert set(out) == {33.5}, ("a tremor moved the grip", min(out), max(out))
+    # the same tremor on top of a kept squeeze tightens only to what the hand KEPT, not to the spikes
+    grip = tremor.GripHold(closed_to=7.0)
+    out = play(grip, lambda t: 43.0 if t < 0.5 else 21.5 + 5.0 * math.sin(2 * math.pi * 6 * t), 2.0)
+    # between the squeeze's trough (trigger 26.5: claw 39.7) and its mean (21.5: 33.5); its peaks (16.5) would be 27.3
+    assert 33.5 < out[-1] < 60.0 - 53.0 * 16.5 / 43.0 + 0.01, out[-1]
+    # start-up keeps the grip it finds: a claw shut at 7 with the hand already open wide stays at 7,
+    # and a hand already squeezing does not tighten a claw found half open, until the person acts
+    grip = tremor.GripHold(closed_to=7.0, start=7.0)
+    assert set(play(grip, lambda t: 80.0, 3.0)) == {7.0}, "starting opened a claw nobody asked to open"
+    out = play(grip, lambda t: 43.0 if t < 0.5 else 80.0, 1.0, start=3.0)      # back, then open wide: that is acting
+    assert out[-1] == 60.0
+    grip = tremor.GripHold(closed_to=7.0, start=33.0)
+    assert set(play(grip, lambda t: 5.0, 2.0)) == {33.0}, "starting squeezed the claw harder"
+    out = play(grip, lambda t: 43.0 if t < 0.5 else 5.0, 1.0, start=2.0)
+    assert out[-1] < 20.0
+    grip = tremor.GripHold(closed_to=7.0, start=80.0)                               # found wider than 60: stays that wide
+    assert set(play(grip, lambda t: 43.0, 1.0)) == {80.0}
+    # grip release opens; hold off copies the squeeze; a calibrated trigger is used
+    grip = tremor.GripHold(closed_to=7.0, start=7.0)
+    grip.release()
+    assert grip.claw() == 60.0 and grip.copy(21.5) == 33.5 and grip.copy(43.0) == 60.0 and grip.copy(0.0) == 7.0
+    grip = tremor.GripHold(closed_to=7.0, rest=50.0, squeezed=30.0, opened=90.0)
+    assert grip.copy(40.0) == 33.5 and grip.wide == 66.0
+    assert tremor.GripHold(closed_to=7.0, rest=40.0, squeezed=40.0, opened=40.0).span == 5.0   # no divide by ~0
+    # the commands: grip hold on|off, the old latch alias, grip release (refused while the arm is held)
+    steady.state.update(grip_hold=True, hold=False, release=False)
+    assert steady.command("grip hold off")["grip_hold"] is False and steady.command("grip hold on")["grip_hold"] is True
+    assert steady.command("latch off")["grip_hold"] is False and steady.command("latch")["latch"] is True
+    assert steady.command("latch maybe")["ok"] is False and steady.command("grip maybe")["ok"] is False
+    assert steady.command("grip release")["ok"] is True and steady.state["release"] is True
+    steady.state.update(release=False)
+    steady.command("hold on")
+    refused = steady.command("grip release")
+    assert refused["ok"] is False and "held" in refused["reason"] and steady.state["release"] is False
+    assert steady.state["hold"] is True, "grip release must never clear a hold"
+    steady.command("hold off")
 
 
 def model_root():
@@ -249,6 +269,6 @@ if __name__ == "__main__":
     test_steady()
     test_core_tremor()
     test_insights()
-    test_grip_latch()
+    test_grip_hold()
     test_model_and_meshes()
     print("steady ok")
