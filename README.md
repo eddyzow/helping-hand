@@ -12,7 +12,7 @@ Robot arms that can do many different jobs usually sit in labs and cost thousand
 
 RobTop (short for Robot Tabletop) is one arm on a table, with a webcam above it, that we keep handing new jobs. Give it a pen and it draws. Draw an X and it plays you at tic-tac-toe. Give it a key to press and it plays a video game where one late press ends the run. Take the second arm in your hand and it follows you.
 
-RobTop is a pair of SO-101 arms. We 3D printed the parts, assembled both arms and wrote the software at HackUMass XIV, November 13 to 15, 2026.
+RobTop is a pair of 3D-printed SO-101 arms. We assembled both and wrote the software at HackUMass XIV, November 13 to 15, 2026.
 
 <img src="docs/drawloop/house_round10.jpg" width="360" alt="A house drawn by RobTop on paper, as its webcam scores it. The planned drawing is overlaid in thin green lines and the ink the camera found is in red. The red follows the green closely around the walls, roof, two windows and door.">
 
@@ -104,7 +104,7 @@ Only one program can hold the arm's serial port at a time, so stop one before st
 
 | Project | What it does here |
 |---|---|
-| [SO-101](https://github.com/TheRobotStudio/SO-ARM100) by TheRobotStudio | The arm. We 3D printed and assembled both |
+| [SO-101](https://github.com/TheRobotStudio/SO-ARM100) by TheRobotStudio | The arm. We assembled both at the event |
 | [LeRobot](https://github.com/huggingface/lerobot) by Hugging Face | Motor drivers, calibration and reading the second arm |
 | [MuJoCo](https://mujoco.org) and [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) | The simulator and its model of the arm |
 | OpenCV | Finding the paper and the ink in the webcam photo |
