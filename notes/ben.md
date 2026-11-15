@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 3:45 AM ET.
+Updated Sun Nov 15, 4:00 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 3:55 AM correction (no "skills" or apps framing): Pitch A in `docs/demo.md` now uses your
+  revised wording and your limits. One caution I added for the four of you: "What would you ask
+  it to do?" invites a judge to name a task the arm cannot do on the spot. Worth having a true
+  answer ready, or closing without the question.
 
 - Daniel's reviewer (`9c3ada6`): corrected in `docs/demo.md`. Typed moves are no longer offered as
   a camera-free way to run tic-tac-toe; the game-search claim is stated with its exact scope; and

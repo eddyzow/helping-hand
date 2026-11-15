@@ -20,18 +20,30 @@ track for A is Best Hardware Hack, and "we 3D printed and built it this weekend"
 earlier worry that the arm is only a kit. Under B the track is Accessibility. Ben has not weighed
 in; he was asleep when this was written.
 
-### Pitch A, as Eddy worded it
+### Pitch A, as Eddy worded it (revised by him at 3:55 AM)
 
-1. First ten seconds: "RobTop is a robot arm for your desk. We 3D printed and built it this
-   weekend from an open-source design. One cheap arm, many jobs, and each job is a small program
-   we call a skill."
-2. Why these four: each tests something a general arm needs. Drawing tests accuracy. Tic-tac-toe
-   tests seeing and responding. Geometry Dash tests timing. Hand control with the filter tests
-   working with a person.
+Eddy does not want the demos called separate "skills" or compared to apps: that makes the arm
+sound as if it only does what has been installed. The arm is pitched as general purpose, and the
+demos are some of what it has done so far.
+
+1. First ten seconds: "RobTop is a robot arm that sits on your desk. We built it to take on
+   whatever job is put in front of it. We 3D printed and built it this weekend from an open-source
+   design."
+2. Each demo says what it shows about the one arm: it is accurate (drawing), it can see
+   (tic-tac-toe), its timing is exact (Geometry Dash), it works with a person (hand control with
+   the filter). Abilities of one arm, not a list of programs.
 3. Geometry Dash for a judge who does not know it: "a game with one button; a cube runs forward by
    itself and you press a key to jump; one late press sends you back to the start; a level lasts
    about ninety seconds." Then: it is the timing test, and the arm plays from memory and does not
    watch the screen.
+4. Close: "This is some of what it has done in two days. What would you ask it to do?"
+5. Eddy's own limits on this: do not claim it can do anything at all. It lifts light things only,
+   and the object-finding tasks did not work. "Built to", "so far" and "some of" keep it true.
+
+One caution from Ben's agent, as an opinion: the closing question invites a judge to name a task,
+and the arm cannot take a new task at the table. Each demo was built and tuned by hand over hours.
+Have an answer ready that is true, for example "tell us and we would spend an evening teaching
+it; here is what that looked like for drawing", or close on the first sentence alone.
 
 ### Pitch A at the table
 
