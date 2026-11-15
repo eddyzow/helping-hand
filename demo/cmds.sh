@@ -43,6 +43,21 @@ show_keys() { KEYPAD_WAVE="${1:-hi}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD=
 # After a drawing: take the pen out, then this. The pad listener goes to the background, the dispatcher takes the arm.
 dance_mode() { $PY demo/grip.py open; echo "TAKE THE PEN OUT NOW (the claw is open). Starting in 6 s..."; sleep 6;
                (KEYPAD_WAVE="${1:-hi}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-dance}" $PY keypad/listen.py --show &); dispatcher; }
+# --- voice (ElevenLabs; Enter, speak, Enter) -------------------------------------------------------------------
+voice()      { $PY robtop_voice.py; }             # gestures by voice: "do a dance", "high five". Needs the dispatcher running
+voice_draw() { $PY demo/voice_draw.py; }          # drawings by voice: "draw a flower", "play tic tac toe". Dispatcher must be OFF
+
+# --- Geometry Dash, just in case (dispatcher running in another terminal, keypad in game mode) -----------------
+arm_do()   { $PY -c "import socket,sys,time
+def send(c):
+    s=socket.create_connection(('127.0.0.1',8765),timeout=5); s.sendall((c+'\n').encode()); r=s.makefile().readline().strip(); s.close(); return r
+print(send(sys.argv[1]))
+while '\"busy\": true' in send('status'): time.sleep(0.5)
+print(send('status'))" "$1"; }
+gd_place() { arm_do "run tap_place"; }            # arm hovers over its tap spot: slide the pad's C key under the tip, tape it
+gd_cal()   { arm_do "run tap_calibrate" && arm_do 'run tap_delay {"times": 30}'; }   # prints press_ms and release_ms: give them to gd
+# gd <press_ms> <release_ms>    plays Stereo Madness (my_macro_full.csv), for example: gd 105 116
+
 # The whole live demo as a menu:  bash demo/run.sh   (it stops old pad listeners itself, which dance_mode does not)   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
 gesture()   { $PY -c "import socket,sys; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(('run gesture {\"name\": \"'+sys.argv[1]+'\"}\n').encode()); print(c.makefile().readline().strip())" "${1:-dance}"; }   # gesture bow
 
