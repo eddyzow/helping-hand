@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { ACCENT, Clip, Dip, INK, Label, MONO, PAPER, Rise, SERIF, SHADOW, Shade, Shot, Shots, Subtitles, clamp, ramp } from "./ui";
+import { ACCENT, BigTitle, Clip, Dip, INK, Label, MONO, PAPER, Rise, SERIF, SHADOW, Shade, Shot, Shots, Subtitles, clamp, ramp } from "./ui";
 
 /* Section start frames at 30 fps. They match the music's section changes. */
-export const T = { open: 0, draw: 540, ttt: 1080, gd: 1650, feed: 2700, close: 3060, end: 3480 };
+export const T = { open: 0, draw: 540, ttt: 1080, gd: 1650, feed: 2686, close: 3046, end: 3466 };
 
 /*
  * Voiceover captions: [start s, end s, text]. The voice is not recorded yet, so the
@@ -16,37 +16,35 @@ const CUES: Array<[number, number, string]> = [
   [5.4, 10.2, "and we built it to take on whatever job is put in front of it."],
   [11.2, 15.4, "Here is some of what it has done so far."],
 
-  [18.8, 21.0, "Give it a pen and it draws."],
-  [21.4, 24.6, "A camera checks each drawing against the plan,"],
-  [24.6, 26.8, "and the arm corrects itself."],
-  [27.4, 30.6, "On this house, the lines sit about a millimetre from the plan."],
-  [31.2, 33.6, "Here it is drawing a flower."],
+  [19.9, 23.2, "Tell it what to draw and an AI sketches the plan."],
+  [23.4, 25.2, "Here we asked for a house."],
+  [25.4, 29.2, "A camera checks each drawing against the plan, and the arm corrects itself."],
+  [29.4, 32.2, "On this house the lines sit about a millimetre from the plan."],
+  [32.6, 34.6, "Then we asked for a flower."],
 
-  [36.8, 39.4, "Draw an X and it plays you."],
+  [38.0, 39.9, "Draw an X and it plays you."],
   [40.0, 42.6, "It sees your move on the paper,"],
   [42.6, 45.4, "thinks through every possible game,"],
   [45.4, 47.6, "and draws its reply."],
   [51.2, 54.4, "The best you can do against it is a draw."],
 
-  [55.6, 58.8, "Give it a key to press and it plays a video game."],
-  [59.0, 61.2, "This one is called Geometry Dash."],
-  [61.4, 65.2, "It has one button, and a single press that comes a moment late"],
-  [65.2, 67.2, "sends you back to the start."],
-  [67.8, 70.6, "Every press was timed in advance"],
-  [70.6, 75.0, "and sent a tenth of a second early, to cancel the arm's own delay."],
-  [84.0, 86.6, "RobTop gets through the whole level,"],
-  [87.0, 89.7, "a minute and twenty-four seconds of presses, from memory."],
+  [56.9, 59.3, "Give it a key to press and it plays a video game."],
+  [59.4, 61.6, "This one is called Geometry Dash."],
+  [61.8, 65.6, "It has one button, and a single press that comes a moment late"],
+  [65.6, 67.6, "sends you back to the start."],
+  [82.4, 84.8, "RobTop gets through the whole level,"],
+  [84.8, 87.8, "about ninety seconds of presses, from memory."],
 
-  [90.8, 94.6, "Take the second arm in your hand and RobTop follows you."],
-  [96.0, 98.8, "Here it's feeding someone a snack."],
+  [91.4, 94.6, "Take the second arm in your hand and RobTop follows you."],
+  [95.6, 98.4, "Here it's feeding someone a snack."],
 
-  [102.8, 106.0, "Everything you just saw was the same arm."],
+  [102.3, 105.5, "Everything you just saw was the same arm."],
 ];
 
 /* ============ 0:00 cold open ============ */
 
 const BEATS = 36; // two beats at 100 BPM
-const OPEN_CUTS = BEATS * 4;
+const LONG = (T.draw - BEATS * 4) / 6; // six longer shots fill the rest of the opening
 
 function Wordmark({ dur }: { dur: number }) {
   const f = useCurrentFrame();
@@ -72,18 +70,23 @@ function Wordmark({ dur }: { dur: number }) {
 
 function Open() {
   const shots: Shot[] = [
-    { src: "o1.mp4", dur: BEATS, zoom: [1.08, 1.13] },
+    { src: "o1.mp4", dur: BEATS, speed: "2×", zoom: [1.08, 1.13] },
     { src: "o2.mp4", dur: BEATS, zoom: [1.1, 1.16], origin: "85% 40%" },
-    { src: "o3.mp4", dur: BEATS, zoom: [1.06, 1.11] },
-    { src: "o4.mp4", dur: BEATS, zoom: [1.04, 1.09] },
-    { src: "title.mp4", dur: T.draw - OPEN_CUTS, zoom: [1.0, 1.1] },
+    { src: "o3.mp4", dur: BEATS, speed: "3×", zoom: [1.06, 1.11] },
+    { src: "o4.mp4", dur: BEATS, speed: "2×", zoom: [1.04, 1.09] },
+    { src: "oa.mp4", dur: LONG, zoom: [1.0, 1.07] },
+    { src: "ob.mp4", dur: LONG, speed: "6×" },
+    { src: "oc.mp4", dur: LONG, speed: "6×" },
+    { src: "od.mp4", dur: LONG, zoom: [1.0, 1.08] },
+    { src: "oe.mp4", dur: LONG, speed: "0.6×" },
+    { src: "of.mp4", dur: LONG, speed: "9×" },
   ];
   return (
     <AbsoluteFill>
       <Shots shots={shots} />
       <Shade />
-      <Sequence from={6} durationInFrames={220}>
-        <Wordmark dur={220} />
+      <Sequence from={6} durationInFrames={196}>
+        <Wordmark dur={196} />
       </Sequence>
     </AbsoluteFill>
   );
@@ -91,15 +94,28 @@ function Open() {
 
 /* ============ 0:18 drawing ============ */
 
+const PLAN_AT = 66; // section frame where the plan panel appears
+
+/** The request that produced the drawing, as a small tag under the speed label. */
+function Prompt({ text, dur }: { text: string; dur: number }) {
+  const f = useCurrentFrame();
+  const opacity = Math.min(ramp(f, 0, 12), interpolate(f, [dur - 10, dur], [1, 0], clamp));
+  return (
+    <div style={{ position: "absolute", right: 64, top: 118, fontFamily: MONO, fontWeight: 500, fontSize: 22, letterSpacing: 5, color: PAPER, textShadow: SHADOW, opacity }}>
+      PROMPT: "{text}"
+    </div>
+  );
+}
+
 /** The plan the arm follows, drawn in step with the footage (drawings/simple_a_house.json, x100). */
 function Plan({ dur }: { dur: number }) {
   const f = useCurrentFrame();
   const strokes: Array<[string, number, number]> = [
-    ["M19 48 H81 V92 H19 Z", 0, 60],
-    ["M8 51 L50 8 L92 51", 75, 120],
-    ["M42 92 V65 H58 V92", 135, 180],
-    ["M67 58 H75 V71 H67 Z", 190, 215],
-    ["M25 58 H33 V71 H25 Z", 220, 245],
+    ["M19 48 H81 V92 H19 Z", 17, 86],
+    ["M8 51 L50 8 L92 51", 103, 154],
+    ["M42 92 V65 H58 V92", 171, 223],
+    ["M67 58 H75 V71 H67 Z", 234, 260],
+    ["M25 58 H33 V71 H25 Z", 266, 291],
   ];
   const opacity = Math.min(ramp(f, 0, 12), interpolate(f, [dur - 12, dur], [1, 0], clamp));
   return (
@@ -117,13 +133,13 @@ function Plan({ dur }: { dur: number }) {
               strokeLinejoin="round"
               pathLength={1}
               strokeDasharray={1}
-              strokeDashoffset={1 - interpolate(f, [a, b], [0, 1], clamp)}
+              strokeDashoffset={1 - interpolate(f + PLAN_AT, [a, b], [0, 1], clamp)}
             />
           ))}
         </svg>
       </div>
-      <div style={{ marginTop: 10, textAlign: "right", fontFamily: MONO, fontWeight: 500, fontSize: 22, letterSpacing: 5, color: PAPER, textShadow: SHADOW }}>
-        THE PLAN
+      <div style={{ position: "absolute", right: 0, marginTop: 10, whiteSpace: "nowrap", fontFamily: MONO, fontWeight: 500, fontSize: 22, letterSpacing: 5, color: PAPER, textShadow: SHADOW }}>
+        PROMPT: "A HOUSE"
       </div>
     </div>
   );
@@ -132,18 +148,22 @@ function Plan({ dur }: { dur: number }) {
 function Draw() {
   const dur = T.ttt - T.draw;
   const shots: Shot[] = [
-    { src: "d1.mp4", dur: 270, speed: "4×" },
+    { src: "d1.mp4", dur: 309, speed: "3.5×" },
     { src: "d2.mp4", dur: 105, zoom: [1.0, 1.04] },
-    { src: "d3.mp4", dur: 105, speed: "12×" },
-    { src: "d4.mp4", dur: 60, zoom: [1.0, 1.04] },
+    { src: "d3.mp4", dur: 80, speed: "14×" },
+    { src: "d4.mp4", dur: 46, zoom: [1.0, 1.04] },
   ];
   return (
     <AbsoluteFill>
       <Shots shots={shots} />
       <Shade />
-      <Label text="Drawing" dur={dur} />
-      <Sequence from={16} durationInFrames={350} layout="none">
-        <Plan dur={350} />
+      <Label text="Drawing" dur={dur} at={60} />
+      <BigTitle text="Drawing" />
+      <Sequence from={PLAN_AT} durationInFrames={414 - PLAN_AT} layout="none">
+        <Plan dur={414 - PLAN_AT} />
+      </Sequence>
+      <Sequence from={420} durationInFrames={116} layout="none">
+        <Prompt text="A FLOWER" dur={116} />
       </Sequence>
     </AbsoluteFill>
   );
@@ -166,60 +186,19 @@ function TicTacToe() {
     <AbsoluteFill>
       <Shots shots={shots} />
       <Shade />
-      <Label text="Tic-tac-toe" dur={T.gd - T.ttt} />
+      <Label text="Tic-tac-toe" dur={T.gd - T.ttt} at={60} />
+      <BigTitle text="Tic-tac-toe" />
     </AbsoluteFill>
   );
 }
 
 /* ============ 0:55 Geometry Dash ============ */
 
-const GD = { g1: 0, g2: 132, g3: 311, g4: 611, clear: 950, freeze: 956, end: 1050 };
-// Where the keypad sits in the cropped g3/g4 footage, for the zoomed lens.
-const KEY = { x: 1555, y: 460 };
-
-function Lens({ src, enterAt, dur }: { src: string; enterAt: number; dur: number }) {
-  const f = useCurrentFrame();
-  const R = 170;
-  const zoom = 1.45;
-  const p = Math.min(ramp(f, enterAt, 16), interpolate(f, [dur - 8, dur], [1, 0], clamp));
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: 1680 - R,
-        top: 700 - R,
-        width: R * 2,
-        height: R * 2,
-        borderRadius: R,
-        overflow: "hidden",
-        border: `3px solid ${PAPER}`,
-        boxSizing: "border-box",
-        boxShadow: "0 18px 50px rgba(0,0,0,0.55)",
-        backgroundColor: INK,
-        opacity: p,
-        transform: `scale(${0.9 + 0.1 * p})`,
-      }}
-    >
-      <OffthreadVideo
-        muted
-        src={staticFile(src)}
-        style={{
-          position: "absolute",
-          width: 1920 * zoom,
-          height: 1080 * zoom,
-          maxWidth: "none",
-          left: R - KEY.x * zoom,
-          top: R - KEY.y * zoom,
-        }}
-      />
-    </div>
-  );
-}
-
+const GD = { g1: 0, g2: 132, key: 325, g3: 397, g4: 611, slow: 942, clear: 996, end: 1036 };
 /** Position in the level, as a thin line along the bottom edge. */
 function LevelLine() {
   const f = useCurrentFrame();
-  const pct = interpolate(f, [GD.g1, GD.g2, GD.g3, GD.g4, GD.clear], [0.1, 5.2, 40, 86.8, 100], clamp);
+  const pct = interpolate(f, [GD.g1, GD.g2, GD.key, GD.g3, GD.g4, GD.slow, GD.clear], [0.1, 5.2, 42.5, 45.3, 86.8, 99.7, 100], clamp);
   const opacity = Math.min(ramp(f, 20, 14), interpolate(f, [GD.clear + 2, GD.clear + 14], [1, 0], clamp));
   return (
     <AbsoluteFill style={{ opacity }}>
@@ -244,50 +223,24 @@ function LevelLine() {
   );
 }
 
-function Cleared() {
-  const f = useCurrentFrame();
-  const ring = ramp(f, 0, 40);
-  return (
-    <AbsoluteFill>
-      <AbsoluteFill style={{ backgroundColor: `rgba(12,12,14,${0.5 * ramp(f, 0, 10)})` }} />
-      <AbsoluteFill style={{ backgroundColor: PAPER, opacity: interpolate(f, [0, 10], [0.55, 0], clamp) }} />
-      <svg viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
-        <circle cx={960} cy={430} r={240 + 520 * ring} fill="none" stroke={PAPER} strokeWidth={3} opacity={1 - ring} />
-      </svg>
-      <AbsoluteFill style={{ alignItems: "center", color: PAPER, textShadow: SHADOW }}>
-        <Rise at={0} style={{ marginTop: 210, fontFamily: SERIF, fontSize: 400, lineHeight: 1, letterSpacing: -10 }}>
-          100%
-        </Rise>
-        <div style={{ marginTop: 4, fontFamily: MONO, fontWeight: 500, fontSize: 32, letterSpacing: 8, opacity: ramp(f, 16, 16) }}>
-          STEREO MADNESS · ATTEMPT 6 · 1:24
-        </div>
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-}
-
 function GeometryDash() {
   const shots: Shot[] = [
     { src: "g1.mp4", dur: GD.g2 - GD.g1, speed: "REAL TIME", zoom: [1.0, 1.05], origin: "35% 55%" },
-    { src: "g2.mp4", dur: GD.g3 - GD.g2, speed: "5×", zoom: [1.02, 1.02] },
-    { src: "g3.mp4", dur: GD.g4 - GD.g3, speed: "4×", zoom: [1.0, 1.0] },
-    { src: "g4.mp4", dur: GD.freeze - GD.g4, speed: "REAL TIME", zoom: [1.0, 1.0] },
-    { src: "g_end.jpg", dur: GD.end - GD.freeze, still: true, zoom: [1.0, 1.04], origin: "40% 50%" },
+    { src: "g2.mp4", dur: GD.key - GD.g2, speed: "5×", zoom: [1.02, 1.02] },
+    { src: "gk.mp4", dur: GD.g3 - GD.key, speed: "REAL TIME", zoom: [1.0, 1.08], origin: "45% 55%" },
+    { src: "g3.mp4", dur: GD.g4 - GD.g3, speed: "5×", zoom: [1.0, 1.0] },
+    { src: "g4.mp4", dur: GD.slow - GD.g4, speed: "REAL TIME", zoom: [1.0, 1.0] },
+    { src: "g5.mp4", dur: GD.end - GD.slow, speed: "SLOW MOTION", zoom: [1.0, 1.05], origin: "40% 45%" },
   ];
   return (
     <AbsoluteFill>
       <Shots shots={shots} />
       <Shade />
-      <Sequence from={GD.g3} durationInFrames={GD.g4 - GD.g3} layout="none">
-        <Lens src="g3.mp4" enterAt={6} dur={100000} />
-      </Sequence>
-      <Sequence from={GD.g4} durationInFrames={GD.clear - GD.g4} layout="none">
-        <Lens src="g4.mp4" enterAt={-100} dur={GD.clear - GD.g4} />
-      </Sequence>
-      <Label text="Geometry Dash" dur={T.feed - T.gd} />
+      <Label text="Geometry Dash" dur={T.feed - T.gd} at={60} />
+      <BigTitle text="Geometry Dash" size={250} />
       <LevelLine />
-      <Sequence from={GD.clear} durationInFrames={GD.end - GD.clear}>
-        <Cleared />
+      <Sequence from={GD.clear - 14} durationInFrames={GD.end - GD.clear + 14}>
+        <BigTitle text="Level complete" hold={200} size={250} />
       </Sequence>
     </AbsoluteFill>
   );
@@ -299,9 +252,16 @@ function Feeding() {
   const dur = T.close - T.feed;
   return (
     <AbsoluteFill>
-      <Shots shots={[{ src: "f1.mp4", dur, speed: "1.4×", zoom: [1.0, 1.05] }]} />
+      <Shots
+        shots={[
+          { src: "f1.mp4", dur: 117, zoom: [1.0, 1.05] },
+          { src: "f2.mp4", dur: 42, zoom: [1.02, 1.08] },
+          { src: "f3.mp4", dur: dur - 159, zoom: [1.0, 1.05] },
+        ]}
+      />
       <Shade />
-      <Label text="Following a hand" dur={dur} />
+      <Label text="Feeding" dur={dur} at={60} />
+      <BigTitle text="Feeding" />
     </AbsoluteFill>
   );
 }

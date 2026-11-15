@@ -78,7 +78,7 @@ function Speed({ label, dur }: { label: string; dur: number }) {
       {live ? (
         <div style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#E5484D", opacity: 0.6 + 0.4 * Math.sin(f / 5) }} />
       ) : null}
-      {live ? label : `▸▸ ${label}`}
+      {label.includes("×") ? `▸▸ ${label}` : label}
     </div>
   );
 }
@@ -109,16 +109,48 @@ export function Rise({ at, children, style }: { at: number; children: React.Reac
   const f = useCurrentFrame();
   const p = ramp(f, at, 18);
   return (
-    <div style={{ overflow: "hidden", paddingBottom: "0.12em", ...style }}>
+    <div style={{ overflow: "hidden", paddingBottom: "0.24em", marginBottom: "-0.12em", ...style }}>
       <div style={{ transform: `translateY(${(1 - p) * 105}%)`, opacity: interpolate(p, [0, 0.3], [0, 1], clamp) }}>{children}</div>
     </div>
   );
 }
 
-/** Small clip name in the top-left corner. */
-export function Label({ text, dur }: { text: string; dur: number }) {
+/** Full-screen title that opens a section: letters rise, a rule draws, then it lifts away. */
+export function BigTitle({ text, hold = 56, size = 290 }: { text: string; hold?: number; size?: number }) {
   const f = useCurrentFrame();
-  const p = ramp(f, 8, 16);
+  if (f > hold + 14) return null;
+  const out = interpolate(f, [hold, hold + 12], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
+  const dim = 0.62 * (1 - interpolate(f, [hold - 4, hold + 12], [0, 1], clamp));
+  return (
+    <AbsoluteFill>
+      <AbsoluteFill style={{ backgroundColor: `rgba(12,12,14,${dim})` }} />
+      <AbsoluteFill
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          color: PAPER,
+          textShadow: SHADOW,
+          opacity: 1 - out,
+          transform: `translateY(${-out * 60}px)`,
+        }}
+      >
+        <div style={{ display: "flex", fontFamily: SERIF, fontSize: size, lineHeight: 1, letterSpacing: -5 }}>
+          {text.split("").map((ch, i) => (
+            <Rise key={i} at={2 + i * Math.min(1.4, 12 / text.length)}>
+              {ch === " " ? " " : ch}
+            </Rise>
+          ))}
+        </div>
+        <div style={{ width: 560 * ramp(f, 8, 22), height: 4, marginTop: 22, backgroundColor: PAPER }} />
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+}
+
+/** Small clip name in the top-left corner. */
+export function Label({ text, dur, at = 8 }: { text: string; dur: number; at?: number }) {
+  const f = useCurrentFrame();
+  const p = ramp(f, at, 16);
   const out = interpolate(f, [dur - 10, dur - 2], [1, 0], clamp);
   return (
     <div
