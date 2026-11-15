@@ -452,12 +452,13 @@ def main() -> None:
             the leader was picked up) does not end the session. Nothing is sent meanwhile; the call is
             tried again for LINK_WAIT_S, and the loop then lines everything up again before it moves."""
             while True:
+                asked = time.perf_counter()
                 try:
                     return call(*args)
                 except ConnectionError as error:
-                    # ONE clock for the whole outage, reads and sends together: it starts at the first failure
-                    # and only a command that reaches the arm again clears it (see the send below)
-                    link["since"] = link.get("since") or time.perf_counter()
+                    # ONE clock for the whole outage, reads and sends together: it starts when the first failing
+                    # call was begun, and only a command that reaches the arm again clears it (see the send below)
+                    link["since"] = link.get("since") or asked
                     if state["quit"] or time.perf_counter() - link["since"] >= LINK_WAIT_S:
                         raise
                     if not link["lost"]:
@@ -466,6 +467,8 @@ def main() -> None:
                     with lock:
                         shared["why_still"] = "link"
                     time.sleep(0.25)
+                    if time.perf_counter() - link["since"] >= LINK_WAIT_S:   # checked again before another try
+                        raise
 
         observation = follower.get_observation()
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
@@ -608,12 +611,15 @@ def main() -> None:
             order = {k: float(v) for k, v in zip(KEYS, sent)}   # while held: the same target, all six joints
             if not ROLL_FOLLOWS:   # the wrist roll is told to be where it was last measured, so it is asked for no movement
                 order[KEYS[4]] = roll_seen
+            asked = time.perf_counter()
             try:
+                if link.get("since") and asked - link["since"] >= LINK_WAIT_S:   # no new attempt past the deadline
+                    raise ConnectionError(f"the arm did not answer for {LINK_WAIT_S:.0f} s")
                 follower.send_action(order)
                 delivered, link["since"] = sent.copy(), None   # only now is this target the arm's target; the outage is over
             except ConnectionError as error:   # a command that failed is dropped, never sent again later
                 sent = delivered.copy()        # the arm was last told this; a stop keeps exactly this
-                link["since"] = link.get("since") or time.perf_counter()
+                link["since"] = link.get("since") or asked
                 if time.perf_counter() - link["since"] >= LINK_WAIT_S:   # reads working do not excuse this
                     raise
                 if not link["lost"]:
