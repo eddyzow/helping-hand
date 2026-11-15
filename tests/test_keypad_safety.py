@@ -81,13 +81,32 @@ def test_keypad_safety():
     assert events == [("send", "stop"), ("write", None)] * 2, events
     assert saved == ["time_ms,state\n100.000,down\n200.000,up\n"]
     assert scope["recording"] == {}
-    scope.update(SHOW=True, SHOW_WAVE='run gesture {"name": "dance"}')
+    tree = ast.parse(path.read_text())
+    settings = [node for node in tree.body if isinstance(node, ast.Assign)
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id in ("SHOW", "SHOW_WAVE", "SHOW_JUMP", "SHOW_THIRD")]
+    scope.update(os=SimpleNamespace(environ={}), sys=SimpleNamespace(argv=[str(path), "--show"]))
+    exec(compile(ast.Module(body=settings, type_ignores=[]), str(path), "exec"), scope)
+    assert scope["SHOW"] is True
     events.clear()
     on_key(67, True)
     on_key(67, False)
     on_key(88, True)
     on_key(90, True)
-    assert events == [("send", "run gesture"), ("send", scope["SHOW_WAVE"]), ("send", "stop")], events
+    assert events == [("send", 'run gesture {"name": "high_five"}'),
+                      ("send", 'run gesture {"name": "dance"}'),
+                      ("send", 'run gesture {"name": "victory"}')], events
+    scope["os"].environ.update(KEYPAD_MODE="show", KEYPAD_JUMP="next")
+    scope["sys"].argv = [str(path)]
+    exec(compile(ast.Module(body=settings, type_ignores=[]), str(path), "exec"), scope)
+    assert scope["SHOW"] is True
+    events.clear()
+    on_key(67, True)
+    assert events == [("send", "run gesture")]
+    scope["SHOW"] = False
+    events.clear()
+    on_key(90, True)
+    assert events == [("send", "stop")], events
 
 
 def test_connection_cooldown():
