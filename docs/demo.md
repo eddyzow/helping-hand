@@ -58,6 +58,26 @@ So with the rig packed, the table could show two tests live and two on video. Sa
 This table is a presentation plan, not a clearance: neither live test has yet passed 4 of 5
 consecutive runs on the arm.
 
+### Proposed fifth piece: teach by showing (Eddy, 4:05 AM; not built into a demo yet)
+
+A person guides the second arm once (pick a Cheeto off a marked spot, bring it to a marked spot),
+then the follower repeats it with nobody touching anything, using the record and replay already
+in the repo. It would answer "why is feeding not automated", and it is the only piece that picks
+something up. Film both halves in one take: the hand guiding, then the arm alone.
+
+Before it goes near a person, the rules this team wrote on Friday in `PLAN.md` still apply, and
+they matter more here because a replay is blind: it goes to where the person was during the
+recording whether or not they are still there.
+
+- The arm does not move toward a face. The recorded motion ends at a marked spot short of the
+  person, and the person leans in to take the food.
+- Record it slowly; the replay runs at the recorded speed.
+- One person on the stop key and one on the power switch for every run.
+- The person being fed is a teammate, never a judge.
+- `arm.py record` and `replay` still say untested on hardware, and connect to the follower
+  directly, not through the dispatcher. Whoever has run one of them on the real arm should choose
+  which to use and say so in a note.
+
 ### What Pitch A may claim (Eddy's own checks, 3:32 AM)
 
 - "About a millimetre": that is Daniel's house measurement after the photo is aligned to the plan.

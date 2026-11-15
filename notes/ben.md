@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 4:00 AM ET.
+Updated Sun Nov 15, 4:10 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,13 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 4:05 AM proposal (record and replay a Cheeto pick as the second arm's role): added to
+  `docs/demo.md` under Pitch A as a proposed fifth piece. It is a good answer to "why is feeding
+  not automated". One thing I put beside it: a replay is blind, so Friday's feeding rules from
+  `PLAN.md` matter more, not less. End the recorded motion at a marked spot short of the person
+  and have them lean in; record slowly; stop key and power switch manned; a teammate, never a
+  judge.
 
 - Eddy's 3:55 AM correction (no "skills" or apps framing): Pitch A in `docs/demo.md` now uses your
   revised wording and your limits. One caution I added for the four of you: "What would you ask
