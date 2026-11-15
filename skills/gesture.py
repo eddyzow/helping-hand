@@ -1,4 +1,5 @@
-"""Gestures: nod, shake, fist bump, high five and a little dance, all from the taught wave_up pose.
+"""Gestures: nod, shake, fist bump, high five, a little dance, a bow, a look around, a victory wiggle, an
+impatient tap and a droop that perks up, all from the taught wave_up pose.
 
 Each one is wave_up plus joint offsets in degrees, the way wave works. No new poses to teach.
 The offsets are first guesses: tune them on the real arm. `python -m tests.test_gestures_sim` replays every
@@ -10,8 +11,9 @@ Every move is paced so no joint is asked to pass MAX_DEG_S, whatever the taught 
 from core.arm import HZ
 
 NAME = "gesture"
-DESCRIPTION = "Do a friendly gesture: nod, shake, fist bump, high five or a little dance"
-PARAMS = {"name": "which gesture: nod, shake, fist_bump, high_five, dance, or next (default) to cycle"}
+DESCRIPTION = "Do a friendly gesture: nod, shake, fist bump, high five, dance, bow, look around, victory, impatient or droop"
+PARAMS = {"name": "which gesture: nod, shake, fist_bump, high_five, dance, bow, look_around, victory, impatient, droop, "
+                  "or next (default) to cycle"}
 
 PAN, LIFT, FLEX = 0, 1, 3  # indexes in JOINTS. In the model at wave_up a bigger lift, elbow or wrist angle each
                            # moves the tip forward and down; a bigger pan moves it to the arm's right (-y)
@@ -38,6 +40,21 @@ GESTURES = {
     "high_five": [({}, OPEN, 0.3), ({}, OPEN, HOLD_S), ({LIFT: RECOIL_DEG}, OPEN, 0.3)],
     "dance": [({PAN: DANCE_PAN, FLEX: -DANCE_FLEX}, DANCE_GRIP[0], 0.45),
               ({PAN: -DANCE_PAN, FLEX: DANCE_FLEX}, DANCE_GRIP[1], 0.45)] * 2,
+    # a slow, polite bow to the crowd: lean in, dip the hand, pause, come back up
+    "bow": [({LIFT: 25, FLEX: 30}, None, 0.8), ({LIFT: 25, FLEX: 30}, None, 0.4), ({}, None, 0.8)],
+    # a curious look around: turn one way with the hand tipped up, then the other way tipped down, then back
+    "look_around": [({PAN: 35, FLEX: -15}, None, 0.7), ({PAN: 35, FLEX: -15}, None, 0.3),
+                    ({PAN: -35, FLEX: 10}, None, 0.9), ({PAN: -35, FLEX: 10}, None, 0.3), ({}, None, 0.5)],
+    # a victory wiggle: hand thrown up, swaying, the claw snapping open and shut on each beat
+    "victory": [({LIFT: -10, FLEX: -25, PAN: 12}, OPEN, 0.5)]
+               + [({LIFT: -10, FLEX: -25, PAN: -12}, 70, 0.3), ({LIFT: -10, FLEX: -25, PAN: 12}, OPEN, 0.3)] * 2
+               + [({}, None, 0.5)],
+    # impatient: two quick taps in the air, a beat, two more ("come on, come on")
+    "impatient": [({FLEX: 25}, None, 0.3), ({}, None, 0.3)] * 2 + [({}, None, 0.3)]
+                 + [({FLEX: 25}, None, 0.3), ({}, None, 0.3)] * 2,
+    # sad then happy: a slow droop with the claw closing, a moment hanging there, then a perk up with the claw open
+    "droop": [({LIFT: 20, FLEX: 40}, 20, 1.0), ({LIFT: 20, FLEX: 40}, 20, 0.5),
+              ({LIFT: -10, FLEX: -20}, 90, 0.7), ({}, None, 0.4)],
 }
 _turn = 0  # which gesture `next` plays; it starts over at nod when the dispatcher restarts
 
