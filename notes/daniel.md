@@ -1,6 +1,8 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-15, arm reviewed through 9a32eac. Snapshot, not a live hardware reservation.
+Updated 2026-11-15, arm reviewed through 494a290. Snapshot, not a live hardware reservation.
+
+**Calibration-data follow-up 494a290 / QA 56418b6:** only `tap_key.json` wrist_flex (9.29890109890117) and `tap_tune.json` lift (4.949999999999992; press still 5.5) changed. Both JSON files parse with their existing 6/2 numeric finite values. These are owner-calibrated data, not independently verified physical settings; no calibration or replay ran. The commit message's 105/116 ms leads are not a source-code change. Earlier runtime checks were not rerun for this data-only revision; prior holds remain.
 
 **Menu/defaults review 9a32eac / QA 516b899:** show defaults are now X `hi`, C `high_five`, Z `dance`; `hi` aliases `shake`. Updated extracted keypad checks pass, as do all 11 named mock gesture replays (119.670 commanded degrees/s peak, 0.088 degree whole-replay roll-target span) and the owner's safe `test_gesture()`. These are commanded targets and fake input routing, not measured physical motion. Verify with `python -B -m tests.test_keypad_safety`, `python -B -m tests.test_gesture_targets`, and `python -B -c "from tests.test_core import test_gesture; test_gesture()"` in QA.
 
