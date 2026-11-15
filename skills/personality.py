@@ -22,7 +22,8 @@ MOVES = {
     "shake": [({PAN: 12}, 0.3), ({PAN: -12}, 0.3)] * 3,
     "celebrate": [({WRIST_FLEX: -20, GRIPPER: 30}, 0.3), ({WRIST_FLEX: 0, GRIPPER: -30}, 0.3)] * 4,
     "droop": [({WRIST_FLEX: 35, GRIPPER: -30}, 1.5), ({WRIST_FLEX: 35, GRIPPER: -30}, 1.0)],
-    "dance": [({PAN: 10, WRIST_ROLL: 25}, 0.4), ({PAN: -10, WRIST_ROLL: -25}, 0.4)] * 4,
+    # no wrist_roll in any move: that motor was reported overheating on Sat Nov 14 (notes/daniel.md)
+    "dance": [({PAN: 10, WRIST_FLEX: 12}, 0.4), ({PAN: -10, WRIST_FLEX: -12}, 0.4)] * 4,
 }
 
 

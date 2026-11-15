@@ -136,6 +136,13 @@ Notes:
 
 ## Facts about the real arm that the demo has to respect (from `newcontext.md`)
 
+- Reported by Daniel at 8:27 PM, not seen by anyone else: the follower's wrist-roll motor is
+  overheating and sending garbled replies. His controller now leaves that joint out: it does not
+  follow the leader's wrist roll, and it is not actively held when Hold is on. So at the table the
+  wrist will not rotate with the hand, and "Hold" freezes five joints, not six; say so if asked.
+  The wave skill is a wrist-roll swing, so do not run it. `skills/personality.py` no longer uses
+  wrist roll in any move (changed 8:35 PM, mock only). Writing keeps the wrist at one angle anyway.
+
 - The follower's elbow stops at about +65 degrees, because its calibration recorded only part of
   its travel. This, not weak motors, is the recorded cause of today's "weak grip" and
   wrong-distance reports. Recalibrating shifts every taught pose and needs Daniel's go-ahead.

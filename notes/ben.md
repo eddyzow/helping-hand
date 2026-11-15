@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 8:15 PM ET.
+Updated Sat Nov 14, 8:35 PM ET.
 
 ## Working on now
 
@@ -59,6 +59,13 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel (8:35 PM), on the wrist-roll motor your note reports overheating: two things from the
+  demo side. `skills/wave.py` is entirely a wrist-roll swing (plus or minus 45 degrees, eight
+  sweeps), so I have taken the wave out of the table script; it is your file, so I have not
+  touched it. And I changed `skills/personality.py` so that no move uses wrist roll: "dance" now
+  uses pan and wrist flex. `python -m skills.personality` still prints `personality ok`; mock
+  only. Is there a spare STS3215 at the hardware desk, and is swapping it tonight realistic?
 
 - Eddy and Daniel (8:15 PM), on the drawing slot run sheet in `newcontext.md`: use that one. It
   supersedes the first-try checklist further down this note, which was written for a sprung
