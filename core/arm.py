@@ -210,6 +210,11 @@ class Arm(MockArm):
         # ended the skill. Every read retries up to 12 times; one that still fails raises as before.
         bus = self._robot.bus
         bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{**k, "num_retry": 12}))(bus.sync_read)
+        # That motor also reached 63 C on 15 Nov holding a position, and stopped answering for some minutes. Unless
+        # ROLL_POWER=1 it is switched off here: gear friction holds the joint, targets for it are still sent and do
+        # nothing, and no skill that needs the wrist to turn will turn it.
+        if os.environ.get("ROLL_POWER") != "1":
+            bus.disable_torque("wrist_roll", num_retry=8)
         if gain is not None:
             # Daniel approved this on 14 Nov for the tapping (wrist) motor only: LeRobot sets every
             # motor's position gain to 16 at connect, which makes small moves slow and uneven. A

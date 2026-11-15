@@ -268,7 +268,7 @@ try:
                 if one is not None:
                     fresh = cv2.subtract(one[2], cv2.dilate(before, np.ones((7, 7), np.uint8)))
                     pts1 = vision.points(cv2.morphologyEx(fresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)))
-                    first_line = pts1.mean(0) if len(pts1) > 120 else None
+                    first_line = pts1 if len(pts1) > 120 else None
         away()
     while (seen := look()) is None:
         show("move your hand: the camera cannot see the whole sheet", "#a00"); time.sleep(0.5)
@@ -280,8 +280,17 @@ try:
     ink = ink[::max(1, len(ink) // 1500)]
     ref = np.array([p for line in GRID_LINES for p in line[::3]])
     R = np.array(prior["R"])
-    if not resume and first_line is not None and np.linalg.norm(first_line - ink.mean(0)) > 4:
-        want = (first_line - ink.mean(0)) / np.linalg.norm(first_line - ink.mean(0))   # where the arm's -X side is, in the picture
+    side = None
+    if not resume and first_line is not None:
+        # Only which SIDE of the grid's middle the first line lies on is used, measured square-on to the line. Taking the
+        # line's own middle instead went wrong by 48 degrees (15 Nov): when part of a line is faint its middle slides
+        # along the line, and that slide was read as a turn.
+        along = np.linalg.svd(first_line - first_line.mean(0))[2][0]
+        across = np.array([-along[1], along[0]])
+        off = float((first_line.mean(0) - ink.mean(0)) @ across)
+        side = across * np.sign(off) if abs(off) > 4 else None
+    if side is not None:
+        want = side                                                                     # where the arm's -X side is, in the picture
         have = -R[:, 0]                                                                 # where the saved turn says it is
         turn = math.atan2(have[0] * want[1] - have[1] * want[0], have @ want)
         c_, s_ = math.cos(turn), math.sin(turn)
