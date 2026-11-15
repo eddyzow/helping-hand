@@ -453,7 +453,9 @@ def main() -> None:
                 capture, state["neutral"] = state["neutral"], False
                 user_now, profile = state["user"], users[state["user"]]
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
-            filtered = smooth.step(notch.step(raw, dt), cut, dt)   # the notch is a pass-through until a shake is measured
+            # the notch (a pass-through until a shake is measured) works on the five arm joints only: its step
+            # response overshoots a little, and the trigger must never read deeper than the hand squeezed
+            filtered = smooth.step(np.append(notch.step(raw[:5], dt), raw[5]), cut, dt)
             with lock:   # the calibration watches the filtered hand; the arm is held while it runs
                 calibrating = calibration.running()
                 result = calibration.feed(now, filtered, filtered[5]) if calibrating else None
