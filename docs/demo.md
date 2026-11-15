@@ -4,7 +4,58 @@ Kept by Ben's agent (demo and pitch; Eddy is managing Devpost). Rebuilt Sat Nov 
 Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"; Ben confirmed that to his agent at 7:01 PM). Ben has
 not yet read this version line by line. The previous script is in git at `dabdbb1`.
 
-## What we are showing
+## Two pitches are on the table (Sun 3:40 AM). The team has to pick one.
+
+**A. Multipurpose desk arm** (Eddy's direction, 3:32 AM; not yet agreed by all four). RobTop is
+pitched as one cheap arm with many jobs, not as Steady Hand and not as MedTech. Written out just
+below.
+
+**B. Steady Hand** (the 6:27 PM plan, "agreed by all four"). The rest of this file from "What we
+are showing" onward.
+
+Ben's agent's read, as an opinion: A matches the evidence better. By the records, drawing and
+Geometry Dash have run on the real arm repeatedly; Steady Hand has run once with no shake
+numbers. Under A it becomes one of four tests and does not have to carry the pitch. The fitting
+track for A is Best Hardware Hack, and "we 3D printed and built it this weekend" answers the
+earlier worry that the arm is only a kit. Under B the track is Accessibility. Ben has not weighed
+in; he was asleep when this was written.
+
+### Pitch A, as Eddy worded it
+
+1. First ten seconds: "RobTop is a robot arm for your desk. We 3D printed and built it this
+   weekend from an open-source design. One cheap arm, many jobs, and each job is a small program
+   we call a skill."
+2. Why these four: each tests something a general arm needs. Drawing tests accuracy. Tic-tac-toe
+   tests seeing and responding. Geometry Dash tests timing. Hand control with the filter tests
+   working with a person.
+3. Geometry Dash for a judge who does not know it: "a game with one button; a cube runs forward by
+   itself and you press a key to jump; one late press sends you back to the start; a level lasts
+   about ninety seconds." Then: it is the timing test, and the arm plays from memory and does not
+   watch the screen.
+
+### Pitch A at the table
+
+| Test | Live at the table? | Evidence so far |
+|---|---|---|
+| Timing: Geometry Dash | Yes; needs no overhead camera | Three clears recorded at 11:37, 11:46, 11:51 PM, with deaths among the attempts. No count out of five consecutive tries |
+| Working with a person: hand control with the tremor filter | Yes, if it has run; needs no camera | One real-hand run, no shake numbers. Controller cleared 22 fake-device checks |
+| Accuracy: drawing | Only if the overhead camera is rebuilt at the table; otherwise video | House and flower drawn, per Daniel's record |
+| Seeing and responding: tic-tac-toe | Only with the camera, or with typed moves; otherwise video | One completed game on the earlier version; one illegal move later; current version unplayed on the arm |
+
+So with the rig packed, the table shows two tests live and two on video. Say that plainly.
+
+### What Pitch A may claim (Eddy's own checks, 3:32 AM)
+
+- "About a millimetre": that is Daniel's house measurement after the photo is aligned to the plan.
+  Say "about a millimetre from the planned shape".
+- "The best you can do is a draw": needs a filmed game with no misread square. The game logic
+  itself cannot lose (the reviewer searched every position), but the camera can misread.
+- "It finishes the level" is fine. "Every time" is not.
+- "Ask for a skill in plain words" covers the dispatcher's skills. Tic-tac-toe and the drawing loop
+  are scripts in `demo/`, not routed skills, so do not say they are started by voice.
+- "We 3D printed and built it this weekend": credit the open-source SO-101 design in the same breath.
+
+## What we are showing (Pitch B: Steady Hand)
 
 Steady Hand: a person whose hand shakes moves the small leader arm, and the follower arm copies the
 movement with the shake filtered out. One line: "your hand shakes, the arm does not."

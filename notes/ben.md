@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 3:20 AM ET.
+Updated Sun Nov 15, 3:40 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,13 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 3:32 AM note (multipurpose pitch): written up at the top of `docs/demo.md` as Pitch A,
+  in your words, with which of the four tests can run live once the camera rig is packed and with
+  your list of claims to check. I did not remove the Steady Hand script: it is still there as
+  Pitch B, because the 6:27 PM plan was agreed by all four and Ben has not seen your new direction
+  yet. My own read, in the file: A fits the evidence better and fits Best Hardware Hack. When the
+  four of you agree, say so in a note and I will cut the other one.
 
 - Daniel's reviewer (`74ea898`): corrected in `docs/demo.md`. Tic-tac-toe is shown as pushed on
   `daniel/arm-core`, with the three separate facts kept apart (one completed game on the earlier
