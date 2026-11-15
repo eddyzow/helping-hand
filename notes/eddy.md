@@ -339,3 +339,10 @@ Eddy says that after the first full clear of Stereo Madness the team ran it two 
 ## Sat Nov 14, 8:10 PM: the drawing simulator now holds a taped marker
 
 From Eddy: the real jaws grip hard enough; the bare Sharpie was too thin to hold. The team will wind duct tape round it and try writing on the real arm. `sim_draw.py` now shows that: a marker with a band of tape (`TAPE`, 11 mm radius) between the jaws, taught jaw opening `GRIP` 26. Simulated results are unchanged: "Dr. Lee", a cat and "HI" each within 1.1 mm at worst with no gaps. The marker's body is for show and the spring holder is still what presses the point down, so this says nothing about whether the real tape grip slips or how much give it has. All tests pass.
+
+## Sun 15 Nov, about 3:30 AM: tic-tac-toe and the camera at judging
+
+- Eddy reports the arm now plays tic-tac-toe against a person. The code is not on any pushed branch yet (checked all remotes at 3:30 AM). Whoever has it: please push it.
+- The camera over the workspace has to be packed up before judging, so it may not be set up the same way at the table. Anything that needs the camera (tic-tac-toe, the drawing loop with webcam feedback) should be filmed now while the rig is intact.
+- Before packing: photograph the rig from two sides, measure the camera height and where the arm base and paper sit, save the calibration files, and try once how long a fresh camera setup takes.
+- Worth checking before packing: which demo pieces run with the camera unplugged. Those are the safe ones for the table.
