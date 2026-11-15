@@ -16,12 +16,20 @@ def test_steady():
     def size(signal, freq):  # amplitude of one frequency, by projection, after the filter has settled
         return 2 * abs(np.mean(signal[half:] * np.exp(-2j * math.pi * freq * t[half:])))
 
-    # the filter: a slow reach passes, a 6 Hz shake is held back
+    # the filter: a slow reach passes, a 6 Hz shake is held back. The low-pass alone at the old 2.0 Hz;
+    # and the default since v2, the notch on the measured shake then the low-pass at CUTOFF_HZ, the same
+    # (the default low-pass alone no longer removes 85 %: the notch does the rest, see test_notch)
+    from core.tremor import Notch
     reach, shake = 20 * np.sin(2 * math.pi * 0.5 * t), 3 * np.sin(2 * math.pi * 6 * t)
     low = steady.LowPass([0.0])
-    out = np.array([low.step([a + b], steady.CUTOFF_HZ, dt)[0] for a, b in zip(reach, shake)])
+    out = np.array([low.step([a + b], 2.0, dt)[0] for a, b in zip(reach, shake)])
     assert size(out, 0.5) > 17, size(out, 0.5)   # at least 85 % of the reach comes through
     assert size(out, 6.0) < 0.45, size(out, 6.0)  # at least 85 % of the shake is gone
+    low, notch = steady.LowPass([0.0]), Notch()
+    notch.track(2.0, 6.0)   # what the meter reports for this shake
+    out = np.array([low.step(notch.step([a + b], dt), steady.CUTOFF_HZ, dt)[0] for a, b in zip(reach, shake)])
+    assert size(out, 0.5) > 17, size(out, 0.5)
+    assert size(out, 6.0) < 0.45, size(out, 6.0)
 
     # the meter: a 5 mm, 6 Hz shake on top of a slow 40 mm movement reads 3.54 mm RMS at 6 Hz
     tips = np.zeros((int(steady.WINDOW_S * hz), 3))
@@ -59,7 +67,8 @@ def test_core_tremor():
     rms, peak = tremor.band_rms_and_peak(tips, steady.HZ)
     assert abs(rms - 3.54) < 0.05 and peak == 6.0, (rms, peak)
     low = tremor.LowPass([0.0])
-    assert abs(low.step([1.0], tremor.CUTOFF_HZ, 0.02)[0] - (1 - math.exp(-2 * math.pi * 2.0 * 0.02)) ** 2) < 1e-12
+    assert abs(low.step([1.0], 2.0, 0.02)[0] - (1 - math.exp(-2 * math.pi * 2.0 * 0.02)) ** 2) < 1e-12   # the maths, at 2 Hz
+    assert tremor.CUTOFF_HZ == 3.5   # the default since the notch (test_notch)
 
     # the hold-still test, on a fake clock
     test = tremor.HoldStillTest()
@@ -196,6 +205,77 @@ def test_grip_hold():
     steady.command("hold off")
 
 
+def test_notch():
+    from core import tremor
+
+    # the comparison the change was kept on: a 5.5 Hz, 3 degree shake on a 0.5 Hz, 20 degree reach, 50 Hz
+    dt = 1 / steady.HZ
+    t = np.arange(0, 20, dt)
+    half = len(t) // 2
+    reach, shake = 20 * np.sin(2 * math.pi * 0.5 * t), 3 * np.sin(2 * math.pi * 5.5 * t)
+    part = lambda signal, freq: 2 * np.mean(signal[half:] * np.exp(-2j * math.pi * freq * t[half:]))
+
+    def run(cutoff, notch_hz):
+        low, notch = tremor.LowPass([0.0]), tremor.Notch()
+        if notch_hz:
+            notch.track(3.0, notch_hz)
+        out = np.array([low.step(notch.step([v], dt), cutoff, dt)[0] for v in reach + shake])
+        lag = -np.angle(part(out, 0.5) / part(reach, 0.5)) / (2 * math.pi * 0.5)   # seconds behind the reach
+        return lag, abs(part(out, 5.5)) / 3.0                                         # share of the shake left
+
+    old_lag, old_left = run(2.0, None)
+    new_lag, new_left = run(tremor.CUTOFF_HZ, 5.5)
+    off_lag, off_left = run(tremor.CUTOFF_HZ, 5.8)   # the notch 0.3 Hz off the shake, as far as it is let drift
+    print(f"  filter: old 2.0 Hz low-pass lags {1000 * old_lag:.1f} ms, leaves {100 * old_left:.1f}% of the shake; "
+          f"new {tremor.CUTOFF_HZ} Hz + notch lags {1000 * new_lag:.1f} ms, leaves {100 * new_left:.1f}% "
+          f"({100 * off_left:.1f}% with the notch 0.3 Hz off)")
+    assert new_left <= 0.15 and new_lag < old_lag, "keep CUTOFF_HZ at 2.0: the new design does not beat it"
+    assert off_left <= 0.15 and off_lag < old_lag
+
+    # in the loop: the meter finds the shake, tunes the notch, and the arm keeps little of it
+    shaky = lambda t: np.array([20 * math.sin(2 * math.pi * 0.5 * t) + 3 * math.sin(2 * math.pi * 5.5 * t), 0, 0, 0, 0, 43.0])
+    _, _, final = run_loop(shaky, 10.0)
+    assert abs(final["tremor_hz"] - 5.5) < 0.3 and final["removed_pct"] >= 85, (final["tremor_hz"], final["removed_pct"])
+
+    # it engages only on a measured shake of at least 0.5 mm inside the tremor band
+    notch = tremor.Notch()
+    for mm, hz in ((0.4, 5.5), (2.0, 2.0), (2.0, 13.0)):
+        notch.track(mm, hz)
+        assert notch.hz is None and np.array_equal(notch.step([1.0, 2.0], dt), [1.0, 2.0])
+    # it follows the frequency slowly: 0.25 Hz away never retunes it, a lasting move of 0.5 Hz does
+    notch.track(2.0, 5.5)
+    for _ in range(100):
+        notch.track(2.0, 5.75)
+    assert notch.hz == 5.5
+    retuned = []
+    for _ in range(100):
+        notch.track(2.0, 6.0)
+        retuned.append(notch.hz)
+    assert len(set(retuned)) == 2 and 5.8 < retuned[-1] < 6.0, sorted(set(retuned))
+    # and engaging and retuning keep the output continuous (no jump on a slow reach)
+    notch, last, worst = tremor.Notch(), 0.0, 0.0
+    for i, v in enumerate(reach[:500]):
+        if i == 100:
+            notch.track(2.0, 5.5)
+        if i == 300:
+            notch.hz = 7.0
+        out = notch.step([v], dt)[0]
+        worst, last = max(worst, abs(out - last)), out
+    assert worst < 1.5, worst   # the reach itself moves up to 1.26 degrees a step
+
+    # stable at every tremor frequency at 50 Hz, and with uneven steps it never blows up
+    rng = np.random.default_rng(1)
+    for hz in np.arange(3.0, 12.01, 0.5):
+        notch = tremor.Notch()
+        notch.track(2.0, hz)
+        x = 10 * np.sin(2 * math.pi * 0.7 * t) + 3 * np.sin(2 * math.pi * hz * t) + rng.normal(0, 1, len(t))
+        out = np.array([notch.step([v], dt)[0] for v in x])
+        assert np.all(np.isfinite(out)) and np.abs(out).max() < 3 * np.abs(x).max(), hz
+        steps = rng.uniform(0.001, 0.25, 2000)
+        out = np.array([notch.step([10 * math.sin(i / 7)], step)[0] for i, step in enumerate(steps)])
+        assert np.all(np.isfinite(out)) and np.abs(out).max() <= 10 + tremor.Notch.LIMIT_DEG, hz
+
+
 def model_root():
     """A folder holding the SO-101 model (gitignored, so a worktree may lack it): this checkout, or
     one above it (a worktree lives inside the main checkout). None, with a note, if there is none."""
@@ -236,7 +316,7 @@ def test_model_and_meshes():
         assert np.allclose(tip.mm([0, 0, tremor.ELBOW_ZERO_DEG, 0, 0, 50]), straight), "the elbow shift is not applied"
         # every visual mesh, and the STL file as it is on disk lands where MuJoCo has the part
         parts = tip.geoms([10, -20, 40, 15, 30, 70])
-        assert len(parts) == len(tip.meshes) and all(set(p) == {"mesh", "pos", "quat", "rgba"} for p in parts)
+        assert len(parts) == len(tip.meshes) and all(set(p) == {"mesh", "body", "pos", "quat", "rgba"} for p in parts)
         assert all(abs(np.linalg.norm(p["quat"]) - 1) < 1e-4 for p in parts)
         for part, g in zip(parts, tip.meshes):
             raw = (root / tremor.MODEL / "assets" / part["mesh"]).read_bytes()   # binary STL: 80 byte header, count, 50 byte facets
@@ -262,7 +342,7 @@ def test_model_and_meshes():
         for bad in ("/meshes/../so101.xml", "/meshes/../../../../steady.py", "/meshes/..%2fso101.xml", "/meshes/nothing.stl",
                     "/meshes/C:/Windows/win.ini"):
             assert get(bad)[0] == 404, bad
-    assert steady.shared["table_z"] == steady.TABLE_Z == -12.0
+    assert steady.shared["table_z"] == steady.TABLE_Z == -2.4
 
 
 def test_calibration_offset():
@@ -283,7 +363,7 @@ def test_calibration_offset():
             raise AssertionError("a broken calibration gave an offset")
         except ValueError:
             pass
-    assert steady.LIMIT_LOW[2] == steady.ELBOW_LOW == -64.0 and steady.LIMIT_HIGH[2] == steady.ELBOW_HIGH == 75.0
+    assert steady.LIMIT_LOW[2] == steady.ELBOW_MIN == -64.0 and steady.LIMIT_HIGH[2] == steady.ELBOW_MAX == 118.0
 
 
 def run_loop(leader_at, seconds, commands=(), start=None, users_file=None):
@@ -371,7 +451,7 @@ def test_scaling_and_why_still():
         if t >= 5:
             p[0] += 10.0                 # a 10 degree reach of the shoulder
         if t >= 13:
-            p[2] += 20.0                 # the elbow bends 20 degrees: at gain 3 that asks for 80, past its 64 limit
+            p[2] += 40.0                 # the elbow bends 40 degrees: at gain 3 that asks for 140, past its 118 limit
         return p
 
     commands = [(8.0, "gain 2"), (12.0, "gain 3"), (20.0, "hold on"), (20.5, "gain 1"), (20.6, "neutral"),
@@ -384,10 +464,10 @@ def test_scaling_and_why_still():
     # gain 2 doubles the excursion about the neutral pose (10): 20 becomes 30, gliding there over EASE_S
     assert at(ticks, 9.0)[2] == "easing" and 22.0 < at(ticks, 9.5)[1][0] < 28.0, at(ticks, 9.5)
     assert abs(at(ticks, 11.9)[1][0] - 30.0) < 0.1 and at(ticks, 11.9)[2] == ""
-    # gain 3: the elbow asks for 20 + 3 * 20 = 80, is held at its 64 limit, and that is reported
-    assert max(tick[1][2] for tick in ticks) <= steady.ELBOW_HIGH + 1e-9
+    # gain 3: the elbow asks for 20 + 3 * 40 = 140, is held at its 118 limit, and that is reported
+    assert max(tick[1][2] for tick in ticks) <= steady.ELBOW_MAX + 1e-9
     late = at(ticks, 19.0)
-    assert abs(late[1][2] - steady.ELBOW_HIGH) < 1e-6 and late[3] == ["elbow"] and late[2] == "limit", late
+    assert abs(late[1][2] - steady.ELBOW_MAX) < 1e-6 and late[3] == ["elbow_flex"] and late[2] == "limit", late
     assert abs(late[1][0] - 40.0) < 0.1                                              # the shoulder: 10 + 3 * 10
     assert "elbow is at its limit" in console
     # hold wins: gain, neutral, user, grip release and calibrate never clear it, and the arm does not move
@@ -400,10 +480,17 @@ def test_scaling_and_why_still():
     # out of the hold it glides (no jump) to the new target: gain 1 about the new neutral, user Sam
     assert at(ticks, 23.5)[2] == "easing" and at(ticks, 26.9)[2] in ("", "limit")
     assert final["user"]["name"] == "Sam" and final["gain"] == 1.0 and final["hold"] is False
-    assert set(final["grip"]) == {"hold", "squeeze_pct", "held_pct", "claw_pct"} and final["table_z"] == -12.0
+    assert set(final["grip"]) == {"hold", "squeeze_pct", "held_pct", "claw_pct"} and final["table_z"] == -2.4
     assert [a["id"] for a in final["activities"]] == ["hold_still", "range", "steady_time", "grip_hold"]
     assert final["activities"][0]["last"] is None and final["activities"][1]["last"] is None   # nothing measured yet
     assert final["calibration"]["phase"] == "idle"
+    # the follower found folded, its elbow past the limit (3088 ticks, about 128.5 degrees): it is brought
+    # inside at the speed cap, never jumped there and never pushed further out
+    ticks, _, _ = run_loop(lambda t: np.array([0.0, -90.0, 125.0, 60.0, 0.0, 43.0]), 4.0,
+                           start=[0.0, -90.0, 128.5, 60.0, 0.0, 10.0])
+    no_jumps(ticks)
+    assert max(tick[1][2] for tick in ticks) <= 128.5 and abs(ticks[-1][1][2] - steady.ELBOW_MAX) < 1e-6
+    assert ticks[-1][3] == ["elbow_flex"]
 
 
 def test_calibration():
@@ -431,7 +518,7 @@ def test_calibration():
     # gain = target / covered, 1.0 .. 3.0: 90/40, 70/20 -> 3 (capped), elbow barely moved -> 1.0, 80/100 -> 1.0, 120/60
     assert np.allclose(result["gains"], [2.25, 3.0, 1.0, 1.0, 2.0], atol=0.01), result["gains"]
     assert result["trigger"] == {"rest": 43.0, "squeezed": 10.0, "open": 90.0}, result["trigger"]
-    assert cal.view(t)["insufficient"] == ["elbow"] and cal.view(t)["seen"][3] == 1.0
+    assert cal.view(t)["insufficient"] == ["elbow_flex"] and cal.view(t)["seen"][3] == 1.0
     # a person who did not move at all, nor squeeze: every gain stays 1.0, the trigger keeps its defaults,
     # and the state says the calibration was insufficient
     cal = tremor.Calibration()
@@ -470,7 +557,7 @@ def test_calibration():
         assert list(saved) == ["Sam"] and saved["Sam"]["calibrated"] is True and saved["Sam"]["calibrations"] == 1
         assert np.allclose(saved["Sam"]["gains"], [2.25, 3.0, 1.0, 1.0, 2.0], atol=0.05), saved["Sam"]["gains"]
         assert final["user"]["calibrated"] and final["calibration"]["phase"] == "done"
-        assert final["calibration"]["insufficient"] == ["elbow"]
+        assert final["calibration"]["insufficient"] == ["elbow_flex"]
         assert final["activities"][1]["last"] is not None and final["activities"][1]["runs"] == 1
         assert not list(Path(folder).glob("*.tmp")), "the temp file was left behind"
         # held before calibrating: still held after it ends; and the users file cannot be written
@@ -547,6 +634,7 @@ if __name__ == "__main__":
     test_insights()
     test_grip_hold()
     test_model_and_meshes()
+    test_notch()
     test_calibration_offset()
     test_scaling_and_why_still()
     test_calibration()

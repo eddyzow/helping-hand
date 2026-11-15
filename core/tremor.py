@@ -9,7 +9,8 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
-CUTOFF_HZ = 2.0          # movement slower than this passes; tremor above it is held back
+CUTOFF_HZ = 3.5          # movement slower than this passes; tremor above it is held back. Was 2.0; raised with the
+                         # Notch on the measured tremor (tests/test_steady.py: test_notch has the numbers)
 GRIP_CUTOFF_HZ = 4.0     # the claw answers faster, so a pinch still feels direct
 TREMOR_BAND = (3.0, 12.0)  # Hz: where tremor lives (essential tremor about 4 to 8, Parkinsonian about 4 to 6)
 TEST_S = 10.0            # how long the hold-still test measures
@@ -27,6 +28,56 @@ class LowPass:
         self.a = self.a + k * (np.asarray(value, float) - self.a)
         self.b = self.b + k * (self.a - self.b)
         return self.b
+
+
+NOTCH_Q = 2.0          # notch width: about f/2 Hz wide at half depth, so a tremor that wanders 0.3 Hz is still cut deeply
+NOTCH_RETUNE_HZ = 0.3  # the notch moves only when the measured tremor has moved this far
+
+
+class Notch:
+    """A band-stop (biquad notch, per joint) on the hand's own tremor frequency, so the low-pass after it
+    can have a higher cut-off and the intended movement arrives sooner.
+
+    It is engaged only while the shake meter reports a hand shake of at least SHAKING_MM at a
+    frequency inside TREMOR_BAND, and it follows that frequency slowly: the meter's reading is smoothed
+    and the notch moves only when that has moved more than NOTCH_RETUNE_HZ. Its state is kept across a
+    retune, so it never jumps. Uneven time steps: the coefficients come from each step's dt; a step too
+    long for the frequency (under about 4.4 samples per cycle), or any output that is not a number or
+    strays far from the input, lets the input through and restarts the filter settled there."""
+
+    LIMIT_DEG = 20.0   # a notch only takes the tremor out; an output this far from its input has gone wrong
+
+    def __init__(self, q=NOTCH_Q):
+        self.q, self.hz, self.heard, self.z = q, None, None, None
+
+    def track(self, tremor_mm, tremor_hz):
+        """The shake meter's latest reading (about ten times a second)."""
+        if tremor_mm < SHAKING_MM or not TREMOR_BAND[0] <= tremor_hz <= TREMOR_BAND[1]:
+            self.hz = self.heard = self.z = None   # off: the next engage starts settled on the input
+        elif self.hz is None:
+            self.hz = self.heard = float(tremor_hz)
+        else:
+            self.heard += 0.1 * (tremor_hz - self.heard)   # about a second to follow a change
+            if abs(self.heard - self.hz) > NOTCH_RETUNE_HZ:
+                self.hz = self.heard
+
+    def step(self, value, dt):
+        x = np.asarray(value, float)
+        if self.hz is None or not 0.0 < self.hz * dt < 0.225:   # off, or too few samples per cycle to place a notch
+            self.z = None
+            return x
+        w = 2.0 * math.pi * self.hz * dt
+        alpha = math.sin(w) / (2.0 * self.q)
+        b0, b1, a2 = 1.0 / (1.0 + alpha), -2.0 * math.cos(w) / (1.0 + alpha), (1.0 - alpha) / (1.0 + alpha)
+        # (the notch's b2 = b0 and a1 = b1, transposed direct form II)
+        if self.z is None:   # settled on x: for a steady input the output is the input
+            self.z = [x * (b0 - a2), x * (b0 - a2)]
+        y = b0 * x + self.z[0]
+        self.z = [b1 * x - b1 * y + self.z[1], b0 * x - a2 * y]
+        if not np.all(np.isfinite(y)) or np.any(np.abs(y - x) > self.LIMIT_DEG):
+            self.z = None
+            return x
+        return y
 
 
 def band_rms_and_peak(samples, rate):
@@ -94,7 +145,7 @@ class Fingertip:
             pos = d.geom_xpos[g] - rot @ m.mesh_pos[k]
             self.mj.mju_mat2Quat(quat, rot.flatten())
             rgba = m.mat_rgba[m.geom_matid[g]] if m.geom_matid[g] >= 0 else m.geom_rgba[g]   # a material's colour wins
-            out.append({"mesh": self.files[k], "pos": [round(float(v) * 1000.0, 2) for v in pos],
+            out.append({"mesh": self.files[k], "body": m.body(m.geom_bodyid[g]).name, "pos": [round(float(v) * 1000.0, 2) for v in pos],
                         "quat": [round(float(v), 5) for v in quat], "rgba": [round(float(v), 3) for v in rgba]})
         return out
 
@@ -302,7 +353,7 @@ class GripHold:
         return self.claw()
 
 
-ARM = ["shoulder turn", "shoulder lift", "elbow", "wrist bend", "wrist roll"]   # the five arm joints, in order
+ARM = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"]   # the five arm joints, motor names
 TARGET_RANGE_DEG = np.array([90.0, 70.0, 70.0, 80.0, 120.0])   # how far the ROBOT should be able to go on each, degrees
 BARELY_DEG = 5.0      # a joint moved less than this in calibration was not really moved: it keeps gain 1.0
 REST_S, MOVE_S = 3.0, 12.0

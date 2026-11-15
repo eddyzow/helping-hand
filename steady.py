@@ -43,7 +43,7 @@ import numpy as np
 
 from core import tremor
 from core.tremor import (ARM, CUTOFF_HZ, GRIP_CUTOFF_HZ, TRIGGER, Calibration, Fingertip, GripHold, HoldStillTest, LowPass,
-                         Session, activities, band_rms_and_peak, insights)
+                         Notch, Session, activities, band_rms_and_peak, insights)
 
 HERE = Path(__file__).parent
 OFFSETS = HERE / "poses" / "teleop_offset.json"
@@ -59,19 +59,21 @@ WINDOW_S = 4.0           # how much history the tremor measurement looks at
 GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than this (0 to 100). Its jaws meet at
                          # about 5.3 (measured closing on nothing), so anything lower pushes them together at full
                          # effort for as long as the leader's claw is shut: 98 % load in the first three real runs.
-# the follower's elbow, degrees. Its range was widened (EEPROM and calibration, 14 Nov: 752..2500 ticks, same middle,
-# so stored poses keep their meaning) to about -76.8..+76.8. Kept inside that: +75 at the top, and -64 at the bottom
-# because the lower stop was only ever swept to -64.9; nothing below that has been seen working.
-ELBOW_HIGH = 75.0
-ELBOW_LOW = -64.0
-TABLE_Z = -12.0          # mm, the table top in the model's frame: measured by touch, between -9 and -27 across the reach
+# the follower's elbow, degrees. Its range was widened (EEPROM and calibration, 14 Nov: 252..3000 ticks, same middle
+# 1626, so stored poses keep their meaning) to about +120.8 at the top. Kept inside that at +118; at the bottom -64,
+# because the lower stop was only ever swept to -64.9 and nothing below has been seen working. Folded at rest the
+# elbow reads past +118 (3088 ticks): it is then brought inside at the speed cap, never jumped (see the loop).
+ELBOW_MAX = 118.0
+ELBOW_MIN = -64.0
+TABLE_Z = -2.4           # mm, the table top in the model's frame: the underside of the base in the model, where it
+                         # stands on the table (from the 3D lane; touch readings on the real arm ranged -9 to -27)
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
 # the follower's own reach per arm joint (shoulder turn, shoulder lift, elbow, wrist bend, wrist roll), degrees
-LIMIT_LOW = np.array([-110.0, -100.0, ELBOW_LOW, -95.0, -150.0])
-LIMIT_HIGH = np.array([110.0, 100.0, ELBOW_HIGH, 95.0, 150.0])
+LIMIT_LOW = np.array([-110.0, -100.0, ELBOW_MIN, -95.0, -150.0])
+LIMIT_HIGH = np.array([110.0, 100.0, ELBOW_MAX, 95.0, 150.0])
 TICK_DEG = 360.0 / 4095   # one step of the motors' position reading, in degrees
 USERS = HERE / "poses" / "steady_users.json"
 STILL_WORDS = {"holding": "  ARM STILL: hold is on (say 'steady on' or press the jump key)",
@@ -426,7 +428,7 @@ def main() -> None:
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
-        smooth = LowPass(read_leader())
+        smooth, notch = LowPass(read_leader()), Notch()
         grip, grip_was, trigger_args = None, False, {}
         neutral, active_user = None, None   # neutral: the pose scaling works about; None until the start-up glide ends
         steady_s, grip_since, grip_longest, grips, why, limits = 0.0, None, 0.0, 0, "", []
@@ -451,7 +453,7 @@ def main() -> None:
                 capture, state["neutral"] = state["neutral"], False
                 user_now, profile = state["user"], users[state["user"]]
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
-            filtered = smooth.step(raw, cut, dt)
+            filtered = smooth.step(notch.step(raw, dt), cut, dt)   # the notch is a pass-through until a shake is measured
             with lock:   # the calibration watches the filtered hand; the arm is held while it runs
                 calibrating = calibration.running()
                 result = calibration.feed(now, filtered, filtered[5]) if calibrating else None
@@ -487,9 +489,9 @@ def main() -> None:
                 asked = want[:5].copy()
                 want[:5] = np.clip(asked, LIMIT_LOW, LIMIT_HIGH)   # the follower's own reach, whatever the gain
                 limits = [ARM[j] for j in range(5) if asked[j] != want[j]]
-                if "elbow" in limits and not elbow_told:
+                if "elbow_flex" in limits and not elbow_told:
                     elbow_told = True
-                    print(f"  note: the follower's elbow is at its limit ({ELBOW_LOW:.0f} .. {ELBOW_HIGH:.0f} degrees); "
+                    print(f"  note: the follower's elbow is at its limit ({ELBOW_MIN:.0f} .. {ELBOW_MAX:.0f} degrees); "
                           "it cannot bend as far as the leader asks")
                 # always the filtered trigger: a tremor must neither tighten nor release the grip
                 want[5] = grip.step(now, filtered[5]) if grip_on else grip.copy(filtered[5])
@@ -502,10 +504,11 @@ def main() -> None:
                     neutral = filtered[:5].copy()
                 step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
                 moved = sent + step
-                # never drive the claw hard into its closed stop (see GRIP_FLOOR), never ask the elbow for
-                # more than it can do (see ELBOW_HIGH), and never take a joint further past its limit
+                # never drive the claw hard into its closed stop (see GRIP_FLOOR), and never take a joint
+                # past its limit (the elbow: ELBOW_MIN, ELBOW_MAX). A joint found already past one (the elbow
+                # folded at rest reads above ELBOW_MAX) is only ever moved back inside, at the speed cap: a
+                # hard clamp would jump it there in one command.
                 moved[5] = min(100.0, max(GRIP_FLOOR, moved[5]))
-                moved[2] = min(moved[2], ELBOW_HIGH)
                 moved[:5] = np.clip(moved[:5], np.minimum(LIMIT_LOW, sent[:5]), np.maximum(LIMIT_HIGH, sent[:5]))
                 with lock:   # a stop (or a calibration) that arrived while this was being worked out still wins
                     frozen = state["hold"] or calibration.running()
@@ -547,6 +550,7 @@ def main() -> None:
                     out_mm, _ = band_rms_and_peak(out_tips, rate)
                 else:
                     tremor_mm = tremor_hz = out_mm = 0.0
+                notch.track(tremor_mm, tremor_hz)   # the hand's own shake, measured before any filter
                 removed = 0.0 if tremor_mm < 0.15 else max(0.0, min(100.0, 100.0 * (1.0 - out_mm / tremor_mm)))
                 loads = follower.bus.sync_read("Present_Load", normalize=False)
                 effort = {name: (int(v) & 0x3FF) / 10.0 for name, v in loads.items()}   # percent of the motor's maximum
