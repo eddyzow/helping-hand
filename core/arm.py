@@ -205,6 +205,11 @@ class Arm(MockArm):
         import arm as root_arm  # the root arm.py
 
         self._robot = root_arm.follower()  # connects: motors switch on and hold
+        # The wrist-roll motor (id 5) garbles about 3 replies in 10 while the arm is powered (measured 14 Nov, see
+        # steady.py): with the default 3 tries a read still failed within seconds ("motor 5: Parsing error") and
+        # ended the skill. Every read retries up to 12 times; one that still fails raises as before.
+        bus = self._robot.bus
+        bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{**k, "num_retry": 12}))(bus.sync_read)
         if gain is not None:
             # Daniel approved this on 14 Nov for the tapping (wrist) motor only: LeRobot sets every
             # motor's position gain to 16 at connect, which makes small moves slow and uneven. A
