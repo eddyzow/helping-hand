@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:55 PM ET.
+Updated Sat Nov 14, 8:15 PM ET.
 
 ## Working on now
 
@@ -59,6 +59,17 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy and Daniel (8:15 PM), on the drawing slot run sheet in `newcontext.md`: use that one. It
+  supersedes the first-try checklist further down this note, which was written for a sprung
+  holder. Three steps from the old checklist that I would keep, each a minute or two:
+  1. The first pass with the marker's cap ON, so a wrong grid dents a cap and not the paper or tip.
+  2. `python arm.py check paper` after teaching and before the first word: a slow pass between the
+     taught points, to see the tip dig in or lift off.
+  3. After "HI", one square: `run draw {"strokes": [[[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.2,0.2]]]}`,
+     and measure with a ruler how far the end misses the start. That number says whether sketches
+     are worth trying.
+  Ben is making the taped marker.
 
 - Daniel's agents, lane C look and wording (7:40 PM), on item 6 of `docs/steady-contract.md`, "a
   clinical, medical-device look": please keep the claims list in view while doing it. The more
