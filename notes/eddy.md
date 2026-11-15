@@ -390,3 +390,13 @@ Eddy accepted the teach-by-showing piece and wants the team on the demo from now
 Video order: opening, drawing, tic-tac-toe, Geometry Dash, teach by showing, close. Closing line: "Everything you just saw was the same arm, and it's less than two days old. What would you teach it?"
 
 Table: the reviewer's 4:08 AM finding stands. Record and replay do not listen for the keypad stop, so the replayed motion moves an object between two spots on the table and never toward a person, with one teammate on the power switch.
+
+## Sun 15 Nov, 5:55 AM: README.md replaced
+
+Eddy asked for the README rewritten in the style of his past project READMEs (Kite's Devpost-style headings, plus the tagline, casual voice and bill of materials from his own hardware READMEs). The old "Helping Hand (working name)" README is in git history at `89e82df` and earlier.
+
+- It is written for the multipurpose pitch and only states things the session record or the team reported: house and flower drawn, four tic-tac-toe games won, Stereo Madness cleared three times, the God Yeeter recording replayed, teleoperation, six pad gestures, typed requests.
+- Teaching by showing is under "What's next", because no real-arm replay is recorded. Move it up into "What it does" if a replay gets filmed.
+- "Run it" says the real-arm scripts are on `daniel/arm-core` until merged. Delete that sentence after the merge.
+- `docs/drawloop/house_round10.jpg` was copied from `daniel/arm-core` unchanged so the README has a picture. It is the same file at the same path, so the merge should not conflict on it. The README itself will conflict with arm-core's older README; keep this one.
+- Still to add by hand: the video link and Devpost link at the top, and photos of the arm.
