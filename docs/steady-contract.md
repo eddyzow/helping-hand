@@ -53,12 +53,12 @@ New keys:
            "range_deg": [0, 0, 0, 0, 0],
            "trigger": {"rest": 43.0, "squeezed": 0.0, "open": 100.0}},
   "calibration": {"phase": "idle" | "rest" | "move" | "done", "seconds_left": 0.0,
-                  "seen": [0.0, 0.0, 0.0, 0.0, 0.0], "trigger_seen": 0.0},
+                  "seen": [0.0, 0.0, 0.0, 0.0, 0.0], "trigger_seen": 0.0, "insufficient": []},
   "grip": {"hold": true, "squeeze_pct": 0, "held_pct": 0, "claw_pct": 60},
-  "limits": ["elbow"],
-  "table_z": -12.0,
-  "robot": [{"mesh": "upper_arm.stl", "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "rgba": [1, 1, 1, 1]}],
-  "hand": [{"mesh": "upper_arm.stl", "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "rgba": [1, 1, 1, 1]}],
+  "limits": ["elbow_flex"],
+  "table_z": -2.4,
+  "robot": [{"mesh": "upper_arm_so101_v1.stl", "body": "upper_arm", "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "rgba": [1, 1, 1, 1]}],
+  "hand": [{"mesh": "upper_arm_so101_v1.stl", "body": "upper_arm", "pos": [0, 0, 0], "quat": [1, 0, 0, 0], "rgba": [1, 1, 1, 1]}],
   "activities": [{"id": "hold_still", "title": "Hold still", "unit": "score", "last": 74, "best": 81, "runs": 3,
                   "detail": "10 seconds; 100 means no shake. A display scale, not a clinical measure."}]
 }
@@ -67,9 +67,14 @@ New keys:
 - `why_still`: why the arm is not following right now, or `""`. The page shows it in words.
 - `user.gains`, `user.range_deg`, `calibration.seen`: one value per arm joint, in the order shoulder turn, shoulder lift, elbow, wrist bend, wrist roll. `seen` is 0 to 1: how much of a useful range has been covered so far.
 - `grip.squeeze_pct`: how far the hand is squeezing now. `held_pct`: the squeeze being kept. `claw_pct`: the follower's measured claw opening, 0 shut to 100 open.
-- `limits`: joints the follower cannot follow further right now (its own limits), by name.
-- `robot` and `hand`: one entry per mesh of the SO-101 model, with its position (mm) and rotation (unit quaternion w, x, y, z) in the robot's frame: x forward, y to the robot's left, z up. `robot` is the follower as MEASURED; `hand` is the leader, in the follower's terms. Colours are the model's own.
-- `table_z`: the height of the table top in that frame, mm.
+- `calibration.insufficient`: after a calibration, what the person barely moved (under 5 degrees for a joint, under 5 trigger units for the squeeze or the opening); those keep gain 1.0 / the default trigger position. Names as in `limits`, plus `trigger squeeze`, `trigger open`.
+- `limits`: joints the follower cannot follow further right now (its own limits), by motor name: `shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`.
+- `robot` and `hand`: one entry per VISUAL mesh geom of the SO-101 model (geom group 2, 18 of them; the group 4 collision meshes are not sent), with its position (mm) and rotation (unit quaternion w, x, y, z) in the robot's frame: x forward, y to the robot's left, z up. `robot` is the follower as MEASURED (the claw joint included); `hand` is the leader, in the follower's terms. Details:
+  1. The pose is the STL file's own frame, not MuJoCo's recentred one: R = geom_xmat · quat2mat(mesh_quat[mesh])ᵀ, pos = geom_xpos − R · mesh_pos[mesh]. The STL files are in metres (the model applies no mesh scale); `pos` is in mm, so the viewer scales the mesh by 1000.
+  2. `rgba` is the geom's material colour when it has a material, else the geom's own rgba.
+  3. `body` (optional) is the MuJoCo body the mesh belongs to.
+  4. The real elbow's zero is 30 degrees off the model's (model elbow = real elbow − 30); the controller applies it, the viewer does not.
+- `table_z`: the height of the table top in that frame, mm: −2.4, the underside of the base in the model.
 - `GET /meshes/<name>.stl` serves the mesh files (binary STL); `GET /meshes/index.json` lists them.
 - `activities`: what was done this session and before, measured. The ids that exist: `hold_still` (the 10 s test), `range` (comfortable range of motion from the last calibration, degrees), `steady_time` (minutes with the filter on this session), `grip_hold` (longest held grip this session, seconds).
 

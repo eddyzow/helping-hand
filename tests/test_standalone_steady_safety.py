@@ -47,7 +47,11 @@ def scenario(mode):
     follower.get_observation = observe
     follower.send_action = send
     follower.disconnect = lambda: cleanup.append(("follower", follower.config.disable_torque_on_disconnect))
-    follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {})
+    # Cover the default calibration path separately from the optional saved-offset path.
+    ranges = {j: SimpleNamespace(range_min=1000, range_max=3000) for j in steady.JOINTS}
+    bad = {**ranges, steady.JOINTS[0]: SimpleNamespace(range_min=float("nan"), range_max=3000)}
+    follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {}, calibration=ranges)
+    leader.bus = SimpleNamespace(calibration=bad if mode == "invalid_calibration" else ranges)
 
     def make_follower(config):
         follower.config = config
@@ -67,7 +71,7 @@ def scenario(mode):
 
     clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake", sleep=sleep)
     tip = SimpleNamespace(mm=lambda joints: np.array(joints[:3]) if mode in ("slow_meter", "meter_warmup") else np.zeros(3),
-                          chain=lambda joints: [])
+                          chain=lambda joints: [], geoms=lambda joints: [])
     with tempfile.TemporaryDirectory() as temporary:
         offsets = Path(temporary) / "offsets.json"
         values = dict.fromkeys(steady.KEYS, 0.0)
@@ -78,10 +82,11 @@ def scenario(mode):
         read_sessions, save_sessions = steady.read_sessions, steady.save_sessions
         with patch.dict(sys.modules, {"lerobot.robots.so_follower": fake_follower,
                 "lerobot.teleoperators.so_leader": fake_leader}), \
-                patch.object(sys, "argv", ["steady", "--yes"] + (["--shake", "6", "2"] if mode == "shake" else ["--latch"] if mode == "latch_start" else [])), \
+                patch.object(sys, "argv", ["steady", "--yes"] + (["--shake", "6", "2"] if mode == "shake" else ["--teleop-offset"] if mode == "invalid_offset" else [])), \
                 patch.object(steady, "read_sessions", lambda: read_sessions(history)), \
                 patch.object(steady, "save_sessions", lambda values: save_sessions(values, history)), \
                 patch.object(steady, "OFFSETS", offsets), patch.object(steady, "OUT", Path(temporary) / "out"), \
+                patch.object(steady, "USERS", Path(temporary) / "users.json"), \
                 patch.object(steady, "Fingertip", lambda: tip), patch.object(steady, "time", clock), \
                 patch.object(steady.socketserver, "ThreadingTCPServer", server), \
                 patch.object(steady, "HTTPServer", server), \
@@ -90,7 +95,7 @@ def scenario(mode):
             try:
                 steady.main()
             except (ConnectionError, ValueError):
-                if mode not in ("read_failure", "invalid_offset", "invalid_follower"):
+                if mode not in ("read_failure", "invalid_offset", "invalid_calibration", "invalid_follower"):
                     raise
     return writes, cleanup
 
@@ -118,6 +123,11 @@ def test_failure_cleanup():
 def test_invalid_offset():
     writes, _ = scenario("invalid_offset")
     assert not writes, ("invalid offset reached send_action", writes)
+
+
+def test_invalid_calibration():
+    writes, _ = scenario("invalid_calibration")
+    assert not writes, ("invalid calibration reached send_action", writes)
 
 
 def test_meter_timestamps():
@@ -158,7 +168,7 @@ if __name__ == "__main__":
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
-                 test_spoken_off, test_latch_start):
+                 test_spoken_off, test_latch_start, test_invalid_calibration):
         try:
             test()
             print("PASS", test.__name__)
