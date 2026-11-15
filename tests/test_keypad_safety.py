@@ -6,6 +6,7 @@ import ctypes
 import io
 import math
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -80,6 +81,43 @@ def test_keypad_safety():
     assert events == [("send", "stop"), ("write", None)] * 2, events
     assert saved == ["time_ms,state\n100.000,down\n200.000,up\n"]
     assert scope["recording"] == {}
+    scope.update(SHOW=True, SHOW_WAVE='run gesture {"name": "dance"}')
+    events.clear()
+    on_key(67, True)
+    on_key(67, False)
+    on_key(88, True)
+    on_key(90, True)
+    assert events == [("send", "run gesture"), ("send", scope["SHOW_WAVE"]), ("send", "stop")], events
+
+
+def test_connection_cooldown():
+    path = Path(__file__).resolve().parents[1] / "keypad" / "listen.py"
+    nodes = [n for n in ast.parse(path.read_text()).body
+             if isinstance(n, ast.FunctionDef) and n.name in ("send", "notify")]
+    attempts, now = [], [10.0]
+
+    def unavailable(*args, **kwargs):
+        attempts.append(kwargs["timeout"])
+        raise ConnectionRefusedError("fake unavailable dispatcher")
+
+    scope = dict(PORT=0, _open=[], socket=SimpleNamespace(create_connection=unavailable))
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), scope)
+    with patch.object(time, "perf_counter", lambda: now[0]):
+        scope["send"]("ready", .2)
+        scope["send"]("ready", .2)
+        assert attempts == [.05]
+        scope["send"]("stop")
+        assert attempts == [.05, 1], "Stop must bypass the connection cooldown"
+        now[0] += 1.51
+        scope["send"]("ready", .2)
+        assert attempts == [.05, 1, .05]
+        attempts.clear()
+        scope["notify"]("key down")
+        scope["notify"]("key up")
+        assert attempts == [.05]
+        now[0] += 1.51
+        scope["notify"]("key down")
+        assert attempts == [.05, .05]
 
 
 def test_notify_retry():
@@ -159,5 +197,6 @@ def test_software_replay():
 if __name__ == "__main__":
     test_keypad_safety()
     test_notify_retry()
+    test_connection_cooldown()
     test_software_replay()
     print("keypad safety ok")

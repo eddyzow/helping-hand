@@ -27,14 +27,18 @@ def test_core_read_retries():
             raise ConnectionError("fake exhausted retries")
         return {"wrist_roll": 0}
 
-    robot = SimpleNamespace(bus=SimpleNamespace(sync_read=read))
+    disabled = []
+    robot = SimpleNamespace(bus=SimpleNamespace(sync_read=read,
+        disable_torque=lambda *args, **kwargs: disabled.append((args, kwargs))))
     with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ):
         os.environ.pop("TAP_P_GAIN", None)
+        os.environ.pop("ROLL_POWER", None)
         poses = Path(temporary)
         (poses / "home.json").write_text("{}")
         with patch.object(arm, "POSES", poses), \
                 patch.dict(sys.modules, arm=SimpleNamespace(follower=lambda: robot)):
             actual = arm.Arm()
+            assert disabled == [(("wrist_roll",), {"num_retry": 8})]
             assert actual._robot.bus.sync_read("Present_Position", ["wrist_roll"],
                                                normalize=False, num_retry=1) == {"wrist_roll": 0}
             assert calls[-1] == (("Present_Position", ["wrist_roll"]),
@@ -45,6 +49,35 @@ def test_core_read_retries():
                 pass
             else:
                 raise AssertionError("exhausted read failure was swallowed")
+            os.environ["ROLL_POWER"] = "1"
+            arm.Arm()
+            assert len(disabled) == 1, "explicit roll-power opt-in still disabled the fake motor"
+
+
+def test_core_constructor_cleanup():
+    from core import arm
+    closed = []
+
+    def unavailable(*args, **kwargs):
+        raise ConnectionError("fake wrist-roll disable failure after connect")
+
+    robot = SimpleNamespace(bus=SimpleNamespace(sync_read=lambda *args, **kwargs: {},
+                                                disable_torque=unavailable),
+                            disconnect=lambda *args, **kwargs: closed.append(True))
+    with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ):
+        os.environ.pop("TAP_P_GAIN", None)
+        os.environ.pop("ROLL_POWER", None)
+        poses = Path(temporary)
+        (poses / "home.json").write_text("{}")
+        with patch.object(arm, "POSES", poses), \
+                patch.dict(sys.modules, arm=SimpleNamespace(follower=lambda: robot)):
+            try:
+                arm.Arm()
+            except ConnectionError:
+                pass
+            else:
+                raise AssertionError("fake disable failure should propagate")
+    assert closed, "constructor leaves the connected follower unclosed when wrist-roll disable fails"
 
 
 def test_cleanup_after_device_error():
@@ -150,7 +183,8 @@ def test_play_clean_help_and_missing_args():
 
 if __name__ == "__main__":
     failures = []
-    for test in (test_core_read_retries, test_cleanup_after_device_error, test_saved_depth_bounds,
+    for test in (test_core_read_retries, test_core_constructor_cleanup,
+                 test_cleanup_after_device_error, test_saved_depth_bounds,
                  test_teach_stop_before_auto_save,
                  test_play_clean_help_and_missing_args):
         try:

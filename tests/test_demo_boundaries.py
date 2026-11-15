@@ -116,17 +116,18 @@ def test_typed_moves():
 def test_first_line_orientation():
     path = ROOT / "demo" / "ttt2.py"
     tree = ast.parse(path.read_text())
-    block = next(node for node in ast.walk(tree) if isinstance(node, ast.If)
-                 and any(isinstance(item, ast.Name) and item.id == "first_line"
-                         for item in ast.walk(node.test)))
+    body = next(node.body for node in tree.body if isinstance(node, ast.Try) and node.finalbody)
+    first = next(i for i, node in enumerate(body) if isinstance(node, ast.Assign)
+                 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "side")
     for angle in (0, math.pi / 2, math.pi, -math.pi / 2):
         turn = np.array([[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]])
         prior = np.diag([1.0, -1.0])
         expected = turn @ prior
-        scope = dict(np=np, math=math, resume=False, first_line=-11 * expected[:, 0],
+        line = np.array([[-11, y] for y in np.linspace(-5, 33, 40)]) @ expected.T
+        scope = dict(np=np, math=math, resume=False, first_line=line,
                      ink=np.array([[-10.0, 0.0], [10.0, 0.0]]), R=prior,
                      print=lambda *args, **kwargs: None)
-        exec(compile(ast.Module(body=[block], type_ignores=[]), str(path), "exec"), scope)
+        exec(compile(ast.Module(body=body[first:first + 3], type_ignores=[]), str(path), "exec"), scope)
         assert np.allclose(scope["R"], expected), (angle, scope["R"])
 
 
