@@ -357,3 +357,14 @@ Eddy's direction: RobTop is pitched as a multipurpose desk arm, not as Steady Ha
 - Do not claim it can do anything at all. It lifts light things only, and the object-finding tasks did not work. "Built to", "so far" and "some of" keep the pitch true.
 - Geometry Dash for judges who do not know it: "a game with one button; a cube runs forward by itself and you press a key to jump; one late press sends you back to the start; a level lasts about ninety seconds." Then say it is the timing test, and that the arm plays from memory and does not watch the screen.
 - Claims to check before recording: "about a millimetre" is Daniel's house measurement after the photo is aligned to the plan, so say "from the planned shape"; "the best you can do is a draw" needs a filmed game with no misread square; "it finishes the level" is fine, "every time" is not; "ask for a skill in plain words" covers the dispatcher's skills, and tic-tac-toe and the drawing loop look like scripts in `demo/`, not routed skills.
+
+## Sun 15 Nov, about 4:20 AM: the second arm becomes how RobTop is taught
+
+Eddy's worry: the second arm only appears for the Cheeto, hand-driven, so a judge asks why feeding is not automated. Without it, nothing in the demo picks anything up, and a pen and a key do not need an arm.
+
+Proposal for the arm laptop: use the record and replay that are already in the repo. A person guides the second arm once (pick the Cheeto off a marked spot, bring it to a marked spot), then the follower repeats it with nobody touching anything.
+
+- Commands that exist: `python arm.py record feed` then `python arm.py replay feed`, and `python teleop_sync.py --record feed`, which lines the two arms up first. `arm.py` still says "UNTESTED ON HARDWARE as of Fri night", so whoever has run one of these on the real arm should pick.
+- Replay is blind. The Cheeto and the person have to be where they were during the recording, so tape two marks. Record it slowly.
+- Film both halves in one take: the hand guiding it, then the arm alone. That replaces the shaky Cheeto clip.
+- Pitch line if it works: "When you want something new, you show it. Guide it once with the second arm and RobTop does it again without you."
