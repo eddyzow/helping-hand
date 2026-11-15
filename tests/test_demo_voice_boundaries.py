@@ -102,10 +102,23 @@ def test_arm_do_failure_status():
     assert not bad, ("failed/rejected calibration exits successfully, so gd_cal continues", bad)
 
 
+def test_stop_all_scope():
+    line = next(line for line in (ROOT / "demo" / "cmds.sh").read_text().splitlines()
+                if line.startswith("stop_all()"))
+    pattern = re.search(r"-match '([^']+)'", line)[1]
+    cases = ((r"python.exe C:\other-project\steady.py", False),
+             (r"python.exe C:\Users\Khang\helping-hand\keypad\listen.py", True),
+             ("python.exe keypad/geometry_dash/arm_play.py my_macro_full.csv", True),
+             ("python.exe -m core.dispatcher", True))
+    bad = [(command, expected) for command, expected in cases
+           if bool(re.search(pattern, command, re.IGNORECASE)) != expected]
+    assert not bad, ("stop_all selector crosses project scope or misses an arm process", bad)
+
+
 if __name__ == "__main__":
     failures = []
     for test in (test_positive_routes, test_negative_routes, test_stop_routes, test_word_boundaries,
-                 test_ambiguous_routes, test_typed_dry_run, test_arm_do_failure_status):
+                 test_ambiguous_routes, test_typed_dry_run, test_arm_do_failure_status, test_stop_all_scope):
         try:
             test()
             print("PASS", test.__name__)
