@@ -17,7 +17,8 @@ def test_off_routes():
 def test_negated_actions():
     failures = []
     for phrase in ("don't release", "don't drop it", "do not go home", "don't steady on",
-                   "release no don't release", "go home no stay here", "steady on no stay frozen"):
+                   "release no don't release", "go home no stay here", "steady on no stay frozen",
+                   "don\u2019t release", "don\u2019t drop it", "don\u2019t steady on", "release and hold"):
         sent = []
         with patch.object(voice, "tell", lambda line: sent.append(line) or {"ok": True}), \
                 patch.object(voice, "speak", lambda _: None):
