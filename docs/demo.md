@@ -121,8 +121,15 @@ Notes:
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
   that switch, or drop block 6.
-- Latency is part of the feel: at a 2 Hz cut-off the follower trails the hand by about 0.16 s, and
-  in the first real test it "felt slow". Say so before a judge notices; do not call it instant.
+- Latency is part of the feel: in the first real test the arm "felt slow". A second version of the
+  filter (a higher cut-off plus a notch at the shake's own frequency) is on Daniel's branch, held
+  in review at 8:03 PM. On synthetic input at 50 samples a second it trails by about 86 ms where
+  the first trailed by about 137 ms, and leaves no measurable shake where the first left 12
+  percent. But at 25 samples a second the notch switches itself off and the new filter leaves 31
+  percent where the old one left 12. Nobody has measured the real loop rate, so nobody knows yet
+  which version removes more shake on the arm. Pick the version for the table by running the
+  comparison on the arm, and do not quote the 50-sample numbers as the arm's. Say the arm trails
+  the hand slightly; do not call it instant.
 - From the same test: the arm appeared to die because hold was on and nothing said so. At the
   table, whoever runs the laptop says out loud whenever hold or stop is on, until the screen does.
 - The follower reaches less far than the hand moves. Keep the demo's movements small and near the
