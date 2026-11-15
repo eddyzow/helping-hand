@@ -67,7 +67,8 @@ GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than t
 # current where the wrist-bend motor draws 1, reaches 68 C within a minute (its cut-out is 70 C) and then garbles
 # its replies. Until that motor is replaced the wrist roll does not follow the hand. "--roll" turns it back on.
 ROLL_FOLLOWS = "--roll" in sys.argv
-TORQUE_LIMIT = 600  # of 1000: the most each arm joint may push. Lower = gentler and safer; too low and the arm sags
+LINK_WAIT_S = 20.0   # how long to wait for an arm that stopped answering before giving up
+TORQUE_LIMIT = 600 # of 1000: the most each arm joint may push. Lower = gentler and safer; too low and the arm sags
 ELBOW_MAX = 118.0
 ELBOW_MIN = -64.0
 TABLE_Z = -2.4           # mm, the table top in the model's frame: the underside of the base in the model, where it
@@ -444,6 +445,25 @@ def main() -> None:
                 raise ValueError(f"the leader sent a reading that is not a number: {joints}")
             return joints
 
+        link = {"lost": False}
+
+        def patient(call, *args):
+            """An arm that stops answering (a plug knocked, a power dip: both happened on 14 Nov the moment
+            the leader was picked up) does not end the session. Nothing is sent meanwhile; the call is
+            tried again for LINK_WAIT_S, and the loop then lines everything up again before it moves."""
+            for attempt in range(int(LINK_WAIT_S / 0.25) + 1):
+                try:
+                    return call(*args)
+                except ConnectionError as error:
+                    if state["quit"] or attempt == int(LINK_WAIT_S / 0.25):
+                        raise
+                    if not link["lost"]:
+                        print(f"  an arm stopped answering ({str(error)[-60:]}); waiting for it, nothing is being sent", flush=True)
+                    link["lost"] = True
+                    with lock:
+                        shared["why_still"] = "link"
+                    time.sleep(0.25)
+
         observation = follower.get_observation()
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
@@ -466,8 +486,21 @@ def main() -> None:
             now = time.perf_counter()
             if seconds is not None and now - began > seconds:
                 break
+            if link["lost"]:   # an arm went quiet and is back: start again from where the follower really is
+                observation = patient(follower.get_observation)
+                here = np.array([float(observation[k]) for k in KEYS])
+                if np.all(np.isfinite(here)):
+                    sent = here
+                if hasattr(follower.bus, "enable_torque"):   # a power dip restarts the motors limp, at full push
+                    patient(follower.send_action, {k: float(v) for k, v in zip(KEYS, sent)})
+                    patient(follower.bus.enable_torque)
+                    patient(lambda: follower.bus.sync_write("Torque_Limit", {j: TORQUE_LIMIT for j in JOINTS[:5]}, normalize=False))
+                smooth, notch, grip = LowPass(patient(read_leader)), Notch(), None
+                link["lost"], state["re_ease"], now = False, True, time.perf_counter()
+                last = now - 1.0 / HZ   # the wait is not a time step: the speed cap must not open up
+                print("  the arms answer again: gliding back to the hand", flush=True)
             dt, last = max(1e-3, now - last), now
-            raw = read_leader()   # this can block for a moment, so the keys are read AFTER it, not before
+            raw = patient(read_leader)   # this can block for a moment, so the keys are read AFTER it, not before
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
                 raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             with lock:
@@ -560,11 +593,15 @@ def main() -> None:
             order = {k: float(v) for k, v in zip(KEYS, sent)}   # while held: the same target, all six joints
             if not ROLL_FOLLOWS:   # the wrist roll is told to be where it is: no error, so its motor draws nothing
                 order[KEYS[4]] = roll_seen
-            follower.send_action(order)
+            patient(follower.send_action, order)
+            if link["lost"]:
+                continue
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not
             # from what it was told: the honest number, since a motor also smooths what it is sent
-            observation = follower.get_observation()
+            observation = patient(follower.get_observation)
+            if link["lost"]:
+                continue
             seen = np.array([float(observation[k]) for k in KEYS])
             roll_seen = float(seen[4]) if math.isfinite(seen[4]) else roll_seen
             raw_tip, out_tip = tip.mm(raw), tip.mm(seen)
