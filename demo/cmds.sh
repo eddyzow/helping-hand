@@ -39,10 +39,11 @@ gd()        { $PY keypad/geometry_dash/play_clean.py my_macro_full.csv --press-l
 keypad()    { $PY keypad/listen.py; }             # the 3-key pad listener, game mode: C is the Geometry Dash key
 arm_stop()  { $PY -c "import socket; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(b'stop\n'); print(c.makefile().readline().strip())"; }   # stop a gesture: the pad has no stop key in show mode
 # Gestures: nod shake fist_bump high_five dance bow look_around victory impatient droop
-show_keys() { KEYPAD_WAVE="${1:-dance}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-victory}" $PY keypad/listen.py --show; }   # show_keys dance bow victory
+show_keys() { KEYPAD_WAVE="${1:-hi}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-dance}" $PY keypad/listen.py --show; }   # X, C, Z: show_keys hi bow dance
 # After a drawing: take the pen out, then this. The pad listener goes to the background, the dispatcher takes the arm.
 dance_mode() { $PY demo/grip.py open; echo "TAKE THE PEN OUT NOW (the claw is open). Starting in 6 s..."; sleep 6;
-               (KEYPAD_WAVE="${1:-dance}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-victory}" $PY keypad/listen.py --show &); dispatcher; }   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
+               (KEYPAD_WAVE="${1:-hi}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-dance}" $PY keypad/listen.py --show &); dispatcher; }
+# The whole live demo as a menu:  bash demo/run.sh   (it stops old pad listeners itself, which dance_mode does not)   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
 gesture()   { $PY -c "import socket,sys; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(('run gesture {\"name\": \"'+sys.argv[1]+'\"}\n').encode()); print(c.makefile().readline().strip())" "${1:-dance}"; }   # gesture bow
 
 echo "arm demo commands loaded: grip grip_open grip_off | measure | ttt ttt_used ttt_lighter ttt_firmer | flower house heart | steady dispatcher gd keypad"

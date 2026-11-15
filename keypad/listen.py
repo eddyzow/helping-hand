@@ -32,11 +32,11 @@ PORT = int(os.environ.get("BUDDY_PORT", "8765"))
 # KEYPAD_MODE=show: for the demo table. Wave key = dance, jump key = the next gesture in turn, stop key = stop.
 # Without it the jump key is the Geometry Dash key, as before.
 SHOW = os.environ.get("KEYPAD_MODE") == "show" or "--show" in sys.argv
-print("mode:", "SHOW (X = " + os.environ.get("KEYPAD_WAVE", "dance") + ", C = " + os.environ.get("KEYPAD_JUMP", "high_five")
-      + ", Z = " + os.environ.get("KEYPAD_THIRD", "victory") + ")" if SHOW else "GAME (jump key = Geometry Dash)", flush=True)
-SHOW_WAVE = 'run gesture {"name": "' + os.environ.get("KEYPAD_WAVE", "dance") + '"}'
+print("mode:", "SHOW (X = " + os.environ.get("KEYPAD_WAVE", "hi") + ", C = " + os.environ.get("KEYPAD_JUMP", "high_five")
+      + ", Z = " + os.environ.get("KEYPAD_THIRD", "dance") + ")" if SHOW else "GAME (jump key = Geometry Dash)", flush=True)
+SHOW_WAVE = 'run gesture {"name": "' + os.environ.get("KEYPAD_WAVE", "hi") + '"}'
 SHOW_JUMP = None if os.environ.get("KEYPAD_JUMP") == "next" else 'run gesture {"name": "' + os.environ.get("KEYPAD_JUMP", "high_five") + '"}'
-SHOW_THIRD = 'run gesture {"name": "' + os.environ.get("KEYPAD_THIRD", "victory") + '"}'   # what the stop key plays in show mode
+SHOW_THIRD = 'run gesture {"name": "' + os.environ.get("KEYPAD_THIRD", "dance") + '"}'   # what the stop key plays in show mode
 DEVICE = os.environ.get("KEYPAD_ID", "VID_8089").upper()  # SayoDevice USB vendor id; "" = any keyboard
 KEYS_FILE = Path(__file__).with_name("keys.json")
 ROLES = ["wave", "jump", "stop"]

@@ -133,3 +133,37 @@ and `ttt2.py` only, not yet in `loop.py`.
   droop; none moves the wrist roll). None has run on the real arm.
 - Drawing over old ink or with a hand on the sheet makes the scorer's numbers meaningless; three flower runs were
   discarded for this. The last clean flower run: 9 of 9 strokes, 87.7 % covered, 0.99 mm.
+
+## 7. The live demo, 15 Nov 04:30: what is shown live and how to run it without an assistant
+
+Shown live: pen drawing, tic-tac-toe against a person, and gestures on the 3-key Sayo pad. Geometry Dash, Steady Hand
+and the rest are on video.
+
+**One menu runs all of it.** Double-click `demo\DEMO.bat` in Windows, or in WSL `bash demo/run.sh`. It offers: grip the
+pen and measure the paper (do this whenever the pen goes into the claw), tic-tac-toe (one game, game after game, or on a
+used sheet), flower, house, heart, pad gestures, open the claw, stop a gesture, lighter or firmer pen. Every item is also
+a one-word command after `source demo/cmds.sh`. Only one arm program can run at a time (they share COM3).
+
+**Pad gestures (menu item 9).** It opens the claw and waits 6 s for the pen to be taken out, stops any pad listener
+already running, starts the listener in show mode and then the dispatcher. Keys, by the letter each sends:
+X = hi (the side-to-side shake, which reads as a wave), C (rightmost) = high five, Z = dance. There is no stop key on
+the pad in show mode, by Daniel's choice; `arm_stop` (menu item s) stops a gesture. One fixed gesture per key, no cycle.
+Other names: nod shake fist_bump high_five dance bow look_around victory impatient droop.
+The pad needs no set-up of its own; it needs the listener running, which the menu starts. Twice tonight a listener
+that had been running for a while stopped receiving the pad; restarting it (choose item 9 again) fixed it both times
+and the cause is not known.
+
+**What has run on the real arm.** Tic-tac-toe: four complete games, all won by the arm (one before and three after the
+grid-following change), plus one aborted for an illegal move that the change was made to fix. Gestures from the pad:
+dance, victory, nod, shake, fist bump and hi each ran to the end; high_five, bow, look_around, impatient and droop have
+not run on the real arm. Flower in fast mode: 50 s, 37 x 65 mm against a plan of 38 x 71. God Yeeter (recorded by
+Daniel, 67 presses in 47 s): one arm replay played the whole recording without a death, landing 3 of the 11 presses
+in the 1.3 s burst at 44 s; leads were press 111 ms, release 106 ms.
+
+**Not tested.** `demo/run.sh` and `DEMO.bat` parse and their helper that checks for a running arm program works from
+WSL, but the menu has not been driven end to end. `dance_mode` likewise. The house and heart in fast mode have not been
+run from `demo/`.
+
+**Pad delay, fixed.** With no dispatcher running the listener waited up to 0.2 s for a connection on every key and
+twice a second in between, in the thread that handles the keys. After one failed connection it now waits 1.5 s before
+trying again (stop is always tried). Measured: six presses lost 131, 0, 0, 0, 0, 0 ms.
