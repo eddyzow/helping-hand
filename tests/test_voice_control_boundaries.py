@@ -7,7 +7,7 @@ import steady
 
 def test_off_routes():
     for filtered in (False, True):
-        for phrase in ("steady off", "filter off", "turn off the filter", "stop the steadying"):
+        for phrase in ("steady off", "filter off", "turn off the filter", "stop the steadying", "freeze", "hold still"):
             with patch.dict(steady.state, steady=filtered, hold=False), \
                     patch.object(voice, "tell", steady.command), patch.object(voice, "speak", lambda _: None):
                 voice.exchange(phrase)
@@ -16,10 +16,15 @@ def test_off_routes():
 
 def test_negated_actions():
     failures = []
-    for phrase in ("don't release", "don't drop it", "do not go home", "don't steady on"):
-        line, _ = voice.understand(phrase)
-        if line not in (None, "stop", "steady off", "hold on"):
-            failures.append((phrase, line))
+    for phrase in ("don't release", "don't drop it", "do not go home", "don't steady on",
+                   "release no don't release", "go home no stay here", "steady on no stay frozen"):
+        sent = []
+        with patch.object(voice, "tell", lambda line: sent.append(line) or {"ok": True}), \
+                patch.object(voice, "speak", lambda _: None):
+            voice.exchange(phrase)
+        actions = [line for line in sent if not line.startswith("voice ")]
+        if actions:
+            failures.append((phrase, actions))
     assert not failures, ("negated action became a command", failures)
 
 
