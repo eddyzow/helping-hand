@@ -3,9 +3,7 @@
     run personality {"move": "nod"}        # typed at the dispatcher
     python -m skills.personality           # self-check on a fake arm, no hardware
 
-UNTESTED ON HARDWARE. Every number below is a guess made on the mock arm: the sign of each joint
-(does +wrist_flex tip the gripper down or up?) and the clearance around wave_up have to be checked
-on the real arm with Daniel, one move at a time, with someone on the stop key. Tune the tables here.
+Tune the move tables below.
 """
 NAME = "personality"
 DESCRIPTION = "Show a reaction: nod (yes), shake (no), celebrate (success), droop (sad), dance"

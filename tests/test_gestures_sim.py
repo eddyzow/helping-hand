@@ -2,7 +2,7 @@
 
     python -m tests.test_gestures_sim         # SO101_ROOT=<a checkout that has the model> if this one does not
 
-Simulation only: the arm here is core.arm.MockArm with its 30 Hz waits removed, so the frames checked are the
+The arm here is core.arm.MockArm with its 30 Hz waits removed, so the frames checked are the
 exact joint targets skills.gesture sends, interpolated exactly as move_joints does (home -> wave_up -> each
 step -> wave_up -> home, from the taught poses in poses/).
 

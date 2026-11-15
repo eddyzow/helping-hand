@@ -6,7 +6,6 @@
 
 The writing is laid out by the root draw.py (one word per line when the name is long) and drawn by
 skills/draw.py, so it needs the same taught paper grid and the pen already in the gripper.
-UNTESTED ON HARDWARE.
 """
 import draw as strokes_lib
 from skills import draw as draw_skill

@@ -22,7 +22,7 @@ TAP_SECONDS = float(os.environ.get("TAP_SECONDS", "0.08"))  # how long a tap hol
 # You only teach a rough pose with the tip about 1 cm ABOVE the key. `run tap_calibrate` then lowers
 # the tip slowly until the keypad itself reports the key, and saves the exact pose and lift, so the
 # press is as light as the key allows. Until it has run, a tap stops in the air at the rough pose.
-# ponytail: units are TAP_JOINT's (wrist degrees, under 2 mm at the tip each), not millimetres.
+# units are TAP_JOINT's (wrist degrees, under 2 mm at the tip each), not millimetres.
 # The wrist, as in Jonathan's simulation: it is light, and a bigger wrist angle bends the tip down.
 TAP_JOINT = JOINTS.index(os.environ.get("TAP_JOINT", "wrist_flex"))  # the joint that lowers the tip
 LIFT = float(os.environ.get("TAP_LIFT", "3.0"))
@@ -160,7 +160,7 @@ class MockArm:
         self._write(joints)
 
     def tap(self, depth_mm: float = 3.0) -> bool:
-        # ponytail: depth_mm is ignored until there is IK; the stroke is set_tap(lift, press).
+        # the stroke is set_tap(lift, press); depth_mm is not used.
         return self.press() and not self.halt.wait(TAP_SECONDS) and self.release()
 
     def play(self, trajectory) -> bool:

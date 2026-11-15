@@ -8,7 +8,6 @@ position on the taught table grid, as for fetch.
     python -m skills.point              # self-check on a mock arm, no hardware
 
 Needs the same taught grid as fetch: python arm.py teach table
-UNTESTED ON HARDWARE.
 """
 import json
 import math

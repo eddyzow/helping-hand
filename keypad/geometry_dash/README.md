@@ -1,4 +1,4 @@
-# Helping Hand · Geometry Dash
+# RobTop · Geometry Dash
 
 MuJoCo models the SO-101 pressing the middle key of the three-key SayoDevice O3C v1. It reads a CSV of desired key-down and key-up times, then reports when each input registered and how far the middle and adjacent keys moved. Playback is timed from a level restart.
 

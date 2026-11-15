@@ -206,7 +206,7 @@ def speak(text: str) -> None:
 
 def hear():
     """Push to talk, then ElevenLabs writes it down. None if that failed."""
-    # ponytail: the temp wav is left behind, as see.py's callers do; its open mkstemp handle blocks a delete
+    # the temp wav is left behind, as see.py's callers do; its open mkstemp handle blocks a delete
     try:
         return transcribe(Path(see.record_wav()).read_bytes())
     except (OSError, ValueError, KeyError) as err:

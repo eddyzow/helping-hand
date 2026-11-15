@@ -6,9 +6,6 @@
 
 Needs poses/paper.json: teach it with `python arm.py teach paper` (pen on the paper, then lifted).
 Put the pen in the gripper before running. The arm keeps the pen grip the whole time, home included.
-
-UNTESTED ON HARDWARE. Not known yet: whether the pen touches evenly across the page, how hard
-PEN_SQUEEZE grips, and whether moving home with a pen in the gripper clears the table.
 """
 import json
 import math

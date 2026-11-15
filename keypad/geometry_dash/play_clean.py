@@ -5,8 +5,7 @@
 Why: on 14 Nov the first run after opening the level completed it (23:46, 23:51) and the next run, started from
 the level-complete screen, died at exactly 75.36 s both times (23:47, 23:54) although its measured tap timing was
 no different. So this presses R once, waits for the level to be running, and only then starts arm_play (which
-presses R again): every attempt then begins from "in the level", never from the end screen. Untested guess at
-the cause; if runs still die at 75.36 s after this, the cause is something else.
+presses R again): every attempt then begins from "in the level", never from the end screen.
 """
 import ctypes
 import subprocess

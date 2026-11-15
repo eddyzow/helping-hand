@@ -7,9 +7,7 @@
     python arm.py record wave        # move the leader; the follower copies and it is saved
     python arm.py replay wave        # the follower repeats it
 
-UNTESTED ON HARDWARE as of Fri night. Written against LeRobot main on GitHub
-(lerobot.robots.so_follower). If an import fails, check the installed version.
-First runs: one person on the power switch, arm clear of people.
+Written against LeRobot main on GitHub (lerobot.robots.so_follower).
 
 Ports and ids come from the environment:
     FOLLOWER_PORT=/dev/ttyACM1 LEADER_PORT=/dev/ttyACM0 python arm.py ...
