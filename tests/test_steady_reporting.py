@@ -15,16 +15,19 @@ def test_assets():
         root = Path(folder)
         (root / "dashboard").mkdir()
         (root / "dashboard" / "app.js").write_text("safe asset")
+        (root / "steady_dashboard.html").write_text("safe asset")
         (root / "outside.js").write_text("outside sentinel")
         (root / "dashboard" / "secret.txt").write_text("unsupported sentinel")
-        for url, expected in (("/dashboard/app.js?v=1", 200), ("/dashboard/../outside.js", 404),
+        for url, expected in (("/", 200), ("/dashboard/app.js?v=1", 200), ("/dashboard/../outside.js", 404),
                               ("/dashboard/secret.txt", 404), ("/dashboard/missing.js", 404)):
-            status, body = [], BytesIO()
+            status, body, headers = [], BytesIO(), {}
             request = SimpleNamespace(path=url, wfile=body, send_response=status.append,
-                send_error=status.append, send_header=lambda *args: None, end_headers=lambda: None)
+                send_error=status.append, send_header=headers.__setitem__, end_headers=lambda: None)
             steady.Dashboard.do_GET(request)
             assert status == [expected], (url, status)
             assert body.getvalue() == (b"safe asset" if expected == 200 else b""), url
+            if expected == 200:
+                assert headers["Cache-Control"] == "no-store", (url, headers)
 
 
 def test_elapsed_time():

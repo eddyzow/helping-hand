@@ -168,12 +168,21 @@ def test_hold_grip():
 
 def test_hold_roll():
     writes, _ = scenario("hold_roll")
-    assert len(writes) == 3 and writes[2][1] == writes[1][1], ("held wrist-roll target changed", writes)
+    assert len(writes) == 3 and writes[2][0] and steady.shared["roll_follows"] is False
+    assert writes[1][1]["wrist_roll.pos"] == 0 and writes[2][1]["wrist_roll.pos"] == 20
+    assert all(writes[2][1][key] == writes[1][1][key] for key in steady.KEYS if key != "wrist_roll.pos"), writes
 
 
 def test_roll_no_follow():
     writes, _ = scenario("roll_no_follow")
     assert writes and all(action["wrist_roll.pos"] == 0 for _, action in writes)
+
+
+def test_hold_roll_enabled():
+    with patch.object(steady, "ROLL_FOLLOWS", True):
+        writes, _ = scenario("hold_roll")
+    assert len(writes) == 3 and steady.shared["roll_follows"] is True
+    assert writes[2][1] == writes[1][1], writes
 
 
 def test_torque_limit():
@@ -207,7 +216,7 @@ if __name__ == "__main__":
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
                  test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure,
-                 test_hold_roll, test_roll_no_follow, test_torque_limit):
+                 test_hold_roll, test_roll_no_follow, test_hold_roll_enabled, test_torque_limit):
         try:
             test()
             print("PASS", test.__name__)
