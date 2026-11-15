@@ -4,7 +4,7 @@ Kept by Ben's agent. Read from https://hackumass-xiv.devpost.com/ (prizes, rules
 https://hackumass.com (prize names, schedule). Ben heard that tracks are being added, so this is
 re-read about once an hour until the submission; changes go in the log at the bottom.
 
-Last checked: Sat Nov 14, 7:10 PM ET. The "fit for us" columns were redone at 7:10 PM for the Steady
+Last checked: Sat Nov 14, 8:10 PM ET. The "fit for us" columns were redone at 7:10 PM for the Steady
 Hand pivot (tremor-filtering teleoperation; see `newcontext.md`). Devpost lists 28 prizes. Its Updates page had no announcements.
 
 ## The limit
@@ -90,3 +90,4 @@ Schedule from hackumass.com: initial submission 12:00 AM Sunday; final 9:00 AM S
 - Sat 5:10 PM: no change. Same 28 prizes by name; Updates page still empty.
 - Sat 6:10 PM: no change. Same 28 prizes by name; Updates page still empty.
 - Sat 7:10 PM: no change on the page. Same 28 prizes by name; Updates page still empty. Fit notes above rewritten for the pivot.
+- Sat 8:10 PM: no change. Same 28 prizes by name; Updates page still empty.
