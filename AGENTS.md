@@ -32,6 +32,7 @@ Notes, plans, reviews, pitch drafts and status files do not go on `main`. On Sun
 
 ## Event facts every agent needs
 
+- Our [HACKUMASS] category is [HARDWARE] Best Mechanical Hack. That is the team's decision. Anything that says Best Hardware Hack is out of date.
 - Final Devpost submission is due Sun Nov 15, 9:00 AM ET; submit by 8:00. Table judging with a live demo is 12:30 to 3:00 PM.
 - The repo must be public before the final submission and stay public afterwards.
 - No code written before the start time may be copied in. Open source is disclosed in the README.
