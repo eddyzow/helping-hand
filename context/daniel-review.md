@@ -1,5 +1,7 @@
 # SO101 coordination and review
 
+**7072214 / QA 72890cb voice follow-up:** typographic-apostrophe normalization closes the remaining three U+2019 negation regressions. All eleven negative/contradictory actual understand/exchange cases send no action; existing off/stop/hold checks pass. Owner WSL tests.test_robtop_voice exits 0 using inspected fake localhost HTTP/TCP, patched recording/playback/speech and dry CLI. These are parser and fake transport results, not external-provider, microphone or hardware evidence. Dashboard false-live behavior, older arm findings, controller integration, v2 implementation and physical checks remain open; the combined candidate remains outside main.
+
 Reviewed implementation: `9d5081e` on `daniel/arm-core`, 2026-11-14.
 Follow-up: `e03beaa` replaces the original F13/F14/F15 listener with Sayo-specific raw input and key learning. The architecture and findings below describe the initial reviewed commit unless noted. Core files are unchanged by that keypad commit; the two reproduced core blockers remain applicable.
 Live ownership and responses: [notes/daniel.md](../notes/daniel.md).
