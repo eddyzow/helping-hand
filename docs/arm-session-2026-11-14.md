@@ -90,3 +90,46 @@ motors (no position read first; the read capped speed at 23 mm/s).
   stroke list, so this needs a unit-square to millimetre adapter only.
 - `python -m tests.test_core` prints `core ok` with the retry change. No other test was run on these files.
 - Wrist-roll motor temperature was not read during the Geometry Dash runs; the dispatcher powers all six joints.
+
+## 6. After 02:00 on 15 Nov: tic-tac-toe, circle tuning, and the demo commands
+
+Everything below is in `demo/` (new folder; `drawloop/` holds the earlier versions). Load the commands in WSL with
+`cd /mnt/c/Users/Khang/helping-hand && source demo/cmds.sh`; the file lists every demo as one word.
+
+**Tic-tac-toe on paper (`demo/ttt2.py`, command `ttt`).** The arm draws a 66 mm grid and plays O; a person draws X with
+their own pen. A webcam reads the board. The arm's move comes from a full search of the game: 400 simulated games
+against random play, 0 lost. On the real arm one complete game was played and won by the arm (02:50), reading all three
+of the person's moves and re-aiming for a sheet that crept 5 mm. Faults found on the way, each from the game's own log
+and photos:
+
+- Grid too faint to find, then drawn at 59 % of size with more pressure (the pen sticks). The game now refuses to play
+  if the grid it finds is not between 70 and 150 % of plan size.
+- Grid lines cut about 10 mm short: the pen was lifted before the lagging arm arrived. Lines are now drawn at 25 mm/s
+  with a 0.6 s wait before the lift.
+- A person's X bigger than its square never satisfied "exactly one square changed". The move is now the square that
+  gained the most ink, if it holds at least half of the gain.
+- Comparing photo against photo broke when the sheet crept: every old line looked new. Ink is now counted inside the
+  middle of each square in every photo.
+- A faint pen did not register (23 pixels against 256 for a marker). Squares are read with a much lower darkness
+  threshold than the grid is.
+- **Illegal move, 03:10:** the arm drew its O on the person's X. People were holding the sheet by its corners, which
+  bends the corner-based camera mapping, and the squares were read one square off. `ttt2.py` takes the camera-to-table
+  mapping once, from the clean hands-off photo before the game, and from then on follows the grid lines themselves.
+  **`ttt2.py` has not been played yet.**
+
+**Circles.** Every small circle began with a straight tail (it looked like a 6): the pen lands up to a slack's width
+from where it was told, and the tail is the joints taking the slack up. A pen-up run-in along the direction the stroke
+leaves in removed it. 14 mm circles, radial spread: without run-in 8.5 to 39 %; with run-in and 4 to 4.5 mm lead,
+5.7 to 12.5 % over seven circles (an eighth could not be scored), diameter 11.3 to 13.1 mm. The run-in is in `ttt.py`
+and `ttt2.py` only, not yet in `loop.py`.
+
+**Other findings.**
+- The wrist-roll motor reached 63 C and stopped answering for a few minutes; every script on the normal connection then
+  fails, because it checks six motors. Drawing and game scripts now switch that motor off after connecting.
+- One camera-less grab of a Duplo brick at the taught grid's centre: 5.3 s from start to the hand-over pose, but the
+  jaws pushed the brick away and it arrived empty.
+- Claude found the brick in a webcam photo in 2.2 s (Sonnet) with a tight box. That is perception only.
+- Ten gestures pass a MuJoCo check on branch `daniel/gestures-sim` (five new: bow, look_around, victory, impatient,
+  droop; none moves the wrist roll). None has run on the real arm.
+- Drawing over old ink or with a hand on the sheet makes the scorer's numbers meaningless; three flower runs were
+  discarded for this. The last clean flower run: 9 of 9 strokes, 87.7 % covered, 0.99 mm.
