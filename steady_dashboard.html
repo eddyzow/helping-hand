@@ -50,6 +50,8 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
 
   #lost { background:var(--raw-wash); border:1px solid #e3b9a2; border-radius:14px; padding:12px 16px; margin:-6px 0 18px; }
   #lost b { color:#8a3a1c; }
+  #lost .note { margin-top:2px; }
+  .toggle:disabled, input:disabled { cursor:default; opacity:.6; }
   .stale .grid { opacity:.5; filter:grayscale(.5); }
 
   /* grid and cards */
@@ -170,7 +172,7 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
     <div>
       <h1>Steady Hand</h1>
       <p class="tagline">Your hand shakes, the arm does not.</p>
-      <p class="sub">Move the small leader arm. RobTop, the robot buddy, copies the movement with the shake filtered out.</p>
+      <p class="sub">Move the small leader arm. RobTop, the robot buddy, copies the movement with the shake filtered out.<br>A prototype, tested only with people shaking the arm on purpose, not with patients.</p>
     </div>
     <div class="controls">
       <p class="link" id="link" role="status">Connecting to the arm…</p>
@@ -179,7 +181,7 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
     </div>
   </header>
 
-  <div id="lost" role="alert" hidden><b>Connection lost.</b> <span id="lostfor">No new numbers from the arm.</span> The figures below are the last ones received. Start the arm with: python steady.py</div>
+  <div id="lost" hidden><p role="alert"><b>Connection lost.</b> No new numbers from the arm. The figures below are the last ones received. Start the arm with: python steady.py</p><p class="note num" id="lostfor"></p></div>
 
   <div class="grid">
     <section class="card hero c7" aria-labelledby="h-hero">
@@ -227,7 +229,7 @@ FORM: monitor rows inside a two-column 7/5 grid; left column is the signal, righ
       </div>
       <div class="reading">
         <div class="row"><h2><label for="cut">Filter</label></h2><b class="num" id="cutv">2.0 Hz</b></div>
-        <input id="cut" type="range" min="0.5" max="6" step="0.1" value="2" aria-describedby="cutnote">
+        <input id="cut" type="range" min="0.5" max="8" step="0.1" value="2" aria-describedby="cutnote">
         <div class="ends"><span>steadier</span><span>follows sooner</span></div>
         <p class="note" id="cutnote">Lets through movement slower than this. Lower is steadier but follows the hand a little later.</p>
       </div>
@@ -297,16 +299,17 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
 const fixed = (v, d) => Number.isFinite(v) ? v.toFixed(d) : '–';
 const send = line => fetch('/cmd?' + encodeURIComponent(line)).catch(() => {});
 const FONT = '12px "Segoe UI", system-ui, sans-serif';
-let steady = true, hold = false, dragging = false, lastOk = 0, sessions = [];
+let steady = true, hold = false, dragging = false, cutSentAt = 0, lastOk = 0, sessions = [];
+const timeout = ms => AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;  // Safari before 16 has no AbortSignal.timeout
 $('steady').onclick = () => send('filter ' + (steady ? 'off' : 'on'));  // /state.steady is "the filter is on"
 $('hold').onclick = () => send('hold ' + (hold ? 'off' : 'on'));
 $('cut').oninput = e => { dragging = true; $('cutv').textContent = (+e.target.value).toFixed(1) + ' Hz'; };
-$('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; };
+$('cut').onchange = e => { send('cutoff ' + e.target.value); dragging = false; cutSentAt = Date.now(); };
 $('test').onclick = () => send('test');
 
 // the 3D view comes from the 3D lane's module; without it (or without WebGL) the 2D side view below is drawn instead
 let view = null;
-function fallback() { view = null; $('arm3d').hidden = true; $('arms').hidden = false; $('viewnote').hidden = false; }
+function fallback() { try { view && view.dispose && view.dispose(); } catch (e) {} view = null; $('arm3d').hidden = true; $('arms').hidden = false; $('viewnote').hidden = false; }
 const webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
 (webgl ? import('/dashboard/arm3d.js') : Promise.reject())
   .then(m => { view = m.mount($('arm3d')); if (!view || typeof view.update !== 'function') throw 0; })
@@ -326,7 +329,7 @@ function shake(values) {  // take away a one-second running average: the slow re
   return values.map((v, i) => { const part = values.slice(Math.max(0, i - 5), i + 6); return v - part.reduce((a, b) => a + b, 0) / part.length; });
 }
 function traces(history) {  // the hero's two rows: both on one scale, so a flat arm line means a still arm
-  const recent = history.slice(-71), hand = shake(recent.map(p => p[1])).slice(5, -5), arm = shake(recent.map(p => p[2])).slice(5, -5);
+  const end = history.length ? history[history.length - 1][0] : 0, recent = history.filter(p => p[0] >= end - 6.5), hand = shake(recent.map(p => p[1])).slice(5, -5), arm = shake(recent.map(p => p[2])).slice(5, -5);
   const reach = Math.max(3, ...hand.map(Math.abs), ...arm.map(Math.abs)) * 1.1;
   for (const [id, values, colour, width] of [['tracehand', hand, css('--raw'), 2], ['tracearm', arm, css('--plum'), 2.6]]) {
     const [ctx, w, h] = fit($(id));
@@ -339,7 +342,9 @@ function chart(history) {
   ctx.fillStyle = css('--soft'); ctx.font = FONT;
   ctx.fillText('30 s ago', left, h - 4); ctx.textAlign = 'right'; ctx.fillText('now', w, h - 4); ctx.textAlign = 'left';
   if (history.length < 2) return;
-  const t1 = history[history.length - 1][0], t0 = t1 - 30, values = history.flatMap(p => [p[1], p[2]]);
+  const t1 = history[history.length - 1][0], t0 = t1 - 30;
+  history = history.filter(p => p[0] >= t0);
+  const values = history.flatMap(p => [p[1], p[2]]);
   let lo = Math.min(...values), hi = Math.max(...values);
   if (hi - lo < 20) { const mid = (hi + lo) / 2; lo = mid - 10; hi = mid + 10; }
   const x = t => left + (t - t0) / 30 * (w - left), y = v => bottom - (v - lo) / (hi - lo) * (bottom - top);
@@ -452,7 +457,7 @@ function showSessions() {
 }
 async function loadSessions() {  // a failed fetch keeps what is shown; an older server (which answers with the page) counts as no sessions
   try {
-    const r = await fetch('/sessions', {cache: 'no-store', signal: AbortSignal.timeout(3000)});
+    const r = await fetch('/sessions', {cache: 'no-store', signal: timeout(3000)});
     if (!r.ok) return;
     const list = await r.json().catch(() => []);
     sessions = Array.isArray(list) ? list : [];
@@ -473,24 +478,30 @@ function render(s) {
   $('load').style.transform = 'scaleX(' + Math.min(100, load) / 100 + ')'; $('loadv').textContent = Math.round(load) + '%';
   $('claw').textContent = Number.isFinite(claw) ? 'Claw ' + Math.round(claw) + '% open.' : '';
   $('speed').textContent = Number.isFinite(s.speed_mm_s) ? 'Claw speed ' + Math.round(s.speed_mm_s) + ' mm/s.' : '';
-  if (!dragging && Number.isFinite(s.cutoff)) { $('cut').value = s.cutoff; $('cutv').textContent = s.cutoff.toFixed(1) + ' Hz'; }
+  if (!dragging && Date.now() - cutSentAt > 1000 && Number.isFinite(s.cutoff)) {  // the poll after a change may still carry the old value
+    $('cut').value = s.cutoff; $('cutv').textContent = s.cutoff.toFixed(1) + ' Hz'; }
   const history = Array.isArray(s.history) ? s.history : [];
   traces(history); chart(history);
   if (view) { try { view.update(s); } catch (e) { fallback(); } }
   if (!$('arms').hidden) arms(s.raw_chain, s.out_chain);
   trendChart(s.trend); observations(s.insights); voice(s.voice, s.t); holdTest(s.test);
 }
+function stale(on) {
+  document.body.classList.toggle('stale', on); $('lost').hidden = !on;
+  for (const id of ['steady', 'hold', 'cut']) $(id).disabled = on;
+  if (on) $('test').disabled = true;
+}
 async function tick() {
-  try {
-    const s = await (await fetch('/state', {cache: 'no-store', signal: AbortSignal.timeout(1000)})).json();
-    lastOk = Date.now(); document.body.classList.remove('stale'); $('lost').hidden = true;
-    setText('link', 'Live from the arm');
-    render(s);
-  } catch (e) {
+  let s = null;
+  try { s = await (await fetch('/state', {cache: 'no-store', signal: timeout(1000)})).json(); } catch (e) {}
+  if (s && typeof s === 'object') {
+    lastOk = Date.now(); stale(false); setText('link', 'Live from the arm');
+    try { render(s); } catch (e) { console.warn('dashboard: could not draw this state', e); }
+  } else {
     const gone = lastOk ? (Date.now() - lastOk) / 1000 : Infinity;
-    if (gone > 0.6) {
-      document.body.classList.add('stale'); $('lost').hidden = false; setText('link', 'Not connected');
-      setText('lostfor', lastOk ? 'No new numbers from the arm for ' + Math.round(gone) + ' s.' : 'No numbers from the arm yet.');
+    if (gone > 2) {
+      stale(true); setText('link', 'Not connected');
+      setText('lostfor', lastOk ? 'Last numbers ' + Math.round(gone) + ' s ago.' : 'No numbers from the arm yet.');
     }
   }
   setTimeout(tick, document.body.classList.contains('stale') ? 1000 : 100);  // one request at a time; slower while the arm is gone
