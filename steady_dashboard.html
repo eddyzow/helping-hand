@@ -1,0 +1,253 @@
+<!doctype html>
+<!--
+THESIS: a live clinical record sheet: every value is a labelled field with its unit and method, and one status
+strip says in words what the arm is doing. It refuses the floating-card dashboard and the hero statistic.
+OWN-WORLD: form-stock ground, flat sheets on hairline rules, value boxes with units outside, tick-box option pairs,
+ink type, plum for the arm and for choices, rust only for the hand, a three-class status palette with glyphs.
+STORY: a judge sees the hand's shake and the arm's shake on one scale and reads why the arm is still when it is.
+FIRST VIEWPORT: device header row; full-width status strip; measurement sheet | 3D robot | control rail.
+FORM: candidate 7 of 7 (clinical case report form), seed 995b0df8; staging: status first, then measured comparison.
+Design system: docs/steady-design.md. Brief: docs/steady-ui-brief.md. Data: docs/steady-contract.md.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steady Hand console</title>
+<link rel="stylesheet" href="/dashboard/app.css">
+</head>
+<body>
+<header class="sheethead">
+  <div class="brand">
+    <h1>Steady Hand</h1>
+    <p>Operator console. A prototype, not a medical device.</p>
+  </div>
+  <dl class="fields">
+    <div><dt>Profile</dt><dd id="f-user">–</dd></div>
+    <div><dt>Calibration</dt><dd id="f-cal">–</dd></div>
+    <div><dt>Session</dt><dd class="num" id="f-session">–</dd></div>
+    <div><dt>Link</dt><dd id="f-link">Connecting…</dd></div>
+  </dl>
+</header>
+
+<section class="status" id="status" data-class="stop" aria-live="polite" aria-atomic="true">
+  <svg class="glyph" id="glyph" viewBox="0 0 24 24" aria-hidden="true"></svg>
+  <p><b id="status-word">Connecting</b> <span id="status-text">Waiting for the first numbers from the controller.</span></p>
+  <button class="btn" id="status-act" hidden></button>
+</section>
+
+<main>
+  <section class="sheet procedure" id="procedure" aria-labelledby="h-proc" hidden>
+    <div class="sec"><h2 id="h-proc">Calibration for <span id="cal-who">this profile</span></h2>
+      <span class="method" id="cal-note">The arm is held while this runs.</span></div>
+    <ol class="steps" id="cal-steps">
+      <li data-step="rest"><b>Rest</b><span>3 seconds</span></li>
+      <li data-step="move"><b>Move</b><span>12 seconds</span></li>
+      <li data-step="done"><b>Result</b><span>gains and ranges</span></li>
+    </ol>
+    <div class="proc-body">
+      <div class="countdown"><span class="num" id="cal-left">3</span><small id="cal-unit">seconds left</small></div>
+      <div class="proc-main">
+        <p class="instr" id="cal-instr">Hold the leader arm still in a comfortable pose, hand relaxed.</p>
+        <div class="coverage" id="cal-cover" hidden></div>
+        <table class="result" id="cal-result" hidden>
+          <thead><tr><th>Joint</th><th>Comfortable range</th><th>Gain</th></tr></thead>
+          <tbody id="cal-rows"></tbody>
+        </table>
+        <p class="method" id="cal-trigger"></p>
+      </div>
+      <div class="proc-actions">
+        <button class="btn secondary" id="cal-close" hidden>Close</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="board">
+    <section class="sheet measure" aria-labelledby="h-measure">
+      <div class="sec"><h2 id="h-measure">Shake, measured now</h2>
+        <span class="method">fingertip movement in the 3 to 12 Hz band, RMS over the last 4 s</span></div>
+      <div class="channel hand">
+        <div class="ch-name"><b>Hand</b><span>leader arm</span><span class="num" id="freq">no tremor found</span></div>
+        <div class="plot trace"><canvas id="tracehand" aria-hidden="true"></canvas></div>
+        <div class="vbox"><span class="num" id="hand">–</span><small>mm</small></div>
+      </div>
+      <div class="channel arm">
+        <div class="ch-name"><b>Arm</b><span>follower, measured</span><span id="armnote"></span></div>
+        <div class="plot trace"><canvas id="tracearm" aria-hidden="true"></canvas></div>
+        <div class="vbox"><span class="num" id="arm">–</span><small>mm</small></div>
+      </div>
+      <p class="method scale-note" id="scalenote">Both traces: last 6 s, drawn to the same scale.</p>
+      <div class="compare">
+        <div class="scale" aria-hidden="true">
+          <div class="bar-row"><span>Hand</span><div class="track"><i class="m-hand" id="m-hand"></i></div></div>
+          <div class="bar-row"><span>Arm</span><div class="track"><i class="m-arm" id="m-arm"></i></div></div>
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <div class="removed">
+          <span class="label">Share removed</span>
+          <div class="vbox l"><span class="num" id="removed">–</span><small>%</small></div>
+          <span class="method" id="mode">1 − arm ÷ hand</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet view" aria-labelledby="h-view">
+      <div class="sec"><h2 id="h-view">The robot, live</h2>
+        <div class="legend"><span><i class="hand"></i>hand (leader)</span><span><i class="arm"></i>arm (follower)</span></div></div>
+      <div id="arm3d"></div>
+      <canvas id="arms" hidden aria-label="Side view of the hand's arm and the robot's arm"></canvas>
+      <p class="method" id="viewnote" hidden>A simple side view: the 3D view could not start in this browser.</p>
+      <p class="viewstale" id="viewstale" hidden>Last known pose, not live</p>
+    </section>
+
+    <aside class="rail" aria-label="Controls">
+      <p class="locked" id="locked" role="status" hidden></p>
+      <div class="ctl">
+        <span class="label" id="l-filter">Tremor filter</span>
+        <div class="pair" role="group" aria-labelledby="l-filter">
+          <button class="opt" id="filter-on" data-cmd="filter on">On</button>
+          <button class="opt" id="filter-off" data-cmd="filter off">Off</button>
+        </div>
+        <p class="method">Off lets the shake through, for comparison.</p>
+      </div>
+      <div class="ctl">
+        <span class="label" id="l-hold">Arm</span>
+        <div class="pair" role="group" aria-labelledby="l-hold">
+          <button class="opt" id="hold-off" data-cmd="hold off">Follow</button>
+          <button class="opt" id="hold-on" data-cmd="hold on">Hold</button>
+        </div>
+        <p class="method">Hold freezes the arm where it is.<span id="roll-note"> The wrist roll does not follow the hand and is not held at a fixed target (its motor is reported faulty).</span></p>
+      </div>
+      <div class="ctl">
+        <div class="row"><label class="label" for="gain">Sensitivity</label><span class="value num" id="gainv">–</span></div>
+        <input id="gain" type="range" min="1" max="3" step="0.1" value="1" aria-describedby="gainnote">
+        <div class="ends"><span>1.0×</span><span>3.0×</span></div>
+        <p class="method" id="gainnote">The arm moves this many times as far as your hand, around the neutral pose.</p>
+      </div>
+      <div class="ctl">
+        <div class="row"><label class="label" for="cut">Response</label><span class="value num" id="cutv">–</span></div>
+        <input id="cut" type="range" min="0.5" max="8" step="0.1" value="2" aria-describedby="cutnote">
+        <div class="ends"><span>steadier</span><span>follows sooner</span></div>
+        <p class="method" id="cutnote">Filter cut-off. Higher follows the hand sooner and removes less shake.</p>
+      </div>
+      <div class="ctl">
+        <button class="btn secondary wide" id="neutral" data-cmd="neutral">Set neutral pose</button>
+        <p class="method" id="neutralnote">Your hand's pose now becomes the centre that sensitivity scales around.</p>
+      </div>
+      <p class="method cmdnote" id="cmdnote" aria-live="polite"></p>
+    </aside>
+
+    <section class="grip" aria-labelledby="h-grip">
+        <div class="sec"><h2 id="h-grip">Grip</h2></div>
+        <div class="meter"><div class="row"><span class="label">Squeeze now</span><span class="value num" id="g-squeeze">–</span></div><div class="track"><i class="m-hand" id="gm-squeeze"></i></div></div>
+        <div class="meter"><div class="row"><span class="label">Grip being held</span><span class="value num" id="g-held">–</span></div><div class="track"><i id="gm-held"></i></div></div>
+        <div class="meter"><div class="row"><span class="label">Claw opening</span><span class="value num" id="g-claw">–</span></div><div class="track"><i id="gm-claw"></i></div>
+          <div class="ends"><span>shut</span><span>open</span></div></div>
+        <div class="grip-actions">
+          <button class="btn primary" id="letgo" data-cmd="grip release">Let go</button>
+          <button class="switch" id="griphold" role="switch" aria-checked="false"><span class="knob" aria-hidden="true"></span>Grip hold</button>
+        </div>
+        <p class="method" id="gripnote">The claw keeps your tightest squeeze until you open your hand wide or press Let go.</p>
+        <p class="method" id="loads"></p>
+    </section>
+
+    <section class="sheet c-chart" aria-labelledby="h-chart">
+      <div class="sec"><h2 id="h-chart">Fingertip height, last 30 seconds</h2>
+        <div class="legend"><span><i class="hand"></i>hand</span><span><i class="arm"></i>arm</span></div></div>
+      <div class="plot chartbox"><canvas id="chart" aria-hidden="true"></canvas></div>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="sheet profile" aria-labelledby="h-profile">
+      <div class="sec"><h2 id="h-profile">Profile and calibration</h2></div>
+      <p class="empty" id="noprofile" hidden>This controller has no user profiles. Every movement uses gain 1.0.</p>
+      <div id="profilebox">
+        <div class="ctl">
+          <label class="label" for="userpick">Person using the arm</label>
+          <select id="userpick"></select>
+        </div>
+        <form class="adduser" id="adduser">
+          <label class="label" for="newname">Add a person</label>
+          <div class="inline"><input id="newname" maxlength="24" autocomplete="off" placeholder="Name" aria-describedby="namenote">
+            <button class="btn secondary" type="submit">Add</button></div>
+          <p class="method" id="namenote">Letters, digits, spaces and dashes; up to 24 characters.</p>
+        </form>
+        <p class="calstate" id="calstate"></p>
+        <table class="result" id="gains" hidden>
+          <thead><tr><th>Joint</th><th>Range</th><th>Gain</th></tr></thead>
+          <tbody id="gainrows"></tbody>
+        </table>
+        <button class="btn primary wide" id="calibrate" data-cmd="calibrate">Start calibration</button>
+        <p class="method">15 seconds: 3 s at rest, then 12 s moving every joint as far as is comfortable. The arm is held meanwhile.</p>
+      </div>
+    </section>
+
+    <section class="sheet activities" aria-labelledby="h-act">
+      <div class="sec"><h2 id="h-act">Activities</h2><span class="method">measured; scores are a display scale, not a clinical measure</span></div>
+      <p class="empty" id="noact">No activities yet. The hold-still test and the calibration fill this in.</p>
+      <table class="acts" id="acts" hidden>
+        <thead><tr><th>Activity</th><th>Last</th><th>Best</th><th>Runs</th><th><span class="sr">Action</span></th></tr></thead>
+        <tbody id="actrows"></tbody>
+      </table>
+      <div class="testrun" id="testrun" hidden>
+        <div class="countdown"><span class="num" id="testleft">10</span><small>seconds left</small></div>
+        <div><p class="instr">Hold the leader arm as still as you can.</p><div class="track"><i id="testbar"></i></div></div>
+      </div>
+      <p class="method" id="testlast" aria-live="polite"></p>
+    </section>
+
+    <section class="sheet session" aria-labelledby="h-session">
+      <div class="sec"><h2 id="h-session">This session</h2></div>
+      <dl class="summary" id="summary"></dl>
+    </section>
+
+    <section class="sheet c-trend" aria-labelledby="h-trend">
+      <div class="sec"><h2 id="h-trend">Shake and grip effort over time</h2><span class="method" id="trendspan">about one point a second</span></div>
+      <p class="empty" id="notrend">Nothing yet. This fills in while the arm runs, about one point a second, up to the last 10 minutes.</p>
+      <div id="trendbox" hidden>
+        <canvas id="trendchart" aria-hidden="true"></canvas>
+        <div class="legend"><span><i class="hand"></i>hand shake</span><span><i class="arm"></i>arm shake</span><span><i class="effort"></i>grip effort (motor load estimate)</span></div>
+      </div>
+    </section>
+
+    <section class="sheet c-obs" aria-labelledby="h-obs">
+      <div class="sec"><h2 id="h-obs">What RobTop noticed</h2><span class="method">observations for a physiotherapist to look at, not advice</span></div>
+      <p class="empty" id="noobs">No observations yet. They appear once RobTop has watched enough of the session.</p>
+      <ul class="obs" id="obs"></ul>
+    </section>
+
+    <section class="sheet c-voice" aria-labelledby="h-voice">
+      <div class="sec"><h2 id="h-voice">RobTop's voice</h2><span class="method num" id="voiceago"></span></div>
+      <p class="empty" id="novoice">Voice is off.</p>
+      <dl class="said" id="voice" hidden>
+        <div><dt>Heard</dt><dd id="heard"></dd></div>
+        <div><dt>Said</dt><dd id="said"></dd></div>
+      </dl>
+    </section>
+
+    <section class="sheet c-past" aria-labelledby="h-sessions">
+      <div class="sec"><h2 id="h-sessions">Past sessions</h2></div>
+      <p class="empty" id="nosessions">No sessions recorded yet. Each session is saved here while the arm runs.</p>
+      <div class="sessions" id="sessions" hidden>
+        <div>
+          <canvas id="sessionchart" aria-hidden="true"></canvas>
+          <div class="legend"><span><i class="hand"></i>hand shake (mean)</span><span><i class="arm"></i>arm shake (mean)</span></div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Started</th><th>Length</th><th>Hand shake (mm)</th><th>Arm shake (mm)</th><th>Removed</th><th>Filter on</th><th>Best test</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Prototype. Tested only with people shaking the leader arm on purpose, not with patients. It measures and
+    describes; it does not diagnose or treat. Grip effort and arm load are the motors' own load readings, estimates.
+    Scores are a display scale, not a clinical measure. The arm holds light objects only.</footer>
+</main>
+<script src="/dashboard/app.js"></script>
+</body>
+</html>

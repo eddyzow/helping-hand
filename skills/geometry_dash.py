@@ -8,8 +8,11 @@ together. Pressing R yourself does the same, and R again mid-run restarts the re
 Needs the taught tap_key pose; tune the tap first with gd_tap (see skills/gd_tap.py). The recording and its reader are
 Jonathan's: keypad/geometry_dash/.
 """
+import json
 import sys
 import time
+
+import core
 from pathlib import Path
 
 GD = Path(__file__).parent.parent / "keypad" / "geometry_dash"
@@ -27,7 +30,7 @@ CUE_WAIT_S = 120
 
 
 def run(arm, params, stop):
-    from core import cue, key_down, key_events, waiting
+    from core import cue, key_down, key_events, real_now, waiting
     from tap_pattern import command_times, read_pattern
 
     # "enter" mode: with the game on the level's Play screen, the arm's first press starts the level
@@ -71,7 +74,7 @@ def run(arm, params, stop):
     print(f"[geometry_dash] ready: {len(commands) // 2} presses, waiting for the restart key.", flush=True)
     try:
         while True:
-            began = time.perf_counter()
+            began = real_now()
             if enter:
                 enter = False  # only the first round; a later restart (R) uses the cue as usual
                 if not arm.press():
@@ -79,10 +82,10 @@ def run(arm, params, stop):
                 while not key_down.is_set():  # the clock starts when the key really registers
                     if stop.is_set():
                         return STOPPED
-                    if time.perf_counter() - began > 0.5:
+                    if real_now() - began > 0.5:
                         return _finish(arm, "the entering press did not register; run tap_calibrate")
                     time.sleep(0.0005)
-                start = time.perf_counter() + enter_delay_ms / 1000
+                start = real_now() + enter_delay_ms / 1000
                 feels_key = True  # the keypad listener is reporting the jump key to us
                 if stop.wait(0.08) or not arm.release():
                     return STOPPED
@@ -96,60 +99,109 @@ def run(arm, params, stop):
             else:
                 start = None
             if start is None:
-                began = time.perf_counter()
+                began = real_now()
                 waiting.set()
                 while not cue.wait(0.05):
                     if stop.is_set():
                         return STOPPED
-                    if time.perf_counter() - began > CUE_WAIT_S:
+                    if real_now() - began > CUE_WAIT_S:
                         return _finish(arm, "no restart key within 2 minutes")
-                start = time.perf_counter()
+                start = real_now()
                 waiting.clear()
                 cue.clear()
             start += offset_ms / 1000  # the one knob: plus makes every jump later, minus earlier
             seen, last = [], [key_down.is_set()]  # what the keypad really did, to report after the run
+            sent, repairs = [], []
+
+            # What we last asked the key to be, when, and how often we have already had to insist.
+            asked = {"down": False, "at": real_now(), "tries": 0}
 
             def watch():
                 state = key_down.is_set()
                 if state != last[0]:
                     last[0] = state
-                    seen.append((time.perf_counter() - start, state))
+                    seen.append((real_now() - start, state))
+                # Repair, using the keypad's own report. The arm and the keypad drift against each
+                # other by fractions of a degree over a run, and then a press stops registering or a
+                # key stays down. If the key is not where we asked 0.15 s after asking, ask again a
+                # little harder, and keep the stronger setting for the rest of the run.
+                if not feels_key or state == asked["down"] or asked["tries"] >= 2:
+                    return
+                if real_now() - asked["at"] < 0.15:
+                    return
+                asked["tries"] += 1
+                asked["at"] = real_now()
+                try:
+                    if asked["down"]:
+                        arm.set_tap(press=min(arm.press_extra + 0.7, 3.0))
+                        arm.press()
+                    else:
+                        arm.set_tap(lift=min(arm.lift + 1.0, 9.0))
+                        arm.release()
+                except ValueError:
+                    return
+                repairs.append([round(real_now() - start, 2), "press deeper" if asked["down"] else "lift higher",
+                                round(arm.press_extra, 2), round(arm.lift, 2)])
 
             for event in commands:
-                while not cue.is_set() and (left := event.at - (time.perf_counter() - start)) > 0:
+                while not cue.is_set() and (left := event.at - (real_now() - start)) > 0:
                     watch()
                     if stop.wait(min(left, 0.002)):
                         # hold where it is; stop never commands a move
+                        _record(events, seen, sent, repairs)
                         return {**STOPPED, "timing": _timing(seen, events) if feels_key else ""}
                 if cue.is_set():            # the level was restarted: let go and start the clock again
                     arm.release()
                     break
                 if event.down:
+                    before = real_now() - start
                     arm.press()
+                    asked.update(down=True, at=real_now(), tries=0)
+                    sent.append([round(before, 4), round(real_now() - start, 4), True])
                     continue
                 # A short tap's release can come due before the press has even registered (the press
                 # takes 110 to 164 ms on this arm), and lifting then cancels the jump. When the keypad
                 # reports its key to us, hold the press until it registers, at most 0.2 s longer.
-                limit = time.perf_counter() + 0.2
-                while feels_key and not key_down.is_set() and time.perf_counter() < limit:
+                limit = real_now() + 0.2
+                while feels_key and not key_down.is_set() and real_now() < limit:
                     if stop.is_set():
                         return STOPPED
                     if cue.is_set():
                         break
                     time.sleep(0.0005)
                 watch()  # the press may have registered during that wait: note it before releasing
+                before = real_now() - start
                 arm.release()
+                asked.update(down=False, at=real_now(), tries=0)
+                sent.append([round(before, 4), round(real_now() - start, 4), False])
             else:
-                settle = time.perf_counter() + 0.3  # catch the last release
-                while feels_key and time.perf_counter() < settle and not stop.is_set():
+                settle = real_now() + 0.3  # catch the last release
+                while feels_key and real_now() < settle and not stop.is_set():
                     watch()
                     time.sleep(0.002)
                 result = _finish(arm, "")
                 if feels_key:
                     result["timing"] = _timing(seen, events)
+                    _record(events, seen, sent, repairs)
+                    result["repairs"] = len(repairs)
                 return result
     finally:
         waiting.clear()
+
+
+def _record(events, seen, sent, repairs=()) -> None:
+    """The raw record of a run, kept for when it dies or the summary looks wrong: what was asked,
+    when each command was handed to the motor [before the write, after it, press?], and what the
+    keypad saw."""
+    (GD / "outputs").mkdir(exist_ok=True)
+    text = json.dumps({
+        "wanted": [[round(e.at, 4), e.down] for e in events],
+        "seen": [[round(t, 4), down] for t, down in seen],
+        "sent": sent,
+        "repairs": list(repairs),  # [at s, what, press setting after, lift setting after]
+        "clock": {"rate": round(core.clock_rate(), 5), "longest_tick_gap_s": round(core.max_tick_gap[0], 3)}})
+    (GD / "outputs" / "last_replay.json").write_text(text)
+    (GD / "outputs" / f"replay_{time.strftime('%H%M%S')}.json").write_text(text)  # one per run, to compare
 
 
 def _timing(seen, events) -> str:

@@ -53,6 +53,7 @@ class MockArm:
         if tune.exists():
             self.set_tap(**json.loads(tune.read_text()))
         self._joints = [0.0] * 6
+        self._grip_sent = None  # the last gripper value commanded by a move
 
     def _read(self) -> list[float]:
         return list(self._joints)
@@ -80,11 +81,19 @@ class MockArm:
         if type(duration_s) not in (int, float) or not 0 <= duration_s <= 30:
             raise ValueError(f"duration must be 0 to 30 seconds, got {duration_s}")
         start = self._read()
+        # A held brick stops the jaw short of its command (about 19 with a command of 5). Starting
+        # every move from the MEASURED jaw would restart the command near 19 and ramp back to 5: the
+        # squeeze lets go just as the arm speeds up, and the brick slips. So when a move asks for the
+        # same grip as the last one sent, the grip is held constant instead of ramped.
+        if self._grip_sent is not None and target[5] == self._grip_sent:
+            start[5] = target[5]
         steps = max(1, int(duration_s * HZ))
         for i in range(1, steps + 1):
             if self.halt.is_set():
                 return False
-            self._write(_checked(a + (b - a) * i / steps for a, b in zip(start, target)))
+            joints = _checked(a + (b - a) * i / steps for a, b in zip(start, target))
+            self._write(joints)
+            self._grip_sent = joints[5]
             self.halt.wait(1 / HZ)
         return not self.halt.is_set()
 
@@ -196,6 +205,16 @@ class Arm(MockArm):
         import arm as root_arm  # the root arm.py
 
         self._robot = root_arm.follower()  # connects: motors switch on and hold
+        # The wrist-roll motor (id 5) garbles about 3 replies in 10 while the arm is powered (measured 14 Nov, see
+        # steady.py): with the default 3 tries a read still failed within seconds ("motor 5: Parsing error") and
+        # ended the skill. Every read retries up to 12 times; one that still fails raises as before.
+        bus = self._robot.bus
+        bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{**k, "num_retry": 12}))(bus.sync_read)
+        # That motor also reached 63 C on 15 Nov holding a position, and stopped answering for some minutes. Unless
+        # ROLL_POWER=1 it is switched off here: gear friction holds the joint, targets for it are still sent and do
+        # nothing, and no skill that needs the wrist to turn will turn it.
+        if os.environ.get("ROLL_POWER") != "1":
+            bus.disable_torque("wrist_roll", num_retry=8)
         if gain is not None:
             # Daniel approved this on 14 Nov for the tapping (wrist) motor only: LeRobot sets every
             # motor's position gain to 16 at connect, which makes small moves slow and uneven. A

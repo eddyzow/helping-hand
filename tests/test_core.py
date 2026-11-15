@@ -346,6 +346,23 @@ def test_core():
 
 
 
+def test_held_grip_is_not_relaxed():
+    """A brick blocks the jaw at 19 with a command of 5. The next move with the same grip must keep
+    commanding 5 from its first step, not restart from the measured 19."""
+    arm = get_arm(mock=True)
+    sent = []
+    arm._write = lambda joints: sent.append(joints[5])
+    arm._read = lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 19.0]  # the jaw as measured: blocked by the brick
+    assert arm.move_joints([0, 0, 0, 0, 0, 5.0], 0.1)      # the close: ramps 19 -> 5
+    assert sent[-1] == 5.0 and sent[0] > 5.0
+    sent.clear()
+    assert arm.move_joints([0, 10, 0, 0, 0, 5.0], 0.1)     # the lift, same grip
+    assert sent and all(v == 5.0 for v in sent), sent
+    sent.clear()
+    assert arm.move_joints([0, 10, 0, 0, 0, 60.0], 0.1)    # opening still ramps from the measured jaw
+    assert sent[0] > 19.0 and sent[-1] == 60.0, sent
+
+
 def test_tap_delay():
     """A pretend key that follows the tap joint 20 ms late: the measured delays come out near 20 ms."""
     import threading
@@ -381,6 +398,53 @@ def test_tap_delay():
     result = delay.run(arm, {"times": 3}, arm.halt)
     assert result["ok"] is True and result["press_ms"] >= 25 and result["release_ms"] >= 25, result
     key_down.clear()
+
+
+def test_gesture():
+    """Each gesture ends at home, a bad name never moves, next cycles, and a stop moves nothing more."""
+    from skills import gesture
+
+    core.arm.POSES = Path(tempfile.mkdtemp())
+    for name, joints in {"home": [0, -100, 90, 60, 0, 0], "wave_up": [0, -30, 20, 0, 0, 80]}.items():
+        (core.arm.POSES / f"{name}.json").write_text(json.dumps({f"{j}.pos": v for j, v in zip(JOINTS, joints)}))
+    arm = get_arm(mock=True)
+    arm._write(arm.load_pose("home"))
+    moves = []
+
+    def instant(joints, seconds):  # the mock's real moves take their full time; this keeps the test quick
+        moves.append((list(joints), seconds))
+        arm._write(core.arm._checked(joints))
+        return not arm.halt.is_set()
+
+    arm.move_joints = instant
+    played = {}
+    for name in gesture.GESTURES:
+        moves.clear()
+        assert gesture.run(arm, {"name": name}, arm.halt)["ok"] is True, name
+        assert close(arm.get_joints(), arm.load_pose("home")), name
+        assert sum(s for _, s in moves) < 6.1, (name, moves)    # starting from home
+        played[name] = list(moves)
+
+    moves.clear()
+    reply = gesture.run(arm, {"name": "moonwalk"}, arm.halt)
+    assert reply["ok"] is False and "nod" in reply["reason"] and moves == []
+    assert gesture.run(arm, {"name": ["nod"]}, arm.halt)["ok"] is False and moves == []
+
+    gesture._turn = 0
+    for name in gesture.GESTURES:                               # nod, shake, ... in order
+        moves.clear()
+        assert gesture.run(arm, {}, arm.halt)["gesture"] == name and moves == played[name]
+
+    def stops_on_third(joints, seconds):
+        moves.append(joints)
+        if len(moves) == 3:
+            arm.halt.set()
+        return not arm.halt.is_set()
+
+    arm.move_joints = stops_on_third
+    moves.clear()
+    assert gesture.run(arm, {"name": "dance"}, arm.halt) == gesture.STOPPED and len(moves) == 3
+    arm.halt.clear()
 
 
 def test_send_waits_for_its_own_result():
@@ -460,7 +524,9 @@ def test_cli_cue():
 
 if __name__ == "__main__":
     test_core()
+    test_held_grip_is_not_relaxed()
     test_tap_delay()
+    test_gesture()
     test_send_waits_for_its_own_result()
     test_cli_cue()
     print("core ok")

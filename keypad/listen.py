@@ -2,7 +2,8 @@
 
 The keypad needs no configuring. The first run asks you to press its three keys once (wave,
 jump, stop) and saves what they send to keypad/keys.json. After that:
-    wave key  -> the arm waves
+    wave key  -> the arm does its next gesture (nod, shake, fist bump, high five, dance; type
+                 run wave at the dispatcher to wave)
     jump key  -> a left mouse click while the Geometry Dash window is in front (jump, or Play on the
                  level page), an Up arrow anywhere else. This is the key the arm taps.
     stop key  -> the arm stops at once. Test it at the start of every session.
@@ -28,6 +29,14 @@ from ctypes import wintypes
 from pathlib import Path
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
+# KEYPAD_MODE=show: for the demo table. Wave key = dance, jump key = the next gesture in turn, stop key = stop.
+# Without it the jump key is the Geometry Dash key, as before.
+SHOW = os.environ.get("KEYPAD_MODE") == "show" or "--show" in sys.argv
+print("mode:", "SHOW (X = " + os.environ.get("KEYPAD_WAVE", "hi") + ", C = " + os.environ.get("KEYPAD_JUMP", "high_five")
+      + ", Z = " + os.environ.get("KEYPAD_THIRD", "dance") + ")" if SHOW else "GAME (jump key = Geometry Dash)", flush=True)
+SHOW_WAVE = 'run gesture {"name": "' + os.environ.get("KEYPAD_WAVE", "hi") + '"}'
+SHOW_JUMP = None if os.environ.get("KEYPAD_JUMP") == "next" else 'run gesture {"name": "' + os.environ.get("KEYPAD_JUMP", "high_five") + '"}'
+SHOW_THIRD = 'run gesture {"name": "' + os.environ.get("KEYPAD_THIRD", "dance") + '"}'   # what the stop key plays in show mode
 DEVICE = os.environ.get("KEYPAD_ID", "VID_8089").upper()  # SayoDevice USB vendor id; "" = any keyboard
 KEYS_FILE = Path(__file__).with_name("keys.json")
 ROLES = ["wave", "jump", "stop"]
@@ -72,38 +81,56 @@ class RAWKEYBOARD(ctypes.Structure):  # RAWINPUTHEADER followed by RAWKEYBOARD
 HEADER_SIZE = RAWKEYBOARD.MakeCode.offset
 
 
-def send(command: str, timeout: float = 1) -> str:
+def send(command: str, timeout: float = 1, _dead=[0.0]) -> str:
+    # With no dispatcher running, every call here used to wait out its whole timeout: 0.2 s on each "ready" (asked
+    # twice a second) and up to 1 s on a key, all in the thread that handles the keys. A jump pressed by hand then
+    # reached the game up to 0.2 s late (15 Nov). After one failed connection nothing is tried for 1.5 s, except
+    # stop, which is always tried.
+    import time as _clock
+    if command != "stop" and _clock.perf_counter() < _dead[0]:
+        return "dispatcher not reachable: not retried yet"
     try:
-        with socket.create_connection(("127.0.0.1", PORT), timeout=timeout) as s:
+        with socket.create_connection(("127.0.0.1", PORT), timeout=min(timeout, 0.05) if command != "stop" else timeout) as s:
+            s.settimeout(timeout)
             s.sendall((command + "\n").encode())
             return s.makefile().readline().strip()
     except OSError as err:
+        _dead[0] = _clock.perf_counter() + 1.5
         return f"dispatcher not reachable: {err}"
 
 
 _open = []  # the one connection kept open for key events
 
 
-def notify(command: str, retry: bool = True) -> None:
+def notify(command: str, retry: bool = True, _dead=[0.0]) -> None:
     """Report a key event on a connection that stays open. Opening a new connection for every key
     press took a few milliseconds that varied each time, and the arm's clock starts from this event.
     A key state may be sent again after a failed send, because sending it twice changes nothing.
     A cue may not (retry=False): it might have arrived the first time, and a second one would
     restart the replay."""
+    if _open:
+        # Look at the kept connection before sending. A send into a connection the dispatcher has
+        # closed is lost without any error, and the first key event after every restart used to
+        # vanish that way. Nothing has been sent yet here, so replacing the connection is not a retry.
+        try:
+            if _open[0].recv(4096) == b"":
+                raise ConnectionResetError("the dispatcher closed the connection")
+        except BlockingIOError:
+            pass  # nothing waiting: the connection is alive
+        except OSError:
+            _open.pop().close()
+    import time as _clock
+    if not _open and _clock.perf_counter() < _dead[0]:
+        return  # no dispatcher a moment ago: a key must not wait for one (see send)
     for _ in range(2 if retry else 1):  # a second try only if the kept connection had gone stale
         had = bool(_open)
         try:
             if not _open:
-                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.2)
+                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.05)
                 s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 s.setblocking(False)
                 _open.append(s)
             _open[0].sendall((command + "\n").encode())
-            try:
-                if _open[0].recv(4096) == b"":  # the dispatcher closed this connection
-                    raise ConnectionResetError("the dispatcher closed the connection")
-            except BlockingIOError:
-                pass  # no reply waiting yet: normal
             return
         except OSError as err:
             if _open:
@@ -111,6 +138,7 @@ def notify(command: str, retry: bool = True) -> None:
             if not retry:
                 print(f"'{command}' may not have reached the dispatcher ({err}); it is not sent again", flush=True)
             if not had:
+                _dead[0] = _clock.perf_counter() + 1.5
                 return
 
 
@@ -148,6 +176,11 @@ def main() -> None:
                         user32.PostQuitMessage(0)
             return
         now = time.perf_counter()
+        show = globals().get("SHOW", False)  # looked up this way so the handler still works when lifted out on its own
+        if show and vk == keys["jump"]:  # show mode: the jump key plays the next gesture, and never clicks
+            if down:  # one fixed gesture per key (KEYPAD_JUMP=next brings back the cycle through all of them)
+                print(f"gesture -> {send(globals().get('SHOW_JUMP') or 'run gesture')}", flush=True)
+            return
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
             title = ctypes.create_unicode_buffer(200)
             user32.GetWindowTextW(user32.GetForegroundWindow(), title, 200)
@@ -167,7 +200,11 @@ def main() -> None:
             elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
-            print(f"wave -> {send('run wave')}", flush=True)
+            print(f"gesture -> {send(globals().get('SHOW_WAVE') if show else 'run gesture')}", flush=True)
+        elif down and vk == keys["stop"] and show and globals().get("SHOW_THIRD"):
+            # Daniel, 15 Nov: at the demo table all three keys play gestures; there is no stop key on the pad in show
+            # mode. Stop from the keyboard instead: "stop" typed at the dispatcher, or arm_stop in demo/cmds.sh.
+            print(f"gesture -> {send(globals().get('SHOW_THIRD'))}", flush=True)
         elif down and vk == keys["stop"]:
             print(f"STOP -> {send('stop')}", flush=True)  # the stop goes out first; nothing may delay or block it
             if recording.get("events"):
@@ -213,6 +250,30 @@ def main() -> None:
                 print(f"ready check failed: {err}", flush=True)
             time.sleep(0.3)
 
+    def report_clock() -> None:
+        """Tell the dispatcher the Windows time ten times a second, on a connection of its own.
+        The clock inside WSL was measured running 4.2% fast, so the dispatcher times a replay by
+        this clock, the same one a recording is made with."""
+        link = None
+        while True:
+            try:
+                if link is None:
+                    link = socket.create_connection(("127.0.0.1", PORT), timeout=0.5)
+                    link.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    link.setblocking(False)
+                link.sendall(f"clock {time.perf_counter():.6f}\n".encode())
+                try:
+                    if link.recv(4096) == b"":
+                        raise ConnectionResetError
+                except BlockingIOError:
+                    pass
+            except OSError:
+                if link is not None:
+                    link.close()
+                link = None
+                time.sleep(0.5)
+            time.sleep(0.1)
+
     def wndproc(hwnd, msg, wparam, lparam):
         if msg == WM_INPUT:
             raw = RAWKEYBOARD()
@@ -245,6 +306,7 @@ def main() -> None:
     if not hwnd or not user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(rid)):
         raise SystemExit(f"Could not listen for keys (Windows error {ctypes.get_last_error()}).")
     threading.Thread(target=poll_ready, daemon=True).start()
+    threading.Thread(target=report_clock, daemon=True).start()
     if not prompt():
         print("Keypad ready: wave, jump (Up arrow), stop. Ctrl+C to quit.", flush=True)
     msg = wintypes.MSG()
