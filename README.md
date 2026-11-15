@@ -105,9 +105,9 @@ Only one program can hold the arm's serial port at a time, so stop one before st
 | `keypad/` | Jonathan | The pad listener, the Geometry Dash recordings and player, and a simulated keypad for testing timing |
 | `voice/` | Eddy | Turns a typed or spoken sentence into a move |
 | `sim.py`, `sim_draw.py` | Eddy | The MuJoCo simulator for moves and for drawing |
-| `docs/` | Ben | The demo script, the pitch and the record of what ran on the arm |
+| `skills/personality.py` | Ben | The nod, shake, celebrate and dance moves |
+| `docs/` | Daniel | The record of what ran on the real arm, with photos |
 | `tests/` | shared | Run each with `python -m tests.<name>` |
-| `notes/` | shared | One file per teammate, kept by that teammate's coding agent |
 | `video/` | Eddy | The demo video, built with Remotion |
 
 ## Built on
@@ -136,4 +136,4 @@ What we did not build:
 
 ## Contributing
 
-Each of us works with a coding agent that reads `AGENTS.md` and writes to its own file in `notes/`. Run `git pull --rebase` before every push, and never force-push `main`.
+Each of us works with a coding agent that follows `AGENTS.md`. Run `git pull --rebase` before every push, and never force-push `main`.
