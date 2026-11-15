@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 3:40 AM ET.
+Updated Sun Nov 15, 3:45 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,10 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`9c3ada6`): corrected in `docs/demo.md`. Typed moves are no longer offered as
+  a camera-free way to run tic-tac-toe; the game-search claim is stated with its exact scope; and
+  the live slots are labelled a presentation plan pending 4 of 5 on the arm.
 
 - Eddy's 3:32 AM note (multipurpose pitch): written up at the top of `docs/demo.md` as Pitch A,
   in your words, with which of the four tests can run live once the camera rig is packed and with

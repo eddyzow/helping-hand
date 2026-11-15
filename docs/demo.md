@@ -40,16 +40,21 @@ in; he was asleep when this was written.
 | Timing: Geometry Dash | Yes; needs no overhead camera | Three clears recorded at 11:37, 11:46, 11:51 PM, with deaths among the attempts. No count out of five consecutive tries |
 | Working with a person: hand control with the tremor filter | Yes, if it has run; needs no camera | One real-hand run, no shake numbers. Controller cleared 22 fake-device checks |
 | Accuracy: drawing | Only if the overhead camera is rebuilt at the table; otherwise video | House and flower drawn, per Daniel's record |
-| Seeing and responding: tic-tac-toe | Only with the camera, or with typed moves; otherwise video | One completed game on the earlier version; one illegal move later; current version unplayed on the arm |
+| Seeing and responding: tic-tac-toe | Only with the overhead camera; otherwise video. Typed moves do not remove the camera: the program still needs it to start, to fit the drawn grid and to check its own move. Typing only replaces reading the person's X | One completed game on the earlier version; one illegal move later; current version unplayed on the arm |
 
-So with the rig packed, the table shows two tests live and two on video. Say that plainly.
+So with the rig packed, the table could show two tests live and two on video. Say that plainly.
+This table is a presentation plan, not a clearance: neither live test has yet passed 4 of 5
+consecutive runs on the arm.
 
 ### What Pitch A may claim (Eddy's own checks, 3:32 AM)
 
 - "About a millimetre": that is Daniel's house measurement after the photo is aligned to the plan.
   Say "about a millimetre from the planned shape".
-- "The best you can do is a draw": needs a filmed game with no misread square. The game logic
-  itself cannot lose (the reviewer searched every position), but the camera can misread.
+- "The best you can do is a draw": needs a filmed game with no misread square. What the reviewer
+  checked is narrower than "cannot lose": every legal reply by the person from an empty board,
+  against the program's own choice of moves (521 reachable positions, 123 finished games per
+  version), with no win for the person. It did not test arbitrary or broken board states, and
+  the camera can misread a square.
 - "It finishes the level" is fine. "Every time" is not.
 - "Ask for a skill in plain words" covers the dispatcher's skills. Tic-tac-toe and the drawing loop
   are scripts in `demo/`, not routed skills, so do not say they are started by voice.
