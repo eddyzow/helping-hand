@@ -1,5 +1,7 @@
 # SO101 coordination and review
 
+**Wording follow-up b7dcafd:** keypad Stop and recording-format corrections are applied, but "only stop is the power switch" is too absolute. Ctrl+C is the scripts' documented terminal interrupt; physical response and error cleanup remain unverified. The missing keypad listener does not prove the software interrupt is absent. Keep the proposal unvalidated; no new runtime or physical test.
+
 **Recording-only 940684b / QA 18641e2:** existing parser accepts `god_yeeter.csv` (134 events / 67 presses, last event 46.911634 s). Minimum recorded press/gap: 22.106 / 46.586 ms; existing lead adjustment at 106/114 ms remains ordered, minimum command interval 14.106 ms. File validation only, no replay or physical feasibility/clear proof. No runtime change or hold closure.
 
 **Source-only record/replay proposal check, main a985787:** root `arm.py record/replay` pairs timestamped `motions/<name>.json` files. Arm-core's `teleop_sync.py --record` instead writes `{hz,joints,frames}` under `poses/taught/`, is absent from main, and is not consumed by that root replay command. Standalone paths bypass the new core wrist-roll guard and provide no dispatcher keypad Stop listener. Their cleanup is also not protected across all errors; no fault reproduction or physical run was performed for this proposal. See `notes/daniel.md`. Do not treat it as a ready or interchangeable command pair without the owner identifying and validating the matching path.
