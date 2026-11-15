@@ -11,35 +11,55 @@ export const T = { open: 0, draw: 540, ttt: 1260, gd: 1830, feed: 2508, close: 2
  * pause between sentences. Retime them to the recording when it exists.
  */
 const CUES: Array<[number, number, string]> = [
-  [0.5, 1.8, "This is RobTop."],
-  [2.1, 5.7, "It's a robot arm that sits on your desk,"],
-  [5.7, 11.7, "and we built it to take on whatever job is put in front of it."],
-  [12.1, 16.1, "Here is some of what it has done so far."],
+  [0.9, 2.2, "This is RobTop."],
+  [2.8, 4.4, "It's a robot arm that sits on your desk,"],
+  [4.4, 7.4, "and we built it to take on whatever job is put in front of it."],
+  [7.7, 9.9, "Here is some of what it has done so far."],
 
-  [19.9, 24.3, "Tell it what to draw and an AI sketches the plan."],
-  [24.6, 27.0, "Here we asked for a house."],
-  [27.3, 32.5, "On this house the lines sit about a millimetre from the planned shape."],
-  [32.8, 38.8, "A camera checks each drawing against the plan, and the arm corrects its next attempt."],
-  [39.1, 41.5, "Then we asked for a flower."],
+  [20.4, 24.0, "You can tell it what to draw, and AI sketches the plan."],
+  [24.3, 26.1, "Here we asked for a house."],
+  [26.5, 32.5, "A camera checks each drawing against the plan, and the arm corrects its next attempt."],
+  [33.2, 37.6, "On this house the lines sit about a millimetre from the planned shape."],
+  [37.9, 39.8, "And then we asked for a flower."],
 
-  [43.9, 46.7, "Draw an X and it plays you."],
-  [47.0, 49.8, "It sees your move on the paper,"],
-  [49.8, 51.8, "thinks through every possible game,"],
-  [51.8, 53.4, "and draws its reply."],
-  [56.0, 60.8, "Play it right and the best you can do is a draw."],
+  [43.9, 46.1, "Draw an X and it plays you."],
+  [46.4, 47.9, "It sees your move on the paper,"],
+  [48.1, 50.0, "thinks through every possible game,"],
+  [50.2, 51.6, "and draws its reply."],
+  [56.0, 58.3, "Play it right and the best you can do is a draw."],
 
-  [62.9, 67.3, "Give it a key to press and it plays a video game."],
-  [67.6, 70.0, "This one is called Geometry Dash."],
-  [70.3, 75.1, "It has one button, and a single press that comes a moment late"],
-  [75.1, 77.5, "sends you back to the start."],
-  [77.9, 80.3, "RobTop has cleared the whole level:"],
-  [80.3, 83.1, "about ninety seconds of presses, from memory."],
+  [62.9, 67.5, "Give it a key to press and it plays a video game."],
+  [67.5, 70.2, "This one is called Geometry Dash."],
+  [70.6, 74.5, "It has one button. A single press that comes a moment late"],
+  [74.5, 76.5, "sends you back to the start."],
+  [76.7, 79.4, "RobTop has cleared the whole level:"],
+  [80.0, 83.2, "about ninety seconds of presses, from memory."],
 
-  [85.5, 89.9, "Take the second arm in your hand and RobTop follows you."],
-  [90.3, 92.7, "Here it's feeding Daniel a snack."],
+  [85.9, 88.6, "Take the second arm in your hand and RobTop follows you."],
+  [88.8, 90.7, "Here it's feeding Daniel a snack."],
 
-  [96.4, 99.6, "Everything you just saw was the same arm."],
+  [97.2, 99.5, "Everything you just saw was the same arm."],
 ];
+
+/** Voice clips: [file in public/, start s, length s]. Cut from the team's recordings. */
+const VOICE: Array<[string, number, number]> = [
+  ["vo_open.mp3", 0.4, 10.15],
+  ["vo_draw.mp3", 19.9, 20.8],
+  ["vo_ttt1.mp3", 43.8, 7.7],
+  ["vo_ttt2.mp3", 55.9, 2.3],
+  ["vo_gd.mp3", 62.9, 20.4],
+  ["vo_feed.mp3", 85.4, 5.55],
+  ["vo_close.mp3", 96.3, 3.2],
+];
+
+/** Music level at frame f: full between voice clips, lowered under them. */
+const musicLevel = (f: number) => {
+  const t = f / 30;
+  const duck = Math.min(
+    ...VOICE.map(([, start, length]) => interpolate(t, [start - 0.4, start, start + length, start + length + 0.6], [1, 0.3, 0.3, 1], clamp)),
+  );
+  return 0.5 * duck * interpolate(f, [T.end - 40, T.end - 2], [1, 0], clamp);
+};
 
 /* ============ 0:00 cold open ============ */
 
@@ -381,7 +401,12 @@ export function Demo() {
       ))}
       <Subtitles cues={CUES} />
       {/* Music sits at bed level so a voice can go on top. */}
-      <Audio src={staticFile("music.mp3")} volume={(f) => 0.5 * interpolate(f, [T.end - 40, T.end - 2], [1, 0], clamp)} />
+      {VOICE.map(([file, start]) => (
+        <Sequence key={file} from={Math.round(start * 30)}>
+          <Audio src={staticFile(file)} />
+        </Sequence>
+      ))}
+      <Audio src={staticFile("music.mp3")} volume={musicLevel} />
     </AbsoluteFill>
   );
 }
