@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steady Hand 3D demo</title>
+<style>
+  :root { --paper:#f3ede2; --card:#fbf8f2; --ink:#2a2227; --soft:#6f6468; --line:#e2d9cb; --plum:#6b2d5c; --raw:#b8552f; }
+  html, body { margin:0; height:100%; background:var(--paper); color:var(--ink); font:14px/1.4 "Segoe UI", system-ui, sans-serif; }
+  #view { position:fixed; inset:0; }
+  #label { position:fixed; left:16px; top:12px; color:var(--soft); pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="label"></div>
+<script type="module">
+  import { mount } from "./arm3d.js";
+  // Synthetic /state at 10 Hz: a slow reach between two real poses, a 5.5 Hz shake on the hand,
+  // a steady follower; every 4 s the cycle goes steady on, steady off, hold.
+  const A = [[0,0,0],[39,0,62],[69,-18,117],[-43,-18,145],[92,-18,150],[122,0,97],[182,-1,18]];
+  const B = [[0,0,0],[39,0,62],[69,-18,117],[60,-18,232],[195,-18,236],[214,0,180],[230,0,70]];
+  const reach = (t) => { const s = 0.5 - 0.5 * Math.cos(2 * Math.PI * t / 8); return A.map((p, i) => p.map((v, j) => v + (B[i][j] - v) * s)); };
+  const shake = (chain, t) => chain.map((p, i) => p.map((v, j) => v + (i / 6) * 8 * Math.sin(2 * Math.PI * 5.5 * t + j * 1.9)));
+  const view = mount(document.getElementById("view"));
+  const label = document.getElementById("label");
+  const t0 = performance.now();
+  let held = null;
+  setInterval(() => {
+    const t = (performance.now() - t0) / 1000, phase = Math.floor(t / 4) % 3;
+    const steady = phase !== 1, hold = phase === 2;
+    const raw = shake(reach(t), t);
+    const out = hold ? (held ??= reach(t)) : steady ? reach(t - 0.15) : raw;
+    if (!hold) held = null;
+    view.update({ raw_chain: raw, out_chain: out, follower: [0, 0, 0, 0, 0, 50 + 40 * Math.sin(t * 0.8)],
+                  steady, hold, tremor_mm: 7 });
+    label.textContent = hold ? "held" : steady ? "steady on" : "steady off";
+  }, 100);
+  window.armView = view;
+</script>
+</body>
+</html>
