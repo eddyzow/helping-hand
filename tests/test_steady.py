@@ -237,6 +237,15 @@ def test_notch():
     _, _, final = run_loop(shaky, 10.0)
     assert abs(final["tremor_hz"] - 5.5) < 0.3 and final["removed_pct"] >= 85, (final["tremor_hz"], final["removed_pct"])
 
+    # the trigger is not notched: a notch engaged by quick arm moves (their steps have energy in the band)
+    # overshoots, and the grip must never tighten past the hand's squeeze (here half: 50 %)
+    def moves(t):
+        p = np.array([10.0 + 10 * (t >= 5), -20.0, 20.0 + 40 * (t >= 6), 5.0, 0.0, 43.0])
+        p[5] = 21.5 if 7 < t < 8 else 43.0
+        return p
+    _, _, final = run_loop(moves, 10.0, [(4.0, "gain 1.5")])
+    assert final["grip"]["held_pct"] == 50, final["grip"]
+
     # it engages only on a measured shake of at least 0.5 mm inside the tremor band
     notch = tremor.Notch()
     for mm, hz in ((0.4, 5.5), (2.0, 2.0), (2.0, 13.0)):
