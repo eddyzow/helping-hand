@@ -383,6 +383,10 @@ def main() -> None:
     ask("The follower's motors switch off and on while connecting. Hold it or check it is resting, then Enter. ")
     follower.connect()
     leader.connect()
+    # one garbled serial reply must not end the session (it did, on the first real run of v2: "motor 5:
+    # Parsing error"): every read retries. A read that still fails stops the loop, motors holding.
+    for bus in (b for b in (leader.bus, follower.bus) if hasattr(b, "sync_read")):
+        bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{"num_retry": 5, **k}))(bus.sync_read)
     tip = Fingertip()
     OUT.mkdir(parents=True, exist_ok=True)
     log = (OUT / f"session_{time.strftime('%Y%m%d_%H%M%S')}.csv").open("w")
@@ -554,7 +558,10 @@ def main() -> None:
                     tremor_mm = tremor_hz = out_mm = 0.0
                 notch.track(tremor_mm, tremor_hz)   # the hand's own shake, measured before any filter
                 removed = 0.0 if tremor_mm < 0.15 else max(0.0, min(100.0, 100.0 * (1.0 - out_mm / tremor_mm)))
-                loads = follower.bus.sync_read("Present_Load", normalize=False)
+                try:
+                    loads = follower.bus.sync_read("Present_Load", normalize=False)
+                except ConnectionError:   # a reading for the page only: keep the last one, keep following
+                    loads = {name: v * 10 for name, v in effort.items()} if "effort" in dir() else {}
                 effort = {name: (int(v) & 0x3FF) / 10.0 for name, v in loads.items()}   # percent of the motor's maximum
                 speed = float(np.linalg.norm(out_tips[-1] - out_tips[-6]) / (5 * dt)) if len(out_tips) > 6 else 0.0
                 with lock:
