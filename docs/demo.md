@@ -27,6 +27,19 @@ within millimetres. Here the person does the aiming.
 | Gestures, offline voice phrases | Mock-tested; voice started once | No |
 | Pointing, drawing, writing by the arm alone | Mock and simulation only | No |
 
+## At the freeze (Sat 8:50 PM), as the repo records it
+
+- Steady Hand: tried once with a real hand; six problems found; no shake numbers recorded. The
+  controller is on `daniel/arm-core`, not on `main`. The reviewer's latest pass (8:50 PM) holds it
+  as high priority on fake-device findings in its new link-recovery code: a move that failed to
+  send is retried after Stop has arrived; after a brief read loss a held arm takes new targets
+  while still showing Hold; a 20-second recovery window can run to a minute; and the page says
+  "Following your hand" while the arm is in fact unavailable.
+- Geometry Dash: 3 clears in 5 attempts, as reported by Eddy; not confirmed in Jonathan's note.
+- Writing with a taped marker: not tried. Gestures: never run on the arm.
+- The follower's wrist-roll motor is reported faulty.
+- Nothing has passed the rule below. After a freeze the work is fixing and counting, not adding.
+
 ## The one rule
 
 A piece is shown live only if it passes 4 runs out of 5 on the real arm. The freeze is 8:50 PM
