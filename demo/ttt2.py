@@ -103,8 +103,11 @@ class Keys(socketserver.StreamRequestHandler):
     def handle(self):
         try:
             for raw in self.rfile:
-                if raw.decode(errors="replace").strip() == "stop":
+                line = raw.decode(errors="replace").strip()
+                if line == "stop":
                     halt.set()
+                elif line.startswith("move "):                 # a move sent from another program: "move 1 1"
+                    typed.put(line[5:])
                 self.wfile.write(b'{"ok": false, "reason": "tic-tac-toe"}\n')
         except OSError:
             pass
@@ -113,6 +116,19 @@ class Keys(socketserver.StreamRequestHandler):
 socketserver.ThreadingTCPServer.allow_reuse_address = True
 socketserver.ThreadingTCPServer.daemon_threads = True
 threading.Thread(target=socketserver.ThreadingTCPServer(("127.0.0.1", 8765), Keys).serve_forever, daemon=True).start()
+
+# Typed moves, for when the camera misses an X: type "row col" in this terminal and press Enter, both 0 to 2, as the
+# CAMERA sees the board (row 0 = the row furthest from the camera, col 0 = the left column). "1 1" is the centre.
+import queue
+typed = queue.Queue()
+
+
+def _typing():
+    for line in sys.stdin:
+        typed.put(line.strip())
+
+
+threading.Thread(target=_typing, daemon=True).start()
 
 root = tk.Tk(); root.title("Tic-tac-toe"); root.attributes("-topmost", True); root.geometry("1000x300+100+60"); root.protocol("WM_DELETE_WINDOW", lambda: None)
 label = tk.Label(root, font=("Segoe UI", 34, "bold"), fg="white", bg="#a00", wraplength=960); label.pack(fill="both", expand=True)
@@ -240,8 +256,19 @@ try:
     before = np.zeros_like(seen[2]) if resume else seen[2]
     if not resume:
         show("drawing the grid")
-        for line in GRID_LINES:
+        first_line = None
+        for n_line, line in enumerate(GRID_LINES):
             stroke(line, press=GRID_PRESS, speed=25.0)
+            if n_line == 0:
+                # Which way round is the board in the picture? A finished grid looks the same turned by a quarter or a
+                # half turn, so the camera is shown the FIRST line alone. That line is on the arm's own left (X = -11),
+                # and where it lies relative to the finished grid gives the turn, wherever the camera has been put.
+                away()
+                one = look()
+                if one is not None:
+                    fresh = cv2.subtract(one[2], cv2.dilate(before, np.ones((7, 7), np.uint8)))
+                    pts1 = vision.points(cv2.morphologyEx(fresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)))
+                    first_line = pts1.mean(0) if len(pts1) > 120 else None
         away()
     while (seen := look()) is None:
         show("move your hand: the camera cannot see the whole sheet", "#a00"); time.sleep(0.5)
@@ -252,7 +279,17 @@ try:
         raise SystemExit(f"the grid left almost no ink ({len(ink)} points): pen cap, pen height or grip?")
     ink = ink[::max(1, len(ink) // 1500)]
     ref = np.array([p for line in GRID_LINES for p in line[::3]])
-    R = np.array(prior["R"]); t = ink.mean(0) - ref.mean(0) @ R.T
+    R = np.array(prior["R"])
+    if not resume and first_line is not None and np.linalg.norm(first_line - ink.mean(0)) > 4:
+        want = (first_line - ink.mean(0)) / np.linalg.norm(first_line - ink.mean(0))   # where the arm's -X side is, in the picture
+        have = -R[:, 0]                                                                 # where the saved turn says it is
+        turn = math.atan2(have[0] * want[1] - have[1] * want[0], have @ want)
+        c_, s_ = math.cos(turn), math.sin(turn)
+        R = np.array([[c_, -s_], [s_, c_]]) @ R
+        print(f"board turned {math.degrees(turn):+.0f} deg from the saved camera position", flush=True)
+    else:
+        print("first grid line not seen alone: using the saved camera position for the board's turn", flush=True)
+    t = ink.mean(0) - ref.mean(0) @ R.T
     # A grid looks almost the same shifted by one square, and the fit once settled exactly one square off (15 Nov:
     # it read an X in the centre as the square beside it and then drew its O on top of that X). So the fit is started
     # from the middle and from one square off in each direction, and the answer kept is the one where every drawn line
@@ -317,10 +354,27 @@ try:
         if winner(board) or all(board):
             break
         show("YOUR TURN: draw an X in an empty square, then take your hand away", "#063")
+        by_rows = sorted(range(9), key=lambda c: cells[c][1])                   # the board as the camera sees it:
+        view = [c for r in range(3) for c in sorted(by_rows[3 * r:3 * r + 3], key=lambda c: cells[c][0])]   # far row first, left to right
+        print("board as the camera sees it (type 'row col' if an X is missed):", flush=True)
+        for r in range(3):
+            print("   " + " ".join(board[view[3 * r + k]] or "." for k in range(3)), flush=True)
         steady, choice = 0, None
         while steady < 2:                                                       # the same single new X in two photos running
             if halt.is_set():
                 raise KeyboardInterrupt
+            try:                                                                # a typed move wins over the camera
+                words = typed.get_nowait().replace(",", " ").split()
+                row, col = int(words[0]), int(words[1])
+                if 0 <= row <= 2 and 0 <= col <= 2 and not board[view[3 * row + col]]:
+                    choice = view[3 * row + col]
+                    print(f"typed move: row {row} col {col}", flush=True)
+                    break
+                print("that square is taken or off the board: type row and col, each 0 to 2", flush=True)
+            except queue.Empty:
+                pass
+            except (ValueError, IndexError):
+                print("type two numbers, row then col, each 0 to 2 (for example: 1 1)", flush=True)
             root.update(); time.sleep(0.5)
             seen = look()
             if seen is None or not follow(seen[2]):                             # a hand over the grid: wait
