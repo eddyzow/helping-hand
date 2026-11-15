@@ -1,6 +1,6 @@
 # RobTop
 
-**A robot arm for your desk that takes on whatever you put in front of it: it draws, plays you at tic-tac-toe, and beats Geometry Dash levels.**
+**A robot arm for your desk that takes on whatever you put in front of it: it draws, feeds you food, plays you at tic-tac-toe, and beats video game levels.**
 
 [![Built at HackUMass XIV](https://img.shields.io/badge/built%20at-HackUMass%20XIV-881C1C?style=flat-square&labelColor=17141F)](https://hackumass.com)
 [![Arm: SO-101](https://img.shields.io/badge/arm-SO--101%2C%203D%20printed-F2A97C?style=flat-square&labelColor=17141F)](https://github.com/TheRobotStudio/SO-ARM100)
