@@ -265,10 +265,290 @@ def test_model_and_meshes():
     assert steady.shared["table_z"] == steady.TABLE_Z == -12.0
 
 
+def test_calibration_offset():
+    from types import SimpleNamespace
+
+    def cal(mids):   # today's calibration files, by their middles; the spread (here +-500) does not matter
+        ranges = {j: SimpleNamespace(range_min=m - 500, range_max=m + 500) for j, m in zip(steady.JOINTS, mids)}
+        ranges["gripper"] = SimpleNamespace(range_min=1900, range_max=3200)
+        return ranges
+    leader, follower = cal([2056, 2112.5, 1659, 2035, 2047.5]), cal([2059, 2009.5, 1626, 1990.5, 2047.5])
+    offset = steady.calibration_offset(leader, follower)
+    assert np.allclose(np.round(offset, 1), [-0.3, 9.1, 2.9, 3.9, 0.0, 0.0]), offset   # follower = leader + offset
+    assert abs(offset[1] - 103 * 360 / 4095) < 1e-9
+    for broken in ({**leader, "elbow_flex": SimpleNamespace(range_min=float("nan"), range_max=1)},
+                   {k: v for k, v in leader.items() if k != "wrist_flex"}, None):
+        try:
+            steady.calibration_offset(broken, follower)
+            raise AssertionError("a broken calibration gave an offset")
+        except ValueError:
+            pass
+    assert steady.LIMIT_LOW[2] == steady.ELBOW_LOW == -64.0 and steady.LIMIT_HIGH[2] == steady.ELBOW_HIGH == 75.0
+
+
+def run_loop(leader_at, seconds, commands=(), start=None, users_file=None):
+    """Run steady.main() on a fake clock with a fake leader (leader_at(t) -> six joints) and a follower
+    that is exactly where it was last told. commands: (time, line) pairs sent at those times.
+    Returns the ticks [(t, six sent joints, why_still, limits)], the console text and /state at the end.
+    No port, no arm, no LeRobot: the same fakes as tests/test_standalone_steady_safety.py."""
+    import contextlib
+    import io
+    import sys
+    from pathlib import Path
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from core import tremor
+    now, ticks, todo = [0.0], [], sorted(commands)
+    told = dict(zip(steady.KEYS, start if start is not None else leader_at(0.0)))
+
+    def send(action):
+        told.update(action)
+        with steady.lock:
+            ticks.append((now[0], np.array([action[k] for k in steady.KEYS]), steady.shared["why_still"], list(steady.shared["limits"])))
+        while todo and todo[0][0] <= now[0]:
+            reply = steady.command(todo.pop(0)[1])
+            ticks[-1] += (reply,)
+
+    ranges = {j: SimpleNamespace(range_min=1000, range_max=3000) for j in steady.JOINTS}   # same middles: offset 0
+    follower = SimpleNamespace(connect=lambda: None, send_action=send, get_observation=lambda: dict(told),
+                               bus=SimpleNamespace(sync_read=lambda *args, **kwargs: {}, calibration=ranges))
+    follower.disconnect = lambda: None
+    leader = SimpleNamespace(connect=lambda: None, disconnect=lambda: None, bus=SimpleNamespace(calibration=ranges),
+                             get_action=lambda: dict(zip(steady.KEYS, leader_at(now[0]))))
+
+    def make_follower(config):
+        follower.config = config
+        return follower
+
+    fake_follower = SimpleNamespace(SO101Follower=make_follower,
+        SO101FollowerConfig=lambda **kwargs: SimpleNamespace(disable_torque_on_disconnect=True, **kwargs))
+    fake_leader = SimpleNamespace(SO101Leader=lambda config: leader, SO101LeaderConfig=lambda **kwargs: kwargs)
+    server = lambda *args, **kwargs: SimpleNamespace(serve_forever=lambda: None)
+    clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake",
+                            sleep=lambda seconds: now.__setitem__(0, round(now[0] + 1 / steady.HZ, 6)))
+    tip = SimpleNamespace(mm=lambda joints: np.array(joints[:3], float), chain=lambda joints: [], geoms=lambda joints: [])
+    console = io.StringIO()
+    with tempfile.TemporaryDirectory() as temporary:
+        offsets = Path(temporary) / "offsets.json"
+        offsets.write_text(json.dumps(dict.fromkeys(steady.KEYS, 0.0)))
+        with patch.dict(sys.modules, {"lerobot.robots.so_follower": fake_follower, "lerobot.teleoperators.so_leader": fake_leader}), \
+                patch.object(sys, "argv", ["steady", "--yes", "--seconds", str(seconds)]), \
+                patch.object(steady, "OFFSETS", offsets), patch.object(steady, "OUT", Path(temporary) / "out"), \
+                patch.object(steady, "USERS", users_file or Path(temporary) / "users.json"), \
+                patch.object(steady, "read_sessions", lambda *args: []), patch.object(steady, "save_sessions", lambda *args: None), \
+                patch.object(steady, "Fingertip", lambda: tip), patch.object(steady, "time", clock), \
+                patch.object(steady.socketserver, "ThreadingTCPServer", server), patch.object(steady, "HTTPServer", server), \
+                patch.object(steady.threading, "Thread", lambda *args, **kwargs: SimpleNamespace(start=lambda: None)), \
+                patch.object(steady, "calibration", tremor.Calibration()), patch.dict(steady.users), \
+                patch.dict(steady.shared), contextlib.redirect_stdout(console), \
+                patch.dict(steady.state, steady=True, hold=False, cutoff=steady.CUTOFF_HZ, quit=False, gain=1.0, user="default",
+                           re_ease=False, neutral=False, release=False):
+            steady.main()
+            status, _, body = get("/state")
+            assert status == 200
+            final = json.loads(body)
+    return ticks, console.getvalue(), final
+
+
+def at(ticks, t):
+    """The tick at (or just after) time t."""
+    return next(tick for tick in ticks if tick[0] >= t - 1e-9)
+
+
+def no_jumps(ticks):
+    """Between any two ticks no joint moved faster than the speed cap (0.5 degree of slack for rounding)."""
+    for a, b in zip(ticks, ticks[1:]):
+        step = np.abs(b[1] - a[1]).max()
+        assert step <= steady.MAX_SPEED * (b[0] - a[0]) + 1e-6, ("a jump faster than the speed cap", a[0], step)
+
+
+def test_scaling_and_why_still():
+    pose = np.array([10.0, -20.0, 20.0, 5.0, 0.0, 43.0])
+
+    def hand(t):
+        p = pose.copy()
+        if t >= 5:
+            p[0] += 10.0                 # a 10 degree reach of the shoulder
+        if t >= 13:
+            p[2] += 20.0                 # the elbow bends 20 degrees: at gain 3 that asks for 80, past its 64 limit
+        return p
+
+    commands = [(8.0, "gain 2"), (12.0, "gain 3"), (20.0, "hold on"), (20.5, "gain 1"), (20.6, "neutral"),
+                (20.7, "user Sam"), (20.8, "grip release"), (21.0, "calibrate"), (21.5, "calibrate cancel"), (23.0, "hold off")]
+    ticks, console, final = run_loop(hand, 27.0, commands)
+    no_jumps(ticks)
+    assert abs(at(ticks, 4.0)[1][0] - 10.0) < 0.1 and at(ticks, 4.0)[2] == ""        # the start-up glide is over
+    assert at(ticks, 1.0)[2] == "easing"
+    assert abs(at(ticks, 7.9)[1][0] - 20.0) < 0.1                                    # gain 1: the arm reaches 10 too
+    # gain 2 doubles the excursion about the neutral pose (10): 20 becomes 30, gliding there over EASE_S
+    assert at(ticks, 9.0)[2] == "easing" and 22.0 < at(ticks, 9.5)[1][0] < 28.0, at(ticks, 9.5)
+    assert abs(at(ticks, 11.9)[1][0] - 30.0) < 0.1 and at(ticks, 11.9)[2] == ""
+    # gain 3: the elbow asks for 20 + 3 * 20 = 80, is held at its 64 limit, and that is reported
+    assert max(tick[1][2] for tick in ticks) <= steady.ELBOW_HIGH + 1e-9
+    late = at(ticks, 19.0)
+    assert abs(late[1][2] - steady.ELBOW_HIGH) < 1e-6 and late[3] == ["elbow"] and late[2] == "limit", late
+    assert abs(late[1][0] - 40.0) < 0.1                                              # the shoulder: 10 + 3 * 10
+    assert "elbow is at its limit" in console
+    # hold wins: gain, neutral, user, grip release and calibrate never clear it, and the arm does not move
+    held = [tick for tick in ticks if 20.05 <= tick[0] < 23.0]
+    assert all(np.array_equal(tick[1], held[0][1]) for tick in held), "the held arm moved"
+    assert all(tick[2] == "holding" for tick in held if tick[0] > 20.2)
+    replies = {tick[4]["ok"] for tick in held if len(tick) > 4}
+    assert False in replies, "grip release while held must be refused"
+    assert "ARM STILL: hold is on" in console
+    # out of the hold it glides (no jump) to the new target: gain 1 about the new neutral, user Sam
+    assert at(ticks, 23.5)[2] == "easing" and at(ticks, 26.9)[2] in ("", "limit")
+    assert final["user"]["name"] == "Sam" and final["gain"] == 1.0 and final["hold"] is False
+    assert set(final["grip"]) == {"hold", "squeeze_pct", "held_pct", "claw_pct"} and final["table_z"] == -12.0
+    assert [a["id"] for a in final["activities"]] == ["hold_still", "range", "steady_time", "grip_hold"]
+    assert final["activities"][0]["last"] is None and final["activities"][1]["last"] is None   # nothing measured yet
+    assert final["calibration"]["phase"] == "idle"
+
+
+def test_calibration():
+    from core import tremor
+
+    # on a fake clock, straight to the class: rest 3 s, then 12 s of moving
+    cal = tremor.Calibration()
+    cal.start(0.0)
+    sweep = np.array([20.0, 10.0, 1.0, 50.0, 30.0])     # half ranges: 40, 20, 2 (barely moved), 100, 60
+    neutral = np.array([5.0, -10.0, 30.0, 0.0, 0.0])
+    result, t = None, 0.0
+    while result is None and t < 20:
+        if t < 3.0:
+            joints, trigger = neutral, 43.0
+        else:
+            joints = neutral + sweep * math.sin(2 * math.pi * 0.25 * (t - 3.0))
+            trigger = 43.0 - 33.0 * max(0.0, math.sin(2 * math.pi * 0.25 * (t - 3.0))) + 47.0 * max(0.0, -math.sin(2 * math.pi * 0.25 * (t - 3.0)))
+        if 5.0 < t < 5.1:
+            view = cal.view(t)
+            assert view["phase"] == "move" and 0 < view["seen"][0] < 1 and 0 < view["seconds_left"] <= 12
+        result = cal.feed(t, joints, trigger)
+        t = round(t + 0.02, 6)
+    assert result is not None and abs(t - 15.02) < 0.05 and cal.phase == "done"
+    assert np.allclose(result["neutral"], neutral) and np.allclose(result["range_deg"], 2 * sweep, atol=0.1)
+    # gain = target / covered, 1.0 .. 3.0: 90/40, 70/20 -> 3 (capped), elbow barely moved -> 1.0, 80/100 -> 1.0, 120/60
+    assert np.allclose(result["gains"], [2.25, 3.0, 1.0, 1.0, 2.0], atol=0.01), result["gains"]
+    assert result["trigger"] == {"rest": 43.0, "squeezed": 10.0, "open": 90.0}, result["trigger"]
+    assert cal.view(t)["insufficient"] == ["elbow"] and cal.view(t)["seen"][3] == 1.0
+    # a person who did not move at all, nor squeeze: every gain stays 1.0, the trigger keeps its defaults,
+    # and the state says the calibration was insufficient
+    cal = tremor.Calibration()
+    cal.start(0.0)
+    result = next(r for r in (cal.feed(i / 50, neutral, 43.0) for i in range(1000)) if r)
+    assert result["gains"] == [1.0] * 5 and result["trigger"] == {"rest": 43.0, "squeezed": 0.0, "open": 100.0}
+    assert cal.view(20.0)["insufficient"] == tremor.ARM + ["trigger squeeze", "trigger open"]
+    cal.start(0.0)
+    cal.cancel()
+    assert cal.view(1.0)["phase"] == "idle" and not cal.running()
+    # default is fixed: calibrate it is refused; a named user can be calibrated
+    steady.state.update(user="default", hold=False)
+    assert steady.command("calibrate")["ok"] is False and not steady.calibration.running()
+
+    # in the loop: the arm is HELD while calibrating, the profile is saved, then the arm glides to the new
+    # target (no jump). A hold set before calibrating is still on after it, and a file that cannot be
+    # written changes nothing else.
+    def person(t):
+        p = np.array([0.0, 0.0, 20.0, 0.0, 0.0, 43.0])
+        if t >= 5.0:   # 2 s after "calibrate" at 2: the move phase
+            s = math.sin(2 * math.pi * 0.25 * (t - 5.0))
+            p[:5] += np.array([20.0, 10.0, 1.0, 50.0, 30.0]) * s
+            p[5] = 43.0 - 33.0 * max(0.0, s) + 47.0 * max(0.0, -s)
+        return p
+
+    with tempfile.TemporaryDirectory() as folder:
+        from pathlib import Path
+        users_file = Path(folder) / "users.json"
+        ticks, console, final = run_loop(person, 22.0, [(1.0, "user Sam"), (1.9, "calibrate")], users_file=users_file)
+        frozen = [tick for tick in ticks if 1.95 <= tick[0] < 16.9]
+        assert all(np.array_equal(tick[1], frozen[0][1]) for tick in frozen), "the arm moved during calibration"
+        assert all(tick[2] == "calibrating" for tick in frozen if tick[0] > 2.1)
+        assert at(ticks, 17.5)[2] == "easing"
+        no_jumps(ticks)
+        saved = json.loads(users_file.read_text())
+        assert list(saved) == ["Sam"] and saved["Sam"]["calibrated"] is True and saved["Sam"]["calibrations"] == 1
+        assert np.allclose(saved["Sam"]["gains"], [2.25, 3.0, 1.0, 1.0, 2.0], atol=0.05), saved["Sam"]["gains"]
+        assert final["user"]["calibrated"] and final["calibration"]["phase"] == "done"
+        assert final["calibration"]["insufficient"] == ["elbow"]
+        assert final["activities"][1]["last"] is not None and final["activities"][1]["runs"] == 1
+        assert not list(Path(folder).glob("*.tmp")), "the temp file was left behind"
+        # held before calibrating: still held after it ends; and the users file cannot be written
+        ticks, console, final = run_loop(person, 18.0, [(0.5, "hold on"), (1.0, "user Ana"), (1.9, "calibrate")],
+                                         users_file=Path(folder) / "no_such_folder" / "users.json")
+        assert final["hold"] is True and final["why_still"] == "holding" and final["calibration"]["phase"] == "done"
+        late = [tick for tick in ticks if tick[0] >= 0.6]
+        assert all(np.array_equal(tick[1], late[0][1]) for tick in late), "the held arm moved"
+        assert "could not write" in console and final["user"]["calibrated"]
+
+
+def test_profiles():
+    from pathlib import Path
+    from unittest.mock import patch
+
+    good = {"calibrated": True, "gains": [2.0, 1.0, 1.5, 1.0, 3.0], "range_deg": [40, 70, 50, 80, 40],
+            "trigger": {"rest": 40, "squeezed": 5, "open": 95}, "neutral": [0, -10, 20, 0, 0], "calibrations": 2, "best_range": 56.0}
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "users.json"
+        assert set(steady.load_users(path)) == {"default"}                          # missing: default only
+        # a good profile loads; a bad one (out of range, not finite, missing, wrong type, bad name) is left out
+        path.write_text(json.dumps({"Sam": good, "Big": {**good, "gains": [5.0, 1, 1, 1, 1]},
+                                    "Nan": {**good, "neutral": [float("nan"), 0, 0, 0, 0]}, "Few": {**good, "gains": [1.0]},
+                                    "Odd": {**good, "trigger": {"rest": 140, "squeezed": 0, "open": 100}},
+                                    "Typ": {**good, "calibrated": "yes"}, "Hole": {"gains": [1] * 5}, "bad/name": good,
+                                    "default": {**good, "gains": [3.0] * 5}}))
+        loaded = steady.load_users(path)
+        assert set(loaded) == {"default", "Sam"}, set(loaded)
+        assert loaded["Sam"]["gains"] == good["gains"] and loaded["default"] == steady.default_profile()
+        # a corrupt file: default only, and the file is kept aside so a later save cannot overwrite it
+        path.write_text("{not json")
+        assert set(steady.load_users(path)) == {"default"} and (Path(folder) / "users.bad").exists()
+        unreadable = Path(folder) / "a_folder.json"
+        unreadable.mkdir()
+        assert set(steady.load_users(unreadable)) == {"default"} and unreadable.is_dir()   # a read error: default, left alone
+        # atomic save: through a temp file; a failed replace leaves the old file whole and raises
+        steady.save_users({"default": steady.default_profile(), "Sam": loaded["Sam"]}, path)
+        assert steady.load_users(path)["Sam"] == loaded["Sam"] and not (Path(folder) / "users.tmp").exists()
+        before = path.read_text()
+        with patch.object(steady.os, "replace", side_effect=OSError("disk full")):
+            try:
+                steady.save_users({"default": steady.default_profile()}, path)
+                raise AssertionError("a failed save must raise")
+            except OSError:
+                pass
+        assert path.read_text() == before
+    # the commands
+    steady.state.update(hold=False, gain=1.0, user="default", re_ease=False)
+    assert steady.command("gain 2")["gain"] == 2.0 and steady.state["re_ease"] is True
+    assert steady.command("gain 9")["gain"] == 3.0 and steady.command("gain 0")["gain"] == 1.0
+    assert steady.command("gain nan")["ok"] is False and steady.command("gain x")["ok"] is False and steady.state["gain"] == 1.0
+    assert steady.command("user ../../etc")["ok"] is False and steady.command("user " + "a" * 25)["ok"] is False
+    assert steady.command("neutral")["ok"] and steady.state["neutral"] is True
+    steady.state.update(neutral=False, re_ease=False)
+    # activities report measured numbers only
+    acts = {a["id"]: a for a in tremor_activities()}
+    assert acts["hold_still"]["last"] == 70 and acts["hold_still"]["best"] == 81 and acts["hold_still"]["runs"] == 3
+    assert acts["steady_time"]["last"] == 2.0 and acts["steady_time"]["best"] == 5.0 and acts["range"]["last"] is None
+    assert acts["grip_hold"]["last"] is None and acts["grip_hold"]["runs"] == 0
+    for a in acts.values():
+        low = a["detail"].lower()
+        assert not any(word in low for word in ("torque", "therapy", "treatment", "diagnos", "improv", "force")), a
+
+
+def tremor_activities():
+    from core import tremor
+    past = [{"duration_s": 600.0, "steady_share_pct": 50.0, "tests": [{"score": 81, "tremor_mm": 3.8}, {"score": 60}]}, "junk"]
+    return tremor.activities([{"score": 70, "tremor_mm": 6.0}], past, steady.default_profile(), 120.0, 0.0, 0)
+
+
 if __name__ == "__main__":
     test_steady()
     test_core_tremor()
     test_insights()
     test_grip_hold()
     test_model_and_meshes()
+    test_calibration_offset()
+    test_scaling_and_why_still()
+    test_calibration()
+    test_profiles()
     print("steady ok")

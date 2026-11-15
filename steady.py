@@ -1,7 +1,8 @@
 """Steady Hand: the follower copies the leader with the tremor taken out.
 
-    python steady.py                 # teleoperate; first run asks you to line the two arms up
-    python steady.py --measure       # redo the line-up
+    python steady.py                 # teleoperate; the two arms are lined up from their calibration files
+    python steady.py --teleop-offset # use the old eye-measured line-up in poses/teleop_offset.json instead
+    python steady.py --measure       # redo that eye-measured line-up (and use it)
     python steady.py --yes           # no Enter prompts (the arm must already be resting)
 
 A person holds the leader arm. Deliberate movement is slow (below about 2 Hz); tremor is fast
@@ -41,8 +42,8 @@ from pathlib import Path
 import numpy as np
 
 from core import tremor
-from core.tremor import (CUTOFF_HZ, GRIP_CUTOFF_HZ, TRIGGER, Fingertip, GripHold, HoldStillTest, LowPass, Session,
-                         band_rms_and_peak, insights)
+from core.tremor import (ARM, CUTOFF_HZ, GRIP_CUTOFF_HZ, TRIGGER, Calibration, Fingertip, GripHold, HoldStillTest, LowPass,
+                         Session, activities, band_rms_and_peak, insights)
 
 HERE = Path(__file__).parent
 OFFSETS = HERE / "poses" / "teleop_offset.json"
@@ -58,19 +59,117 @@ WINDOW_S = 4.0           # how much history the tremor measurement looks at
 GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than this (0 to 100). Its jaws meet at
                          # about 5.3 (measured closing on nothing), so anything lower pushes them together at full
                          # effort for as long as the leader's claw is shut: 98 % load in the first three real runs.
-ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
+# the follower's elbow, degrees. Its range was widened (EEPROM and calibration, 14 Nov: 752..2500 ticks, same middle,
+# so stored poses keep their meaning) to about -76.8..+76.8. Kept inside that: +75 at the top, and -64 at the bottom
+# because the lower stop was only ever swept to -64.9; nothing below that has been seen working.
+ELBOW_HIGH = 75.0
+ELBOW_LOW = -64.0
 TABLE_Z = -12.0          # mm, the table top in the model's frame: measured by touch, between -9 and -27 across the reach
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
-state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "grip_hold": True, "release": False}
+# the follower's own reach per arm joint (shoulder turn, shoulder lift, elbow, wrist bend, wrist roll), degrees
+LIMIT_LOW = np.array([-110.0, -100.0, ELBOW_LOW, -95.0, -150.0])
+LIMIT_HIGH = np.array([110.0, 100.0, ELBOW_HIGH, 95.0, 150.0])
+TICK_DEG = 360.0 / 4095   # one step of the motors' position reading, in degrees
+USERS = HERE / "poses" / "steady_users.json"
+STILL_WORDS = {"holding": "  ARM STILL: hold is on (say 'steady on' or press the jump key)",
+               "calibrating": "  ARM STILL: calibrating", "easing": "  arm gliding to the hand",
+               "limit": "  ARM STILL: at the follower's joint limit"}
+
+# re_ease: glide to the new target (gain, neutral or user changed); neutral: take the hand's pose now as neutral
+state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "grip_hold": True, "release": False,
+         "gain": 1.0, "user": "default", "re_ease": False, "neutral": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
           "arm_load": 0.0, "speed_mm_s": 0.0, "leader": [0.0] * 6, "follower": [0.0] * 6, "raw_tip": [0.0] * 3,
           "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [], "robot": [], "hand": [], "table_z": TABLE_Z,
-          "test": {"running": False, "seconds_left": 0, "score": None, "tremor_mm": None}}
+          "test": {"running": False, "seconds_left": 0, "score": None, "tremor_mm": None},
+          "why_still": "", "limits": [], "grip": {"hold": True, "squeeze_pct": 0, "held_pct": 0, "claw_pct": 0}, "activities": []}
 lock = threading.Lock()
 hold_test = HoldStillTest()
+calibration = Calibration()
+
+
+def default_profile():
+    return {"calibrated": False, "gains": [1.0] * 5, "range_deg": [0.0] * 5, "trigger": dict(TRIGGER), "neutral": None,
+            "calibrations": 0, "best_range": None}
+
+
+users = {"default": default_profile()}
+
+
+def valid_name(name):
+    return 0 < len(name) <= 24 and all(c.isalnum() or c in " -" for c in name)
+
+
+def clean_profile(saved):
+    """A profile read from the file, checked before it can move the arm. Raises ValueError (or TypeError)
+    if anything is missing, not a finite number or out of range: such a profile is not used at all."""
+    def numbers(values, count, low, high):
+        values = [float(v) for v in values]
+        if len(values) != count or not all(math.isfinite(v) and low <= v <= high for v in values):
+            raise ValueError(f"not {count} numbers in {low}..{high}: {values}")
+        return values
+    profile = default_profile()
+    if not isinstance(saved.get("calibrated"), bool):
+        raise ValueError("calibrated must be true or false")
+    profile["calibrated"] = saved["calibrated"]
+    profile["gains"] = numbers(saved["gains"], 5, 1.0, 3.0)
+    profile["range_deg"] = numbers(saved["range_deg"], 5, 0.0, 360.0)
+    rest, squeezed, opened = numbers([saved["trigger"][k] for k in ("rest", "squeezed", "open")], 3, 0.0, 100.0)
+    profile["trigger"] = {"rest": rest, "squeezed": squeezed, "open": opened}
+    if saved.get("neutral") is not None:
+        profile["neutral"] = numbers(saved["neutral"], 5, -360.0, 360.0)
+    profile["calibrations"] = int(numbers([saved.get("calibrations", 0)], 1, 0, 1e6)[0])
+    if saved.get("best_range") is not None:
+        profile["best_range"] = numbers([saved["best_range"]], 1, 0.0, 360.0)[0]
+    return profile
+
+
+def load_users(path=None):
+    """The saved user profiles, with `default` always there. A profile that fails its checks is left out;
+    a file that is not readable JSON is set aside as .bad (so a later save cannot overwrite it) and only
+    `default` is used. Never raises: this runs before the arm moves, and a bad file must not stop it."""
+    path = path or USERS
+    loaded = {"default": default_profile()}
+    try:
+        saved = json.loads(path.read_text())
+        if not isinstance(saved, dict):
+            raise ValueError("not a JSON object")
+    except FileNotFoundError:
+        return loaded
+    except OSError as error:   # could not read it: leave it exactly where it is
+        print(f"  {path} could not be read ({error}); using the default user", flush=True)
+        return loaded
+    except ValueError as error:   # read, but not usable: keep it aside rather than lose it to the next save
+        print(f"  {path} is not valid ({error}); kept as {path.with_suffix('.bad').name}, using the default user", flush=True)
+        try:
+            os.replace(path, path.with_suffix(".bad"))
+        except OSError:
+            pass
+        return loaded
+    for name, profile in saved.items():
+        try:
+            if name != "default" and valid_name(name):
+                loaded[name] = clean_profile(profile)
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            print(f"  user profile {name!r} left out: {error}", flush=True)
+    return loaded
+
+
+def save_users(profiles, path=None):
+    """Write through a temp file, so a crash mid-write never leaves half a file. Raises OSError."""
+    path = path or USERS
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps({k: v for k, v in profiles.items() if k != "default"}, indent=1))
+    os.replace(temp, path)
+
+
+def user_view():
+    profile = users[state["user"]]
+    return {"name": state["user"], "names": sorted(users), "calibrated": profile["calibrated"], "gains": profile["gains"],
+            "range_deg": profile["range_deg"], "trigger": profile["trigger"]}
 
 
 def read_sessions(path=SESSIONS):
@@ -86,6 +185,24 @@ def save_sessions(sessions, path=SESSIONS):
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(sessions, indent=1))
     os.replace(temp, path)
+
+
+def calibration_offset(leader_cal, follower_cal):
+    """Degrees to add to a leader reading to get the follower's reading for the same physical pose.
+
+    LeRobot measures each joint's degrees from the middle of that arm's calibrated range, (range_min +
+    range_max) / 2, and the two arms' middles differ. So follower = leader + (mid_leader - mid_follower)
+    * 360 / 4095 on the five arm joints. The claw is 0..100 on both arms and gets 0 (the grip maps the
+    trigger with its own calibration). leader_cal, follower_cal: {joint name: object with range_min,
+    range_max}, as in bus.calibration. Raises ValueError if a joint is missing or not a number."""
+    try:
+        mid = lambda cal, joint: (float(cal[joint].range_min) + float(cal[joint].range_max)) / 2
+        offset = np.array([(mid(leader_cal, j) - mid(follower_cal, j)) * TICK_DEG for j in JOINTS[:5]] + [0.0])
+    except (KeyError, AttributeError, TypeError) as error:
+        raise ValueError(f"an arm's calibration is missing a joint's range: {error!r}") from error
+    if not np.all(np.isfinite(offset)):
+        raise ValueError(f"an arm's calibration holds a range that is not a number: {offset}")
+    return offset
 
 
 class Commands(socketserver.StreamRequestHandler):
@@ -133,9 +250,40 @@ def command(line: str) -> dict:
             on = rest.split()[-1] if rest else "toggle"
             state["grip_hold"] = (not state["grip_hold"]) if on == "toggle" else on == "on"
         elif line == "grip release":
-            if state["hold"]:   # a held arm does not move, the claw included
+            if state["hold"] or calibration.running():   # a held arm does not move, the claw included
                 return {"ok": False, "reason": "the arm is held; say 'steady on' first, then 'let go'"}
             state["release"] = True
+        # gain, neutral, user and calibration never touch hold: a held arm stays held, and a change while
+        # following glides to the new target (re_ease) instead of jumping
+        elif word == "gain":
+            try:
+                gain = float(rest)
+            except ValueError:
+                gain = math.nan
+            if not math.isfinite(gain):
+                return {"ok": False, "reason": "gain needs a number, 1.0 to 3.0"}
+            state["gain"], state["re_ease"] = min(3.0, max(1.0, gain)), True
+        elif line == "neutral":
+            state["neutral"] = state["re_ease"] = True
+        elif word == "user":
+            if not valid_name(rest):
+                return {"ok": False, "reason": "a user name is letters, digits, spaces and dashes, up to 24 characters"}
+            if rest not in users:
+                users[rest] = default_profile()
+                try:
+                    save_users(users)
+                except OSError as error:   # the profile still works for this run; it is just not on disk yet
+                    print(f"  could not write {USERS}: {error}", flush=True)
+            calibration.cancel()   # a calibration belongs to the user who started it
+            state["user"], state["re_ease"] = rest, True
+        elif line == "calibrate":
+            if state["user"] == "default":   # default is the fixed fallback (gain 1.0, trigger 43 / 0 / 100)
+                return {"ok": False, "reason": "choose a user first: user <name>"}
+            calibration.start(time.perf_counter())
+        elif line == "calibrate cancel":
+            if calibration.running():
+                calibration.cancel()
+                state["re_ease"] = True
         elif word == "voice":   # RobTop's voice script reports what it heard and said, for the dashboard
             try:
                 said = json.loads(rest)
@@ -146,9 +294,9 @@ def command(line: str) -> dict:
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
-            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, cutoff <Hz>, grip hold on|off, "
-                                           "grip release, test, status, quit"}
-        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff", "grip_hold")}, "latch": state["grip_hold"]}
+            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, cutoff <Hz>, gain <x>, neutral, "
+                                           "grip hold on|off, grip release, user <name>, calibrate, calibrate cancel, test, status, quit"}
+        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff", "grip_hold", "gain", "user")}, "latch": state["grip_hold"]}
 
 
 STATIC = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
@@ -162,7 +310,8 @@ class Dashboard(BaseHTTPRequestHandler):
             body, kind = json.dumps(command(unquote(self.path[5:]))).encode(), "application/json"
         elif self.path.startswith("/state"):
             with lock:
-                body = json.dumps({**{k: state[k] for k in ("steady", "hold", "cutoff")}, **shared}).encode()
+                body = json.dumps({**{k: state[k] for k in ("steady", "hold", "cutoff", "gain")}, **shared, "user": user_view(),
+                                   "calibration": calibration.view(time.perf_counter())}).encode()
             kind = "application/json"
         elif self.path.startswith("/sessions"):
             body, kind = json.dumps(read_sessions()).encode(), "application/json"
@@ -209,7 +358,12 @@ def main() -> None:
     shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
     seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
     state["grip_hold"] = "--no-latch" not in sys.argv   # grip hold is on unless asked otherwise
-    measure = "--measure" in sys.argv or not OFFSETS.exists()
+    with lock:   # the saved users, checked, before anything can move
+        users.clear()
+        users.update(load_users())
+        state["user"] = state["user"] if state["user"] in users else "default"
+    by_eye = "--teleop-offset" in sys.argv or "--measure" in sys.argv
+    measure = "--measure" in sys.argv or (by_eye and not OFFSETS.exists())
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
     keys = socketserver.ThreadingTCPServer(("127.0.0.1", int(os.environ.get("BUDDY_PORT", "8765"))), Commands)
@@ -252,9 +406,12 @@ def main() -> None:
             OFFSETS.write_text(json.dumps({k: round(float(follow[k]) - float(lead[k]), 2) for k in KEYS}, indent=1))
             follower.bus.enable_torque()
             ask("The follower is holding again. Let go of it, take the leader, then Enter to start. ")
-        offset = np.array([float(json.loads(OFFSETS.read_text())[k]) for k in KEYS])
+        if by_eye:
+            offset = np.array([float(json.loads(OFFSETS.read_text())[k]) for k in KEYS])
+        else:
+            offset = calibration_offset(leader.bus.calibration, follower.bus.calibration)
         if not np.all(np.isfinite(offset)):   # checked before anything is sent to the arm
-            raise ValueError(f"{OFFSETS} holds a value that is not a number; run steady.py --measure again")
+            raise ValueError(f"the line-up offset holds a value that is not a number: {offset}")
 
         def read_leader():
             """The leader's six joints in the follower's terms. Raises if any is not a finite number:
@@ -270,12 +427,14 @@ def main() -> None:
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
         smooth = LowPass(read_leader())
-        grip, grip_was, trigger_args = None, False, {"rest": TRIGGER["rest"], "squeezed": TRIGGER["squeezed"], "opened": TRIGGER["open"]}
+        grip, grip_was, trigger_args = None, False, {}
+        neutral, active_user = None, None   # neutral: the pose scaling works about; None until the start-up glide ends
+        steady_s, grip_since, grip_longest, grips, why, limits = 0.0, None, 0.0, 0, "", []
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
         began = ease_from = time.perf_counter()
-        ease_start, was_hold, last, tick_n, elbow_told = sent.copy(), False, began, 0, False
+        ease_start, was_frozen, last, tick_n, elbow_told = sent.copy(), False, began, 0, False
         print(f"Steady Hand running. Dashboard: http://127.0.0.1:8780  Keys: middle = steady on/off, jump = hold, stop = hold.")
         while not state["quit"]:
             now = time.perf_counter()
@@ -286,10 +445,33 @@ def main() -> None:
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
                 raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             with lock:
-                steady, hold, cutoff, grip_on = state["steady"], state["hold"], state["cutoff"], state["grip_hold"]
+                steady, hold, cutoff, grip_on, gain = state["steady"], state["hold"], state["cutoff"], state["grip_hold"], state["gain"]
                 release, state["release"] = state["release"] and not hold, False
+                redo, state["re_ease"] = state["re_ease"], False
+                capture, state["neutral"] = state["neutral"], False
+                user_now, profile = state["user"], users[state["user"]]
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
+            with lock:   # the calibration watches the filtered hand; the arm is held while it runs
+                calibrating = calibration.running()
+                result = calibration.feed(now, filtered, filtered[5]) if calibrating else None
+                if result:
+                    profile.update(result, calibrations=profile["calibrations"] + 1,
+                                   best_range=round(max(float(np.mean(result["range_deg"])), profile["best_range"] or 0.0), 1))
+                    active_user = None   # take up the new neutral and trigger below
+                    try:
+                        save_users(users)
+                    except OSError as error:   # the calibration still applies for this run
+                        print(f"  could not write {USERS}: {error}", flush=True)
+            if user_now != active_user:   # started, switched user, or calibrated: that user's neutral and trigger
+                active_user = user_now
+                if profile["calibrated"] and profile["neutral"] is not None:
+                    neutral = np.array(profile["neutral"], float)
+                trigger_args = {"rest": profile["trigger"]["rest"], "squeezed": profile["trigger"]["squeezed"],
+                                "opened": profile["trigger"]["open"]}
+                grip = None
+            if capture:
+                neutral = filtered[:5].copy()
             if grip is None or (grip_on and not grip_was):
                 # starting, or hold mode just switched on: start from the claw's last target (at start-up the
                 # follower's own reading), so nothing held is dropped or squeezed harder by switching
@@ -297,30 +479,53 @@ def main() -> None:
             grip_was = grip_on
             if release:
                 grip.release()
-            if not hold:   # while held, the target does not change at all: no easing, no stepping
+            frozen = hold or calibrating
+            if not frozen:   # while held, the target does not change at all: no easing, no stepping
                 want = (filtered if steady else raw).copy()
+                if neutral is not None:   # motion scaling about the neutral pose, after the filter
+                    want[:5] = neutral + gain * np.array(profile["gains"]) * (want[:5] - neutral)
+                asked = want[:5].copy()
+                want[:5] = np.clip(asked, LIMIT_LOW, LIMIT_HIGH)   # the follower's own reach, whatever the gain
+                limits = [ARM[j] for j in range(5) if asked[j] != want[j]]
+                if "elbow" in limits and not elbow_told:
+                    elbow_told = True
+                    print(f"  note: the follower's elbow is at its limit ({ELBOW_LOW:.0f} .. {ELBOW_HIGH:.0f} degrees); "
+                          "it cannot bend as far as the leader asks")
                 # always the filtered trigger: a tremor must neither tighten nor release the grip
                 want[5] = grip.step(now, filtered[5]) if grip_on else grip.copy(filtered[5])
-                if was_hold:  # coming out of a hold: glide back to the hand, do not jump
+                if was_frozen or redo:  # out of a hold, or gain / neutral / user changed: glide, do not jump
                     ease_from, ease_start = now, sent.copy()
                 share = min(1.0, (now - ease_from) / EASE_S)
                 if share < 1.0:
                     want = ease_start + (want - ease_start) * share
+                elif neutral is None:   # the start-up glide is over: the pose now is the default neutral
+                    neutral = filtered[:5].copy()
                 step = np.clip(want - sent, -MAX_SPEED * dt, MAX_SPEED * dt)   # the speed cap
                 moved = sent + step
-                # never drive the claw hard into its closed stop (see GRIP_FLOOR), and never ask the
-                # elbow for more than it can do (see ELBOW_MAX)
+                # never drive the claw hard into its closed stop (see GRIP_FLOOR), never ask the elbow for
+                # more than it can do (see ELBOW_HIGH), and never take a joint further past its limit
                 moved[5] = min(100.0, max(GRIP_FLOOR, moved[5]))
-                if moved[2] > ELBOW_MAX:
-                    moved[2] = ELBOW_MAX
-                    if not elbow_told:
-                        elbow_told = True
-                        print(f"  note: the follower's elbow is at its limit ({ELBOW_MAX:.0f} degrees); it cannot bend as far as the leader")
-                with lock:   # a stop that arrived while this was being worked out still wins
-                    hold = state["hold"]
-                if not hold and np.all(np.isfinite(moved)):   # a target that is not a number is never sent
+                moved[2] = min(moved[2], ELBOW_HIGH)
+                moved[:5] = np.clip(moved[:5], np.minimum(LIMIT_LOW, sent[:5]), np.maximum(LIMIT_HIGH, sent[:5]))
+                with lock:   # a stop (or a calibration) that arrived while this was being worked out still wins
+                    frozen = state["hold"] or calibration.running()
+                if not frozen and np.all(np.isfinite(moved)):   # a target that is not a number is never sent
                     sent = moved
-            was_hold = hold
+                pulling = [j for j in range(5) if abs(asked[j] - sent[j]) > 1.0]   # joints the hand wants moved further
+                why = "easing" if share < 1.0 else "limit" if pulling and all(ARM[j] in limits for j in pulling) else ""
+            with lock:
+                hold = state["hold"]
+            if frozen:
+                why = "holding" if hold else "calibrating"
+            was_frozen = frozen
+            if steady:
+                steady_s += dt
+            if grip_on and grip.from_hand and grip.held >= 0.1:   # a grip the person made, kept by grip hold
+                if grip_since is None:
+                    grip_since, grips = now, grips + 1
+                grip_longest = max(grip_longest, now - grip_since)
+            else:
+                grip_since = None
             follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})   # while held: the same target, all six joints
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not
@@ -366,6 +571,9 @@ def main() -> None:
                     shared["grip"] = {"hold": grip_on, "squeeze_pct": round(100 * grip.squeeze),
                                       "held_pct": round(100 * max(0.0, grip.held)) if grip_on else 0,
                                       "claw_pct": round(float(seen[5]))}   # measured, not commanded
+                    shared.update(why_still=why, limits=list(limits))
+                    if tick_n % 50 == 0:
+                        shared["activities"] = activities(session.tests, past, profile, steady_s, grip_longest, grips)
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
                 if done:
                     session.tests.append(done)
@@ -375,8 +583,8 @@ def main() -> None:
                           f"{removed:.0f},{effort.get('gripper', 0.0):.1f},{shared['arm_load']:.1f}\n")
                 if tick_n % 50 == 0:
                     print(f"  {'STEADY' if steady else 'raw   '}{' HOLD' if hold else '     '}  hand shake {tremor_mm:5.1f} mm at "
-                          f"{tremor_hz:4.1f} Hz -> arm {out_mm:5.1f} mm ({removed:3.0f}% removed)  grip {effort.get('gripper', 0):4.1f}%",
-                          flush=True)
+                          f"{tremor_hz:4.1f} Hz -> arm {out_mm:5.1f} mm ({removed:3.0f}% removed)  grip {effort.get('gripper', 0):4.1f}%"
+                          f"{STILL_WORDS.get(why, '')}", flush=True)   # the first real test: the arm "died" and nothing said why
             time.sleep(max(0.0, 1.0 / HZ - (time.perf_counter() - now)))
         clean = True
     except KeyboardInterrupt:

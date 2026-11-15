@@ -300,3 +300,87 @@ class GripHold:
         else:
             self._wide_since = None
         return self.claw()
+
+
+ARM = ["shoulder turn", "shoulder lift", "elbow", "wrist bend", "wrist roll"]   # the five arm joints, in order
+TARGET_RANGE_DEG = np.array([90.0, 70.0, 70.0, 80.0, 120.0])   # how far the ROBOT should be able to go on each, degrees
+BARELY_DEG = 5.0      # a joint moved less than this in calibration was not really moved: it keeps gain 1.0
+REST_S, MOVE_S = 3.0, 12.0
+
+
+class Calibration:
+    """The user calibration: 3 s of rest (the neutral pose and the trigger's resting place), then 12 s
+    of moving every joint and the trigger as far as is comfortable. feed() takes the filtered joints
+    every tick and returns the result once, on the tick that ends it."""
+
+    def __init__(self):
+        self.phase, self.end, self.short = "idle", 0.0, []
+        self.seen, self.trigger_seen = np.zeros(5), 0.0
+
+    def running(self):
+        return self.phase in ("rest", "move")
+
+    def start(self, now):
+        self.phase, self.end, self.short = "rest", now + REST_S, []
+        self.seen, self.trigger_seen, self.poses, self.triggers = np.zeros(5), 0.0, [], []
+
+    def cancel(self):
+        self.phase = "idle"
+
+    def feed(self, now, joints, trigger):
+        joints = np.asarray(joints[:5], float)
+        if self.phase == "rest":
+            self.poses.append(joints)
+            self.triggers.append(float(trigger))
+            if now >= self.end:
+                self.neutral, self.rest = np.median(self.poses, axis=0), float(np.median(self.triggers))
+                self.low, self.high, self.t_low, self.t_high = self.neutral.copy(), self.neutral.copy(), self.rest, self.rest
+                self.phase, self.end = "move", now + MOVE_S
+        elif self.phase == "move":
+            self.low, self.high = np.minimum(self.low, joints), np.maximum(self.high, joints)
+            self.t_low, self.t_high = min(self.t_low, trigger), max(self.t_high, trigger)
+            covered = self.high - self.low
+            self.seen, self.trigger_seen = np.minimum(1.0, covered / TARGET_RANGE_DEG), min(1.0, (self.t_high - self.t_low) / 100.0)
+            if now >= self.end:
+                self.phase = "done"
+                barely = covered < BARELY_DEG   # noise, not a range: dividing by it would give gain 3 from nothing
+                gains = np.where(barely, 1.0, np.clip(TARGET_RANGE_DEG / np.maximum(covered, BARELY_DEG), 1.0, 3.0))
+                squeezed = self.t_low if self.rest - self.t_low >= 5.0 else TRIGGER["squeezed"]   # under 5: not seen, default
+                opened = self.t_high if self.t_high - self.rest >= 5.0 else TRIGGER["open"]
+                self.short = [name for name, b in zip(ARM, barely) if b] + \
+                             ["trigger squeeze"] * (self.rest - self.t_low < 5.0) + ["trigger open"] * (self.t_high - self.rest < 5.0)
+                return {"calibrated": True, "neutral": [round(float(v), 2) for v in self.neutral],
+                        "range_deg": [round(float(v), 1) for v in covered], "gains": [round(float(g), 2) for g in gains],
+                        "trigger": {"rest": round(self.rest, 1), "squeezed": round(float(squeezed), 1), "open": round(float(opened), 1)}}
+        return None
+
+    def view(self, now):
+        """For /state. `insufficient`: what the person barely moved in the last calibration (left at the defaults)."""
+        return {"phase": self.phase, "seconds_left": round(max(0.0, self.end - now), 1) if self.running() else 0.0,
+                "seen": [round(float(v), 2) for v in self.seen], "trigger_seen": round(self.trigger_seen, 2),
+                "insufficient": list(self.short)}
+
+
+def activities(tests, past, user, steady_s, grip_s, grips):
+    """The session's activities for the dashboard, from measurements only: a value is None until measured.
+    tests: this session's hold-still results; past: earlier sessions.json summaries; user: the profile;
+    steady_s: seconds with the filter on; grip_s, grips: the longest held grip and how many."""
+    past = [s for s in past if isinstance(s, dict)]
+    scores = [t["score"] for s in past for t in s.get("tests", []) if isinstance(t, dict) and isinstance(t.get("score"), (int, float))]
+    scores += [t["score"] for t in tests]
+    steady_min = [s["duration_s"] * s["steady_share_pct"] / 6000.0 for s in past
+                  if isinstance(s.get("duration_s"), (int, float)) and isinstance(s.get("steady_share_pct"), (int, float))]
+    reach = round(float(np.mean(user["range_deg"])), 1) if user.get("calibrated") else None
+    return [
+        {"id": "hold_still", "title": "Hold still", "unit": "score", "last": scores[-1] if scores else None,
+         "best": max(scores) if scores else None, "runs": len(scores),
+         "detail": "10 seconds; 100 means no shake. A display scale, not a clinical measure."},
+        {"id": "range", "title": "Comfortable range", "unit": "degrees", "last": reach, "best": user.get("best_range"),
+         "runs": user.get("calibrations", 0),
+         "detail": "Mean range over the five arm joints in the last calibration, as the person chose to move."},
+        {"id": "steady_time", "title": "Steady time", "unit": "minutes", "last": round(steady_s / 60.0, 1),
+         "best": round(max(steady_min + [steady_s / 60.0]), 1), "runs": len(steady_min) + 1,
+         "detail": "Minutes with the filter on, this session; best over the saved sessions and this one."},
+        {"id": "grip_hold", "title": "Grip hold", "unit": "seconds", "last": round(grip_s, 1) if grips else None,
+         "best": None, "runs": grips, "detail": "The longest grip kept by grip hold this session."},
+    ]
