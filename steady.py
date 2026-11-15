@@ -459,6 +459,9 @@ def main() -> None:
         began = ease_from = time.perf_counter()
         ease_start, was_frozen, last, tick_n, elbow_told = sent.copy(), False, began, 0, False
         print(f"Steady Hand running. Dashboard: http://127.0.0.1:8780  Keys: middle = steady on/off, jump = hold, stop = hold.")
+        if not ROLL_FOLLOWS:
+            print("  note: the wrist roll is NOT driven (faulty motor): it does not follow and hold does not hold it.", flush=True)
+        shared["roll_follows"] = ROLL_FOLLOWS
         while not state["quit"]:
             now = time.perf_counter()
             if seconds is not None and now - began > seconds:
