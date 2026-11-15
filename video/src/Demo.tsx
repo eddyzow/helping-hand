@@ -18,21 +18,21 @@ const CUES: Array<[number, number, string]> = [
 
   [19.9, 23.2, "Tell it what to draw and an AI sketches the plan."],
   [23.4, 25.2, "Here we asked for a house."],
-  [25.4, 29.2, "A camera checks each drawing against the plan, and the arm corrects itself."],
-  [29.4, 32.2, "On this house the lines sit about a millimetre from the plan."],
+  [25.4, 29.2, "A camera checks each drawing against the plan, and the arm corrects its next attempt."],
+  [29.4, 32.2, "On this house the lines sit about a millimetre from the planned shape."],
   [32.6, 34.6, "Then we asked for a flower."],
 
   [38.0, 39.9, "Draw an X and it plays you."],
   [40.0, 42.6, "It sees your move on the paper,"],
   [42.6, 45.4, "thinks through every possible game,"],
   [45.4, 47.6, "and draws its reply."],
-  [51.2, 54.4, "The best you can do against it is a draw."],
+  [51.2, 54.4, "Play it right and the best you can do is a draw."],
 
   [56.9, 59.3, "Give it a key to press and it plays a video game."],
   [59.4, 61.6, "This one is called Geometry Dash."],
   [61.8, 65.6, "It has one button, and a single press that comes a moment late"],
   [65.6, 67.6, "sends you back to the start."],
-  [82.4, 84.8, "RobTop gets through the whole level,"],
+  [82.4, 84.8, "RobTop has cleared the whole level:"],
   [84.8, 87.8, "about ninety seconds of presses, from memory."],
 
   [91.4, 94.6, "Take the second arm in your hand and RobTop follows you."],
