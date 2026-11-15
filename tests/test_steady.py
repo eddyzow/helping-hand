@@ -117,8 +117,40 @@ def test_insights():
     assert steady.shared["voice"]["heard"] == "hold this" and steady.command("voice nonsense")["ok"] is False
 
 
+def test_grip_latch():
+    from core import tremor
+
+    def play(latch, trigger_at, seconds, start=0.0, hz=50):
+        """Feed the latch a trigger signal; returns the claw target at each tick."""
+        return [latch.step(start + i / hz, trigger_at(i / hz)) for i in range(int(seconds * hz))]
+
+    latch = tremor.GripLatch(closed_to=7.0)
+    assert set(play(latch, lambda t: 80.0, 1.0)) == {60.0} and not latch.closed          # an open hand: the claw stays open
+    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=1.0)             # one squeeze, then let go
+    assert out[-1] == 7.0 and latch.closed, "the claw must stay closed after the hand lets go"
+    assert out.count(7.0) > 100 and out[30] == 60.0                                          # it closed only after the dwell
+    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=4.0)             # the next squeeze opens it
+    assert out[-1] == 60.0 and not latch.closed
+    # a 6 Hz tremor on the trigger around the threshold must not click it (each dip lasts under 0.1 s)
+    latch = tremor.GripLatch(closed_to=7.0)
+    out = play(latch, lambda t: 28.0 + 12.0 * math.sin(2 * math.pi * 6 * t), 5.0)
+    assert set(out) == {60.0} and not latch.closed, "a tremor toggled the latch"
+    # a squeeze that is held does not toggle twice, and a hand hovering half-open does not re-arm it
+    latch = tremor.GripLatch(closed_to=7.0)
+    out = play(latch, lambda t: 10.0, 3.0)
+    assert latch.closed and out[-1] == 7.0
+    play(latch, lambda t: 35.0, 2.0, start=3.0)   # between the two thresholds: not released yet
+    play(latch, lambda t: 10.0, 1.0, start=5.0)
+    assert latch.closed, "a half release must not allow a second toggle"
+    # the command
+    steady.state.update(latch=False)
+    assert steady.command("latch on")["latch"] is True and steady.command("latch")["latch"] is False
+    assert steady.command("latch maybe")["ok"] is False
+
+
 if __name__ == "__main__":
     test_steady()
     test_core_tremor()
     test_insights()
+    test_grip_latch()
     print("steady ok")
