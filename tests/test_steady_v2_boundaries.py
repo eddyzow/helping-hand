@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import numpy as np
 import steady
-from core.tremor import LowPass, Notch
-from tests.test_steady import get
+from core.tremor import LowPass
+from tests.test_steady import get, run_loop
 
 
 def test_mesh_routes():
@@ -40,15 +40,15 @@ def test_slow_loop_suppression():
     shake = 3 * np.sin(2 * np.pi * 6 * times)
     signal = 20 * np.sin(2 * np.pi * .5 * times) + shake
 
-    def remaining(cutoff, use_notch):
-        low, notch = LowPass([0.0]), Notch()
-        if use_notch:
-            notch.track(3.0, 6.0)
-        out = np.array([low.step(notch.step([v], dt), cutoff, dt)[0] for v in signal])
-        half = len(times) // 2
-        return 2 * abs(np.mean(out[half:] * np.exp(-2j * np.pi * 6 * times[half:]))) / 3
-
-    old, current = remaining(2.0, False), remaining(steady.CUTOFF_HZ, True)
+    low = LowPass([0.0])
+    old_out = np.array([low.step([v], 2.0, dt)[0] for v in signal])
+    half = len(times) // 2
+    old = 2 * abs(np.mean(old_out[half:] * np.exp(-2j * np.pi * 6 * times[half:]))) / 3
+    hand = lambda t: np.array([20 * np.sin(2 * np.pi * .5 * t) + 3 * np.sin(2 * np.pi * 6 * t), 0, 0, 0, 0, 43.0])
+    with patch.object(steady, "HZ", 25):
+        ticks, _, _ = run_loop(hand, 20.0)
+    late = [tick for tick in ticks if 10 <= tick[0] < 20]
+    current = 2 * abs(np.mean([tick[1][0] * np.exp(-2j * np.pi * 6 * tick[0]) for tick in late])) / 3
     print(f"25 Hz sampling, 6 Hz shake: old leaves {old:.1%}; v2 leaves {current:.1%}")
     assert old <= .15
     assert current <= .15, ("default v2 loses the 85% suppression bound at 25 Hz", current)

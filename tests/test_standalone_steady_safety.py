@@ -55,7 +55,7 @@ def scenario(mode):
     load_reads = []
 
     def load_read(*args, **kwargs):
-        assert kwargs["num_retry"] == 5
+        assert kwargs["num_retry"] == 12
         load_reads.append(args)
         if len(load_reads) > 1:
             raise ConnectionError("fake unavailable load reading")
