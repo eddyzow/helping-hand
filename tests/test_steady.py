@@ -106,6 +106,12 @@ def test_insights():
     assert by["size"]["value"] == "7.5 mm" and "92% less" in by["size"]["text"], by["size"]
     assert by["rate"]["value"] == "5.5 Hz" and by["change"]["value"] == "31% larger", (by["rate"], by["change"])
     assert by["grip"]["value"] == "41%" and by["test"]["value"] == "62 out of 100"
+    # durations come from the timestamps, not from counting rows: five rows two seconds apart are 10 s
+    slow = tremor.insights([[2.0 * i, 0.1, 0.0, 40.0, 0.0] for i in range(5)])
+    assert "last 10 seconds" in slow[0]["text"], slow
+    slow = {o["id"]: o for o in tremor.insights([[2.0 * i, 5.0, 0.5, 40.0, 6.0] for i in range(20)])}
+    assert "for 40 seconds" in slow["grip"]["text"] and "of the 40 seconds measured" in slow["size"]["text"], slow
+    assert "change" in slow, "40 s of shaking in 20 rows is enough to compare the start with the end"
     flat = tremor.insights([[i, 5.0, 0.5, 0.0, 6.0] for i in range(60)])
     assert [o["id"] for o in flat] == ["size", "rate", "change"] and flat[2]["value"] == "about the same"
     for o in out + flat:  # the wording rules: observations only, and grip effort is never called a force
@@ -152,6 +158,14 @@ def test_grip_latch():
     latch = tremor.GripLatch(closed_to=7.0)
     out = play(latch, lambda t: 5.0 if t < 1.0 else (45.0 if t < 2.0 else (5.0 if t < 2.6 else 45.0)), 4.0)
     assert out[40] == 60.0 and out[-1] == 7.0
+    # switching the latch on must not let go of what the claw holds: it keeps the grip it finds
+    # (here a claw closed at 7 on an object, the hand's trigger open at 80) until a deliberate squeeze
+    latch = tremor.GripLatch(closed_to=7.0, start=7.0)
+    assert set(play(latch, lambda t: 80.0, 3.0)) == {7.0} and latch.closed, "the latch opened a claw nobody asked to open"
+    out = play(latch, lambda t: 10.0 if 0.5 < t < 1.2 else 80.0, 3.0, start=3.0)
+    assert out[-1] == 60.0 and not latch.closed          # the first squeeze opens it, as the person asked
+    latch = tremor.GripLatch(closed_to=7.0, start=33.0)   # a claw found half open stays exactly there
+    assert set(play(latch, lambda t: 80.0, 2.0)) == {33.0}
     # the command
     steady.state.update(latch=False)
     assert steady.command("latch on")["latch"] is True and steady.command("latch")["latch"] is False

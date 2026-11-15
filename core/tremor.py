@@ -129,23 +129,31 @@ def insights(trend, test=None):
     """Plain observations from a session so far, for a person (in the story, a physiotherapist) to
     look at. Descriptions of what was measured, never advice and never a diagnosis.
 
-    trend: rows of [seconds, hand shake mm, arm shake mm, grip effort %, tremor Hz], one a second.
+    trend: rows of [seconds, hand shake mm, arm shake mm, grip effort %, tremor Hz], about one a second.
+    Every duration below comes from the rows' own timestamps, never from counting rows: the loop that
+    writes them can run slow, and "5 rows" is then not "5 seconds".
     Returns a list of {"id", "title", "value", "text"}; empty until there is something to say."""
     rows = [r for r in trend if len(r) >= 4]
-    shaking = [r for r in rows if r[1] >= SHAKING_MM]
     out = []
     if len(rows) < 5:
         return out
+    gaps = [b[0] - a[0] for a, b in zip(rows, rows[1:])]
+    spans = [gaps[0]] + gaps          # how much time each row stands for (the first borrows the next gap)
+    total = sum(spans)
+    shaking = [r for r in rows if r[1] >= SHAKING_MM]
+    shaking_s = sum(span for r, span in zip(rows, spans) if r[1] >= SHAKING_MM)
+    if total <= 0:
+        return out
     if not shaking:
         return [{"id": "calm", "title": "Shake", "value": "none found",
-                 "text": f"No hand shake above {SHAKING_MM} mm in the last {len(rows)} seconds."}]
+                 "text": f"No hand shake above {SHAKING_MM} mm in the last {total:.0f} seconds."}]
 
     hand = statistics.fmean(r[1] for r in shaking)
     arm = statistics.fmean(r[2] for r in shaking)
     removed = max(0.0, 100.0 * (1.0 - arm / hand))
     out.append({"id": "size", "title": "Shake size", "value": f"{hand:.1f} mm",
                 "text": f"While shaking, the hand moved {hand:.1f} mm (RMS) at the fingertip and the arm {arm:.1f} mm: "
-                        f"{removed:.0f}% less. Shaking was present in {100 * len(shaking) / len(rows):.0f}% of the time measured."})
+                        f"{removed:.0f}% less. Shaking was present in {100 * shaking_s / total:.0f}% of the {total:.0f} seconds measured."})
 
     rates = [r[4] for r in shaking if len(r) > 4 and r[4] > 0]
     if rates:
@@ -156,7 +164,7 @@ def insights(trend, test=None):
                     "text": f"The shake repeated about {rate:.1f} times a second. {steady_rate}. "
                             f"This tool counts {TREMOR_BAND[0]:.0f} to {TREMOR_BAND[1]:.0f} Hz as tremor and slower movement as intended."})
 
-    if len(shaking) >= 30:   # needs half a minute of shaking to say anything about change
+    if shaking_s >= 30 and len(shaking) >= 6:   # needs half a minute of shaking to say anything about change
         third = len(shaking) // 3
         early = statistics.fmean(r[1] for r in shaking[:third])
         late = statistics.fmean(r[1] for r in shaking[-third:])
@@ -171,11 +179,12 @@ def insights(trend, test=None):
         out.append({"id": "change", "title": "Change during the session", "value": value, "text": text})
 
     holding = [r[3] for r in rows if r[3] >= HOLDING_PCT]
-    if len(holding) >= 5:
+    holding_s = sum(span for r, span in zip(rows, spans) if r[3] >= HOLDING_PCT)
+    if holding_s >= 5 and len(holding) >= 2:
         mean, spread = statistics.fmean(holding), statistics.pstdev(holding)
         evenness = "evenly" if spread < 8 else "unevenly"
         out.append({"id": "grip", "title": "Grip effort", "value": f"{mean:.0f}%",
-                    "text": f"The claw held with about {mean:.0f}% of its motor's maximum for {len(holding)} seconds, {evenness} "
+                    "text": f"The claw held with about {mean:.0f}% of its motor's maximum for {holding_s:.0f} seconds, {evenness} "
                             f"(it varied by {spread:.0f} points). This is the motor's own load reading, an estimate, not a measured force."})
 
     if test and test.get("score") is not None:
@@ -198,10 +207,13 @@ class GripLatch:
     crosses a line for well under 0.1 s), and the next one only after it has come back to within
     half of `depth` (so a hand hovering at the threshold cannot make it chatter)."""
 
-    def __init__(self, closed_to, open_to=60.0, depth=15.0, dwell_s=0.2, settle=3.0):
+    def __init__(self, closed_to, open_to=60.0, depth=15.0, dwell_s=0.2, settle=3.0, start=None):
+        """start: where the claw is now. Until the first deliberate squeeze the latch asks for exactly
+        that, so switching it on (or starting up) never opens a claw that is holding something."""
         self.closed_to, self.open_to = closed_to, open_to
         self.depth, self.dwell_s, self.settle = depth, dwell_s, settle   # settle: units a second the rest level may fall
-        self.closed = False      # is the claw latched shut
+        self.keep = start        # the grip to leave alone until the first squeeze; None once one has happened
+        self.closed = start is not None and start < (closed_to + open_to) / 2   # is the claw (nearer to) shut
         self.rest = None         # where the trigger sits when nobody squeezes it
         self._armed = True       # has the trigger been released since the last squeeze
         self._since = None       # when this squeeze began
@@ -216,10 +228,12 @@ class GripLatch:
             if self._since is None:
                 self._since = t
             if self._armed and t - self._since >= self.dwell_s:
-                self.closed, self._armed = not self.closed, False
+                self.closed, self._armed, self.keep = not self.closed, False, None
         else:
             self._since = None
             self.rest = max(trigger, self.rest - self.settle * dt)
             if trigger > self.rest - self.depth / 2:
                 self._armed = True
+        if self.keep is not None:
+            return self.keep
         return self.closed_to if self.closed else self.open_to
