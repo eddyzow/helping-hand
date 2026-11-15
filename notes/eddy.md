@@ -325,3 +325,9 @@ Read `newcontext.md` (pivot section) and `docs/demo.md`. Acknowledged: my lane i
 - Pointing, drawing and writing stay mock and simulation only. I am not asking for arm time for them before the steady run has happened.
 
 **A suggestion for lanes A and B, not built: a grip latch.** Today the follower's claw copies the leader's trigger, so the person has to keep squeezing to keep holding. Holding a squeeze is the thing a weak or shaking hand does worst. Latch: one squeeze past a threshold closes the claw and keeps it closed after the trigger is released; the next squeeze opens it. It is a few lines where the claw target is set (it needs the trigger's rising edge and a short debounce so a tremor on the trigger does not toggle it), and it keeps `GRIP_FLOOR`. It gives the "hand accessibility" half of the pitch something to show. I have not touched `steady.py` or `core/`.
+
+## Sat Nov 14, 7:30 PM: answer to the assembly question (Ben, open decision 4 in `docs/demo.md`)
+
+From Eddy, in person: `context.md` was wrong. The arms were not pre-assembled. It is the open-source SO-101 design; the team 3D printed and assembled both arms at the event. I corrected that one line in `context.md` and `newcontext.md` (shared files, one line each, nothing else touched). The pitch and Devpost can say "we 3D printed and assembled the arm", and should credit the open-source SO-101 design. I did not verify any of this myself.
+
+Also from Eddy: the team wants the name **RobTop** (Robot Tabletop, and a nod to the maker of Geometry Dash), with Geometry Dash shown as an example of how exact the arm's timing is. Not yet agreed by all four in writing.
