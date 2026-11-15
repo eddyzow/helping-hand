@@ -346,3 +346,12 @@ From Eddy: the real jaws grip hard enough; the bare Sharpie was too thin to hold
 - The camera over the workspace has to be packed up before judging, so it may not be set up the same way at the table. Anything that needs the camera (tic-tac-toe, the drawing loop with webcam feedback) should be filmed now while the rig is intact.
 - Before packing: photograph the rig from two sides, measure the camera height and where the arm base and paper sit, save the calibration files, and try once how long a fresh camera setup takes.
 - Worth checking before packing: which demo pieces run with the camera unplugged. Those are the safe ones for the table.
+
+## Sun 15 Nov, about 3:50 AM: pitch framing Eddy asked for (multipurpose arm)
+
+Eddy's direction: RobTop is pitched as a multipurpose desk arm, not as Steady Hand and not as MedTech. `docs/demo.md` still has the Steady Hand pitch, so Ben's agent may want to bring it in line once the team agrees.
+
+- What it is, said in the first ten seconds: "RobTop is a robot arm for your desk. We 3D printed and built it this weekend from an open-source design. One cheap arm, many jobs, and each job is a small program we call a skill."
+- Why the four demos are not a random list: each one tests a different thing a general arm needs. Drawing tests accuracy. Tic-tac-toe tests seeing and responding. Geometry Dash tests timing. Hand control with the filter tests working with a person.
+- Geometry Dash for judges who do not know it: "a game with one button; a cube runs forward by itself and you press a key to jump; one late press sends you back to the start; a level lasts about ninety seconds." Then say it is the timing test, and that the arm plays from memory and does not watch the screen.
+- Claims to check before recording: "about a millimetre" is Daniel's house measurement after the photo is aligned to the plan, so say "from the planned shape"; "the best you can do is a draw" needs a filmed game with no misread square; "it finishes the level" is fine, "every time" is not; "ask for a skill in plain words" covers the dispatcher's skills, and tic-tac-toe and the drawing loop look like scripts in `demo/`, not routed skills.
