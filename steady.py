@@ -469,7 +469,7 @@ def main() -> None:
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
-        roll_seen = float(sent[4])
+        roll_seen, delivered = float(sent[4]), sent.copy()
         smooth, notch = LowPass(read_leader()), Notch()
         grip, grip_was, trigger_args = None, False, {}
         neutral, active_user = None, None   # neutral: the pose scaling works about; None until the start-up glide ends
@@ -500,6 +500,7 @@ def main() -> None:
                         raise ValueError(f"the follower sent a reading that is not a number: {here}")
                     sent = here
                     follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
+                    delivered = sent.copy()
                     follower.bus.enable_torque()
                     follower.bus.sync_write("Torque_Limit", {j: TORQUE_LIMIT for j in JOINTS[:5]}, normalize=False)
                     with lock:
@@ -607,8 +608,14 @@ def main() -> None:
                 order[KEYS[4]] = roll_seen
             try:
                 follower.send_action(order)
+                delivered, link["send_failing"] = sent.copy(), None   # only now is this target the arm's target
             except ConnectionError as error:   # a command that failed is dropped, never sent again later
-                print(f"  the follower stopped answering ({str(error)[-60:]}); nothing is being sent", flush=True)
+                sent = delivered.copy()        # the arm was last told this; a stop keeps exactly this
+                link["send_failing"] = link.get("send_failing") or time.perf_counter()
+                if time.perf_counter() - link["send_failing"] >= LINK_WAIT_S:   # reads working do not excuse this
+                    raise
+                if not link["lost"]:
+                    print(f"  the follower stopped answering ({str(error)[-60:]}); nothing is being sent", flush=True)
                 link["lost"] = True
                 with lock:
                     shared["why_still"] = "link"
