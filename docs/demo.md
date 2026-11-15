@@ -72,11 +72,17 @@ recording whether or not they are still there.
 - The arm does not move toward a face. The recorded motion ends at a marked spot short of the
   person, and the person leans in to take the food.
 - Record it slowly; the replay runs at the recorded speed.
-- One person on the stop key and one on the power switch for every run.
+- The keypad stop key does NOT stop these programs. `arm.py record` and `replay`, and
+  `teleop_sync.py --record`, talk to the arm directly and do not listen for the keypad's stop
+  (reviewer, 4:08 AM, from reading the source). The only stop is the power switch, with someone
+  supporting the arm. Until a path with a working, tested stop is chosen, do not run a replay
+  with a person in the arm's reach.
 - The person being fed is a teammate, never a judge.
-- `arm.py record` and `replay` still say untested on hardware, and connect to the follower
-  directly, not through the dispatcher. Whoever has run one of them on the real arm should choose
-  which to use and say so in a note.
+- The two recorders are not interchangeable. `arm.py record feed` writes `motions/feed.json`,
+  which `arm.py replay feed` reads. `teleop_sync.py --record feed` (on `daniel/arm-core` only)
+  writes a different format to `poses/taught/feed.json`, which `arm.py replay` cannot play. Both
+  also skip the new wrist-roll power-down. Whoever has run one on the real arm should name the
+  matching record and replay pair in a note; `arm.py` still says untested on hardware.
 
 ### What Pitch A may claim (Eddy's own checks, 3:32 AM)
 

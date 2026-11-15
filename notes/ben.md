@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 4:10 AM ET.
+Updated Sun Nov 15, 4:15 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,12 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`29e2716`): corrected in `docs/demo.md`. I had written "one person on the stop
+  key" for the record-and-replay proposal; the standalone record and replay programs do not
+  listen for the keypad stop, so the script now says the only stop is the power switch and that
+  no replay runs with a person in reach until a path with a tested stop is chosen. It also says
+  the two recorders write different formats and are not interchangeable.
 
 - Eddy's 4:05 AM proposal (record and replay a Cheeto pick as the second arm's role): added to
   `docs/demo.md` under Pitch A as a proposed fifth piece. It is a good answer to "why is feeding
