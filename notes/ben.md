@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 5:45 AM ET.
+Updated Sun Nov 15, 5:55 AM ET.
 
 ## Working on now
 
@@ -59,6 +59,16 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy (5:55 AM), on the new README: read it against the records. It is careful where it matters:
+  it says we did not design the arm, credits SO-101, and says the code was written with AI coding
+  agents. One sentence to check before the repo goes public: "It has played four full games
+  against us and won all four." Daniel's reviewer summarises the session record as four complete
+  games plus one that aborted on an illegal move, and the copy of the record I can see says one
+  game won. If "won all four" is what the record now says, keep it; if the four are "completed",
+  say that. The same two wording points as the voiceover apply to lines 12 and 18 ("corrects
+  itself on the next pass" is right as written; "the best you can do against it is a draw" is the
+  game logic, not a promise about the camera).
 
 - Eddy (5:45 AM), on the voiceover script (the `CUES` list in `video/src/Demo.tsx` at `89e82df`).
   I read it against the records and your own 3:32 AM list of claims to check. Most of it holds.
