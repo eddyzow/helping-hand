@@ -20,7 +20,7 @@ not here, it says so in its report; it does not invent a field.
 |---|---|
 | `filter on` / `filter off` | The with/without comparison. `off` lets the shake through. Never sent by voice. |
 | `steady on` / `steady off` | Spoken form: `on` = filter on and follow; `off` = freeze (hold). |
-| `hold on` / `hold off`, `stop` | Freeze all six joints / follow again. `stop` always freezes. |
+| `hold on` / `hold off`, `stop` | Freeze the joints / follow again. `stop` always freezes. Exception since 14 Nov: the follower's wrist-roll motor is faulty, so unless `--roll` is given that joint is never driven: it does not follow, and under hold it is not actively held (its target is its own measured position, so the motor draws no current). `/state` has `roll_follows`. |
 | `cutoff <Hz>` | Filter cut-off, 0.5 to 8. Higher follows sooner, removes less. |
 | `gain <x>` | Motion scale ("sensitivity"), 1.0 to 3.0: the arm moves x times as far as the hand, about the neutral pose. |
 | `neutral` | The hand's pose now becomes the neutral pose that scaling works about. |
