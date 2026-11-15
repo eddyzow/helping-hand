@@ -451,12 +451,14 @@ def main() -> None:
             """An arm that stops answering (a plug knocked, a power dip: both happened on 14 Nov the moment
             the leader was picked up) does not end the session. Nothing is sent meanwhile; the call is
             tried again for LINK_WAIT_S, and the loop then lines everything up again before it moves."""
-            deadline = time.perf_counter() + LINK_WAIT_S   # on the clock, so slow failing calls count too
             while True:
                 try:
                     return call(*args)
                 except ConnectionError as error:
-                    if state["quit"] or time.perf_counter() >= deadline:
+                    # ONE clock for the whole outage, reads and sends together: it starts at the first failure
+                    # and only a command that reaches the arm again clears it (see the send below)
+                    link["since"] = link.get("since") or time.perf_counter()
+                    if state["quit"] or time.perf_counter() - link["since"] >= LINK_WAIT_S:
                         raise
                     if not link["lost"]:
                         print(f"  an arm stopped answering ({str(error)[-60:]}); waiting for it, nothing is being sent", flush=True)
@@ -608,11 +610,11 @@ def main() -> None:
                 order[KEYS[4]] = roll_seen
             try:
                 follower.send_action(order)
-                delivered, link["send_failing"] = sent.copy(), None   # only now is this target the arm's target
+                delivered, link["since"] = sent.copy(), None   # only now is this target the arm's target; the outage is over
             except ConnectionError as error:   # a command that failed is dropped, never sent again later
                 sent = delivered.copy()        # the arm was last told this; a stop keeps exactly this
-                link["send_failing"] = link.get("send_failing") or time.perf_counter()
-                if time.perf_counter() - link["send_failing"] >= LINK_WAIT_S:   # reads working do not excuse this
+                link["since"] = link.get("since") or time.perf_counter()
+                if time.perf_counter() - link["since"] >= LINK_WAIT_S:   # reads working do not excuse this
                     raise
                 if not link["lost"]:
                     print(f"  the follower stopped answering ({str(error)[-60:]}); nothing is being sent", flush=True)
