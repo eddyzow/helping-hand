@@ -34,6 +34,13 @@ def scenario(mode):
         return dict(zip(steady.KEYS, [pan, 0, 0, 0, 60 if mode == "roll_no_follow" else 0, 80 if mode == "latch_start" else 0]))
 
     def send(action):
+        if mode == "send_deadline" and len(writes) == 1:
+            if failure_started[0] is None:
+                failure_started[0] = now[0]
+            now[0] += .5
+            if now[0] - failure_started[0] >= 25:
+                steady.state["quit"] = True
+            raise ConnectionError("fake persistent send failure")
         if mode == "stop_during_retry" and len(writes) == 1 and not retrying[0]:
             retrying[0] = True
             steady.command("stop")
@@ -131,9 +138,9 @@ def scenario(mode):
             try:
                 steady.main()
             except (ConnectionError, ValueError):
-                if mode not in ("read_failure", "link_deadline", "invalid_offset", "invalid_calibration", "invalid_follower"):
+                if mode not in ("read_failure", "link_deadline", "send_deadline", "invalid_offset", "invalid_calibration", "invalid_follower"):
                     raise
-    if mode == "link_deadline":
+    if mode in ("link_deadline", "send_deadline"):
         cleanup.append(("elapsed", now[0] - failure_started[0]))
     return writes, cleanup
 
@@ -167,6 +174,12 @@ def test_link_deadline():
     _, cleanup = scenario("link_deadline")
     elapsed = next(value for key, value in cleanup if key == "elapsed")
     assert elapsed <= steady.LINK_WAIT_S + .5, ("read time excluded from recovery deadline", elapsed)
+
+
+def test_send_deadline():
+    _, cleanup = scenario("send_deadline")
+    elapsed = next(value for key, value in cleanup if key == "elapsed")
+    assert elapsed <= steady.LINK_WAIT_S + .5, ("send failures have no recovery deadline", elapsed)
 
 
 def test_hold_recovery():
@@ -257,7 +270,7 @@ if __name__ == "__main__":
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
                  test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure,
                  test_hold_roll, test_roll_no_follow, test_hold_roll_enabled, test_torque_limit,
-                 test_stop_during_retry, test_link_deadline, test_hold_recovery):
+                 test_stop_during_retry, test_link_deadline, test_hold_recovery, test_send_deadline):
         try:
             test()
             print("PASS", test.__name__)
