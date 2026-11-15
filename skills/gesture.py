@@ -56,6 +56,7 @@ GESTURES = {
     "droop": [({LIFT: 20, FLEX: 40}, 20, 1.0), ({LIFT: 20, FLEX: 40}, 20, 0.5),
               ({LIFT: -10, FLEX: -20}, 90, 0.7), ({}, None, 0.4)],
 }
+GESTURES["hi"] = GESTURES["shake"]  # on the real arm the side-to-side shake reads as a wave hello (Daniel, 15 Nov)
 _turn = 0  # which gesture `next` plays; it starts over at nod when the dispatcher restarts
 
 
