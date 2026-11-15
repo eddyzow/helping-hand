@@ -49,8 +49,10 @@ def test_core_read_retries():
 
 def test_cleanup_after_device_error():
     failures = []
-    for name in ("loop.py", "measure.py", "playtest.py", "playtest2.py"):
-        path = ROOT / "drawloop" / name
+    paths = ["drawloop/" + name for name in ("loop.py", "measure.py", "playtest.py", "playtest2.py")]
+    paths += ["demo/" + name for name in ("loop.py", "measure.py", "playtest2.py", "ttt.py", "ttt2.py")]
+    for name in paths:
+        path = ROOT / name
         tree = ast.parse(path.read_text(encoding="utf-8"))
         blocks = [node.finalbody for node in tree.body if isinstance(node, ast.Try) and node.finalbody]
         assert len(blocks) == 1, name
@@ -73,9 +75,9 @@ def test_cleanup_after_device_error():
     assert not failures, ("device error bypassed resource cleanup", failures)
 
 
-def test_saved_depth_bounds():
+def test_saved_depth_bounds(folder="drawloop"):
     from grid import interpolate
-    path = ROOT / "drawloop" / "loop.py"
+    path = ROOT / folder / "loop.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     selected = []
     for node in tree.body:
@@ -87,8 +89,8 @@ def test_saved_depth_bounds():
             if isinstance(first, ast.Name) and first.id in ("PAN", "RF", "RN", "R0", "CX", "PRESS"):
                 selected.append(node)
     scope = dict(math=math, interpolate=interpolate,
-                 grid=json.loads((ROOT / "poses" / "paper_2x2.json").read_text()),
-                 PLANE=json.loads((ROOT / "drawloop" / "height.json").read_text()))
+                 grid=json.loads((ROOT / ("poses" if folder == "drawloop" else folder) / "paper_2x2.json").read_text()),
+                 PLANE=json.loads((ROOT / folder / "height.json").read_text()))
     exec(compile(ast.Module(body=selected, type_ignores=[]), str(path), "exec"), scope)
     normal = scope["pose"](0, 0)
     assert all(math.isfinite(value) and abs(value) < 400 for value in normal.values())
@@ -99,8 +101,8 @@ def test_saved_depth_bounds():
     assert all(abs(value) < 400 for value in excessive.values()), ("unbounded saved depth produced extreme joints", excessive)
 
 
-def test_teach_stop_before_auto_save():
-    path = ROOT / "drawloop" / "teach_paper.py"
+def test_teach_stop_before_auto_save(folder="drawloop"):
+    path = ROOT / folder / "teach_paper.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     loops = [node for node in ast.walk(tree) if isinstance(node, ast.While)
              and any(isinstance(call, ast.Attribute) and call.attr == "get_nowait"
