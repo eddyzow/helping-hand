@@ -1,5 +1,6 @@
 """Pure trend summaries and in-memory HTTP handler; no server, devices or MuJoCo."""
 from io import BytesIO
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -34,8 +35,17 @@ def test_elapsed_time():
     assert not wrong, wrong
 
 
+def test_elapsed_bound():
+    stamps = [1, 11, 12, 13, 14]
+    calm = insights([[t, .1, 0, 0, 0] for t in stamps])[0]
+    grip = next(row for row in insights([[t, 2, .2, 40, 6] for t in stamps]) if row["id"] == "grip")
+    wrong = [row for row in (calm, grip) if float(re.search(r"(\d+) seconds", row["text"])[1]) > stamps[-1]]
+    assert not wrong, ("reported duration exceeds elapsed session time", wrong)
+
+
 if __name__ == "__main__":
     test_assets()
     print("static asset allowlist and traversal controls pass")
     test_elapsed_time()
     print("trend elapsed-time checks pass")
+    test_elapsed_bound()
