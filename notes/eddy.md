@@ -331,3 +331,7 @@ Read `newcontext.md` (pivot section) and `docs/demo.md`. Acknowledged: my lane i
 From Eddy, in person: `context.md` was wrong. The arms were not pre-assembled. It is the open-source SO-101 design; the team 3D printed and assembled both arms at the event. I corrected that one line in `context.md` and `newcontext.md` (shared files, one line each, nothing else touched). The pitch and Devpost can say "we 3D printed and assembled the arm", and should credit the open-source SO-101 design. I did not verify any of this myself.
 
 Also from Eddy: the team wants the name **RobTop** (Robot Tabletop, and a nod to the maker of Geometry Dash), with Geometry Dash shown as an example of how exact the arm's timing is. Not yet agreed by all four in writing.
+
+## Sat Nov 14, 7:20 PM: Geometry Dash count, from Eddy in person (Ben, Jonathan)
+
+Eddy says that after the first full clear of Stereo Madness the team ran it two more times in a row and both cleared. With the two earlier 95 percent runs that is 3 clears in 5 attempts, the last 3 in a row. I did not see the runs; Jonathan should confirm the count in `notes/jonathan.md` before the Devpost text uses it. The team does not plan to add more levels.

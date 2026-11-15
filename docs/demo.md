@@ -22,7 +22,7 @@ within millimetres. Here the person does the aiming.
 | Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip. Open at 6:59 PM: its trend text counts rows and calls them seconds (five rows two seconds apart are reported as "the last 5 seconds"), so do not read a duration off the dashboard aloud until that is fixed | No |
 | Simulated comparison (`sim_steady.py`, Jonathan, 6:44 PM) | His report, not re-run by anyone: placing a brick with a simulated 3 degree, 5 Hz shake succeeded 1 time in 6 unfiltered and 6 in 6 filtered. The simulated servos are stronger and more exact than ours, and the "hand" is a script | Simulation |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
-| Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
+| Geometry Dash | Reported by Eddy in person at 7:17 PM, not yet confirmed in Jonathan's note: 3 full clears of Stereo Madness in 5 attempts, the last 3 in a row; the first two attempts reached 95 percent | Not yet: 3 of 5. One more clear on the next attempt makes the last five 4 of 5 |
 | Gestures, offline voice phrases | Mock-tested; voice started once | No |
 | Pointing, drawing, writing by the arm alone | Mock and simulation only | No |
 
@@ -44,7 +44,8 @@ be stopped. Daniel's lane publishes the counted numbers.
 - Do not say it measures force or torque. Load readings are the motors' own estimates.
 - Do not say it treats or improves tremor, and do not call the tests therapy. Say "steadiness
   tests that measure and track".
-- Geometry Dash is "reported, one clear in three attempts" until five counted attempts exist.
+- Geometry Dash is "three clears in five attempts, as reported" until Jonathan confirms the count
+  and it reaches 4 of 5.
 
 ## Open decisions for the four of you
 
@@ -53,11 +54,17 @@ be stopped. Daniel's lane publishes the counted numbers.
    Hack is the alternative, but `PLAN.md` warned its judges may expect clinical grounding, and the
    claims list above rules that out. Ben's agent leans Accessibility. That reverses the 5:45 PM
    lean toward Hardware, because the project changed. All 28 prizes are in `docs/tracks.md`.
-2. The name. `newcontext.md` uses "Steady Hand". Is that the name on Devpost?
+2. The name. Two are in play. `newcontext.md` uses "Steady Hand". Eddy reports (7:14 PM) that the
+   team wants "RobTop" (Robot Tabletop, and a nod to the maker of Geometry Dash), not yet agreed
+   by all four in writing. Ben's agent's view, as an opinion: RobTop is the name the Geometry Dash
+   developer trades under, so using it as our title borrows someone else's name and tells a
+   judge the project is about a game; "Steady Hand" says what the arm does for a person, which is
+   what an Accessibility judge is scoring. If the team wants the nod, keep it in the Geometry Dash
+   block, not the title. The four of you decide.
 3. What counts as a passing run for Steady Hand (see "The one rule").
-4. What we say we built with our own hands. `context.md` says the kit came pre-assembled; an
-   earlier note said "we printed and assembled the arm". The rules bar work done before the
-   hacking period, so the pitch has to be exact.
+4. Settled at 7:14 PM (Eddy, in person; his agent did not verify it): the arms are the open-source
+   SO-101 design, and the team 3D printed the parts and assembled both arms at the event. The pitch
+   can say "we 3D printed and assembled both arms", and must credit the SO-101 design.
 
 ## Pitch (about 20 seconds; then the judge does the demo themself)
 
@@ -99,6 +106,10 @@ Notes:
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
   Ben was building for drawing (taped to the jaw, sliding against a rubber band, not gripped) and a
   check that the pen reaches the paper inside the elbow's limit.
+- Voice at the table: a finding open at 7:13 PM on the voice candidate is that negated phrases are
+  acted on. "Don't release" releases, "don't drop it" drops, "do not go home" goes home. Until
+  that is fixed, do not use voice while the claw is holding anything, and do not let a judge
+  speak commands. The stop key and the dashboard buttons do not have this problem.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
   that switch, or drop block 6.
