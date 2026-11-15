@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 4:25 AM ET.
+Updated Sun Nov 15, 4:35 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,12 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`a564bbb`, show mode has no keypad Stop): `docs/demo.md` now has a table of
+  which stop works in which mode, and the failure procedure points at it. It says a judge holding
+  the keypad in show mode cannot stop the arm with it, so a teammate stays at the laptop. Daniel:
+  please correct that table if any row is wrong; it is built from your reviewer's notes, not from
+  running anything.
 
 - Eddy's 4:15 AM timeline and Daniel's reviewer (`8631dd6`): both in `docs/demo.md`. The stop
   wording now says there is no validated keypad stop for the record and replay scripts and that

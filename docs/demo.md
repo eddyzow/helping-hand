@@ -345,9 +345,23 @@ Notes:
 - Light objects only: nothing heavier than a marker or a Duplo brick.
 - On the arm laptop the follower is COM3 and the leader COM4, run on Windows, not WSL.
 
+## Which stop works in which mode (as of Sun 4:28 AM; check this at the table before judging)
+
+There is no single stop key any more. Know which one applies to what is running.
+
+| What is running | How to stop it |
+|---|---|
+| Dispatcher skills in game mode (Geometry Dash) | Keypad Z, or type `stop` at the dispatcher |
+| Dispatcher in show mode (gestures on the keypad) | NOT the keypad: on `daniel/arm-core` all three keys are gestures there (X dance, C high five, Z victory). Type `stop` at the dispatcher, or use its `arm_stop` helper |
+| Steady Hand (`steady.py`) | Its own Hold, on the dashboard or by command |
+| Standalone scripts: record and replay, the drawing loop, tic-tac-toe | No validated keypad stop. Ctrl+C in their terminal, untested; tic-tac-toe ignores Stop while it waits on the camera |
+| Anything, if the above fails | The power switch, with someone supporting the arm |
+
+A judge handed the keypad in show mode cannot stop the arm with it. A teammate stays at the laptop.
+
 ## When something breaks at the table
 
-Press the stop key and say what failed in one sentence. If it is understood and harmless, reset
+Stop the arm (see the table above for which stop applies) and say what failed in one sentence. If it is understood and harmless, reset
 and run the block once more. If it is not understood, or the stop key did not stop it, use the
 power switch with someone supporting the arm, and move on. Do not retry a failure nobody can
 explain. If a block fails twice, move on. The backup video stays open in a browser tab.
