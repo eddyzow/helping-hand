@@ -29,6 +29,10 @@ from ctypes import wintypes
 from pathlib import Path
 
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
+# KEYPAD_MODE=show: for the demo table. Wave key = dance, jump key = the next gesture in turn, stop key = stop.
+# Without it the jump key is the Geometry Dash key, as before.
+SHOW = os.environ.get("KEYPAD_MODE") == "show"
+SHOW_WAVE = 'run gesture {"name": "' + os.environ.get("KEYPAD_WAVE", "dance") + '"}'
 DEVICE = os.environ.get("KEYPAD_ID", "VID_8089").upper()  # SayoDevice USB vendor id; "" = any keyboard
 KEYS_FILE = Path(__file__).with_name("keys.json")
 ROLES = ["wave", "jump", "stop"]
@@ -73,19 +77,28 @@ class RAWKEYBOARD(ctypes.Structure):  # RAWINPUTHEADER followed by RAWKEYBOARD
 HEADER_SIZE = RAWKEYBOARD.MakeCode.offset
 
 
-def send(command: str, timeout: float = 1) -> str:
+def send(command: str, timeout: float = 1, _dead=[0.0]) -> str:
+    # With no dispatcher running, every call here used to wait out its whole timeout: 0.2 s on each "ready" (asked
+    # twice a second) and up to 1 s on a key, all in the thread that handles the keys. A jump pressed by hand then
+    # reached the game up to 0.2 s late (15 Nov). After one failed connection nothing is tried for 1.5 s, except
+    # stop, which is always tried.
+    import time as _clock
+    if command != "stop" and _clock.perf_counter() < _dead[0]:
+        return "dispatcher not reachable: not retried yet"
     try:
-        with socket.create_connection(("127.0.0.1", PORT), timeout=timeout) as s:
+        with socket.create_connection(("127.0.0.1", PORT), timeout=min(timeout, 0.05) if command != "stop" else timeout) as s:
+            s.settimeout(timeout)
             s.sendall((command + "\n").encode())
             return s.makefile().readline().strip()
     except OSError as err:
+        _dead[0] = _clock.perf_counter() + 1.5
         return f"dispatcher not reachable: {err}"
 
 
 _open = []  # the one connection kept open for key events
 
 
-def notify(command: str, retry: bool = True) -> None:
+def notify(command: str, retry: bool = True, _dead=[0.0]) -> None:
     """Report a key event on a connection that stays open. Opening a new connection for every key
     press took a few milliseconds that varied each time, and the arm's clock starts from this event.
     A key state may be sent again after a failed send, because sending it twice changes nothing.
@@ -102,11 +115,14 @@ def notify(command: str, retry: bool = True) -> None:
             pass  # nothing waiting: the connection is alive
         except OSError:
             _open.pop().close()
+    import time as _clock
+    if not _open and _clock.perf_counter() < _dead[0]:
+        return  # no dispatcher a moment ago: a key must not wait for one (see send)
     for _ in range(2 if retry else 1):  # a second try only if the kept connection had gone stale
         had = bool(_open)
         try:
             if not _open:
-                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.2)
+                s = socket.create_connection(("127.0.0.1", PORT), timeout=0.05)
                 s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 s.setblocking(False)
                 _open.append(s)
@@ -118,6 +134,7 @@ def notify(command: str, retry: bool = True) -> None:
             if not retry:
                 print(f"'{command}' may not have reached the dispatcher ({err}); it is not sent again", flush=True)
             if not had:
+                _dead[0] = _clock.perf_counter() + 1.5
                 return
 
 
@@ -155,6 +172,11 @@ def main() -> None:
                         user32.PostQuitMessage(0)
             return
         now = time.perf_counter()
+        show = globals().get("SHOW", False)  # looked up this way so the handler still works when lifted out on its own
+        if show and vk == keys["jump"]:  # show mode: the jump key plays the next gesture, and never clicks
+            if down:
+                print(f"next gesture -> {send('run gesture')}", flush=True)
+            return
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
             title = ctypes.create_unicode_buffer(200)
             user32.GetWindowTextW(user32.GetForegroundWindow(), title, 200)
@@ -174,7 +196,7 @@ def main() -> None:
             elif in_game and "t0" in recording and (down or recording["events"]):  # first event is a press
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
-            print(f"gesture -> {send('run gesture')}", flush=True)
+            print(f"gesture -> {send(globals().get('SHOW_WAVE') if show else 'run gesture')}", flush=True)
         elif down and vk == keys["stop"]:
             print(f"STOP -> {send('stop')}", flush=True)  # the stop goes out first; nothing may delay or block it
             if recording.get("events"):

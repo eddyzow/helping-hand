@@ -8,7 +8,7 @@
 PY=/mnt/c/Users/Khang/so101/.venv/Scripts/python.exe
 cd /mnt/c/Users/Khang/helping-hand
 # Windows programs only see these settings from WSL if they are listed here.
-export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:${WSLENV}"
+export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:KEYPAD_MODE:KEYPAD_WAVE:ROLL_POWER:${WSLENV}"
 
 # --- claw ---------------------------------------------------------------------------------------------------
 grip()      { $PY demo/grip.py "${1:-50}"; }      # grip the pen (50 % force; "grip 30" for a long hold)
@@ -21,6 +21,7 @@ measure()   { $PY demo/measure.py; }              # 5 touch-downs (1.5 min, 5 do
 # --- tic-tac-toe against a person ------------------------------------------------------------------------------
 # ttt2.py is the current game (the squares follow the grid, not the sheet's corners). ttt.py is the first version, kept.
 ttt()       { $PY demo/ttt2.py; }                 # waits for a FRESH sheet with hands off, draws the grid, plays O
+ttt_loop()  { while true; do $PY demo/ttt2.py; sleep 2; done; }   # game after game: each waits for a fresh sheet. Ctrl+C twice to end
 ttt_used()  { ANY=1 $PY demo/ttt2.py; }           # same, on a sheet that already has marks
 ttt_lighter() { GRID_PRESS=-0.18 O_PRESS=-0.20 $PY demo/ttt2.py; }  # if the pen sticks or the grid comes out small
 ttt_firmer()  { GRID_PRESS=-0.12 O_PRESS=-0.14 $PY demo/ttt2.py; }  # if the lines are too faint
@@ -35,6 +36,8 @@ flower_scored() { USED=1 OVERDRAW=1 STATE=state_flower.json $PY demo/loop.py dem
 steady()    { $PY steady.py; }                    # tremor-filter teleop (leader arm must be plugged in)
 dispatcher(){ FOLLOWER_PORT=COM3 ARM_NO_PROMPT=1 $PY -m core.dispatcher; }   # needed for Geometry Dash and gestures
 gd()        { $PY keypad/geometry_dash/play_clean.py my_macro_full.csv --press-lead-ms "${1:-106}" --release-lead-ms "${2:-114}" --no-learn; }
-keypad()    { $PY keypad/listen.py; }             # the 3-key pad listener (leave it running in its own terminal)
+keypad()    { $PY keypad/listen.py; }             # the 3-key pad listener, game mode: C is the Geometry Dash key
+show_keys() { KEYPAD_MODE=show $PY keypad/listen.py; }   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
+gesture()   { $PY -c "import socket,sys; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(('run gesture {\"name\": \"'+sys.argv[1]+'\"}\n').encode()); print(c.makefile().readline().strip())" "${1:-dance}"; }   # gesture bow
 
 echo "arm demo commands loaded: grip grip_open grip_off | measure | ttt ttt_used ttt_lighter ttt_firmer | flower house heart | steady dispatcher gd keypad"
