@@ -40,7 +40,8 @@ from pathlib import Path
 
 import numpy as np
 
-from core.tremor import CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, HoldStillTest, LowPass, Session, band_rms_and_peak, insights
+from core.tremor import (CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, GripLatch, HoldStillTest, LowPass, Session,
+                         band_rms_and_peak, insights)
 
 HERE = Path(__file__).parent
 OFFSETS = HERE / "poses" / "teleop_offset.json"
@@ -61,7 +62,7 @@ ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this unt
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 
-state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False}
+state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "latch": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
           "arm_load": 0.0, "speed_mm_s": 0.0, "leader": [0.0] * 6, "follower": [0.0] * 6, "raw_tip": [0.0] * 3,
           "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [],
@@ -125,6 +126,8 @@ def command(line: str) -> dict:
             shared["test"] = hold_test.view(time.perf_counter())
         elif word == "quit":
             state["quit"] = True
+        elif word == "latch" and rest in ("on", "off", "", "toggle"):   # grip latch: see core.tremor.GripLatch
+            state["latch"] = (not state["latch"]) if rest in ("", "toggle") else rest == "on"
         elif word == "voice":   # RobTop's voice script reports what it heard and said, for the dashboard
             try:
                 said = json.loads(rest)
@@ -135,8 +138,8 @@ def command(line: str) -> dict:
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
-            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, cutoff <Hz>, test, status, quit"}
-        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff")}}
+            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, latch on|off, cutoff <Hz>, test, status, quit"}
+        return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff", "latch")}}
 
 
 STATIC = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
@@ -185,6 +188,7 @@ def main() -> None:
     ask = (lambda text: None) if "--yes" in sys.argv else input
     shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
     seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
+    state["latch"] = "--latch" in sys.argv
     measure = "--measure" in sys.argv or not OFFSETS.exists()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
@@ -246,6 +250,7 @@ def main() -> None:
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
         smooth = LowPass(read_leader())
+        latch = GripLatch(closed_to=GRIP_FLOOR)
         raw_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         out_tips = collections.deque(maxlen=int(WINDOW_S * HZ))
         stamps = collections.deque(maxlen=int(WINDOW_S * HZ))
@@ -261,11 +266,13 @@ def main() -> None:
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
                 raw = raw + shake_deg * SHAKE_SHARE * np.sin(2 * math.pi * shake_hz * (now - began) + SHAKE_PHASE)
             with lock:
-                steady, hold, cutoff = state["steady"], state["hold"], state["cutoff"]
+                steady, hold, cutoff, latch_on = state["steady"], state["hold"], state["cutoff"], state["latch"]
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             filtered = smooth.step(raw, cut, dt)
             if not hold:   # while held, the target does not change at all: no easing, no stepping
-                want = filtered if steady else raw
+                want = (filtered if steady else raw).copy()
+                if latch_on:   # the trigger is a click, not a hold: one squeeze closes and keeps, the next opens
+                    want[5] = latch.step(now, filtered[5])   # always the filtered trigger: a tremor must not click it
                 if was_hold:  # coming out of a hold: glide back to the hand, do not jump
                     ease_from, ease_start = now, sent.copy()
                 share = min(1.0, (now - ease_from) / EASE_S)
@@ -327,6 +334,7 @@ def main() -> None:
                         shared["insights"] = insights(shared["trend"], hold_test.view(now))
                     done = hold_test.feed(now, tremor_mm)
                     shared["test"] = hold_test.view(now)
+                    shared["latch"] = {"on": latch_on, "closed": bool(latch_on and latch.closed)}
                 session.add(now - began, tremor_mm, tremor_hz, out_mm, steady)
                 if done:
                     session.tests.append(done)
