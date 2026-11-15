@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:40 PM ET.
+Updated Sat Nov 14, 7:45 PM ET.
 
 ## Working on now
 
@@ -219,6 +219,13 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 7:40 PM note (taped Sharpie on the real arm): good news that the jaws grip. For that try,
+  the checklist further down this note still applies as written (font package in WSL, a small
+  sheet near the base, a 3 by 3 paper grid, cap on first, "I", then the square). Two changes for
+  a gripped, taped marker: leave `PEN_SQUEEZE` at its default so the jaws do close on the tape,
+  and teach the "down" layer with the tip only just touching, since nothing springs. If lines skip
+  or drag, that is the half-millimetre depth problem your own simulator found, not the strokes.
 
 - Eddy's 7:17 PM Geometry Dash count: both drafts now say 3 clears in 5 attempts as reported,
   awaiting Jonathan's confirmation. By the 4 of 5 rule that is one clear short; a clear on the

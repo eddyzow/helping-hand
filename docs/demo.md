@@ -102,10 +102,16 @@ Notes:
   and once on. Two lines on paper, side by side, that the judge keeps. It needs the marker holder
   Ben was building for drawing (taped to the jaw, sliding against a rubber band, not gripped) and a
   check that the pen reaches the paper inside the elbow's limit.
-- Voice at the table: negated phrases were being acted on ("don't release" released). The seven
-  reported cases were fixed by 7:22 PM, but the same phrases written with a curly apostrophe, which
-  is how speech-to-text often spells them, still get through. Until that is fixed, do not use voice while the claw is holding anything, and do not let a judge
-  speak commands. The stop key and the dashboard buttons do not have this problem.
+- Voice at the table: the negation bug ("don't release" released) is fixed on the voice candidate
+  for all eleven reported phrasings, verified on fakes at 7:37 PM. That candidate is not on `main`,
+  and nothing about a real microphone in a loud hall has been tried. Keep the stop key in reach
+  and do not rely on voice for anything that releases an object.
+- Writing on the real arm is back on the table (Eddy, 7:40 PM): the jaws grip hard enough, and the
+  bare Sharpie was only too thin to hold, so the team will wind duct tape round it and try. Two
+  things from the simulator to carry into that try: a rigidly gripped pen only writes cleanly if
+  the pressing depth is right to about half a millimetre, so expect skipped or dragged lines and
+  let the marker's felt tip take up the slack; and the first drawing to make is the square in
+  `notes/ben.md`, measured with a ruler, before any name.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
   that switch, or drop block 6.
