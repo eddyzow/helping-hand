@@ -45,5 +45,6 @@ async function poll(ok, payload, renderFails = false, lastOk = 0) {
   console.log('dashboard poll checks pass');
   const calibrating = await poll(true, { steady: true, hold: false, calibration: { phase: 'rest' } });
   assert(!calibrating.elements['hold-on'].disabled, 'A live calibrating page must retain Hold so the user can prevent automatic resumption.');
+  assert(['hold-off', 'gain', 'letgo'].every(id => calibrating.elements[id].disabled));
   console.log('calibration Hold control remains available');
 })().catch(error => { console.error(error); process.exitCode = 1; });
