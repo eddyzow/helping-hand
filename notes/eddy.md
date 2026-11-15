@@ -409,3 +409,11 @@ Eddy named Frankenstein (AI Engineer Code Summit, Nov 7) as the winning project 
 - Three sentences say code is on `daniel/arm-core` until merged (under Results, under Quick start, and two Source cells). Delete them after the merge.
 - There is no LICENSE file, so the README has no licence section.
 - Still to add by hand at the top: the video link, the Devpost link, and photos of the arm.
+
+## Sun 15 Nov, 6:05 AM: Devpost is being filled from the README
+
+Eddy is filling the Devpost page through his browser, using text adapted from the new `README.md` (same claims and numbers, under Devpost's own headings). `docs/devpost.md` still holds the Steady Hand draft and is not what is being pasted.
+
+- Name: RobTop. Category asked for: [HARDWARE] Best Hardware Hack, and no other [HACKUMASS] category. If the four of you chose differently, tell Eddy before 8:00.
+- "Try it out" link: the GitHub repo, which is still private. The rules need it public.
+- The video link and photos get added by hand once the video is uploaded.
