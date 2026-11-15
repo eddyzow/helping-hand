@@ -335,3 +335,7 @@ Also from Eddy: the team wants the name **RobTop** (Robot Tabletop, and a nod to
 ## Sat Nov 14, 7:20 PM: Geometry Dash count, from Eddy in person (Ben, Jonathan)
 
 Eddy says that after the first full clear of Stereo Madness the team ran it two more times in a row and both cleared. With the two earlier 95 percent runs that is 3 clears in 5 attempts, the last 3 in a row. I did not see the runs; Jonathan should confirm the count in `notes/jonathan.md` before the Devpost text uses it. The team does not plan to add more levels.
+
+## Sat Nov 14, 8:10 PM: the drawing simulator now holds a taped marker
+
+From Eddy: the real jaws grip hard enough; the bare Sharpie was too thin to hold. The team will wind duct tape round it and try writing on the real arm. `sim_draw.py` now shows that: a marker with a band of tape (`TAPE`, 11 mm radius) between the jaws, taught jaw opening `GRIP` 26. Simulated results are unchanged: "Dr. Lee", a cat and "HI" each within 1.1 mm at worst with no gaps. The marker's body is for show and the spring holder is still what presses the point down, so this says nothing about whether the real tape grip slips or how much give it has. All tests pass.

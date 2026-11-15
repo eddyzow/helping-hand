@@ -6,10 +6,12 @@
     mjpython sim_draw.py --view         # live window; type "draw a cat" or "write Dr. Lee", one after another
 
 It runs the real skills/draw.py. Like sim.py it stands in for the taught paper grid (worked out by
-inverse kinematics) and the arm. The pencil is a body in the physics, in a spring-loaded holder on the
-gripper like a pen plotter's: its point presses on the table and drags with friction. (Gripped by
-the bare jaws, the model's pencil is pinched at one point and swings. Held rigidly, the pressing
-depth had to be right to a fraction of a millimetre: see PRESS.)
+inverse kinematics) and the arm. The pen is a marker with duct tape wound round it where the jaws
+close, because the bare marker is too thin for the real jaws to hold. In the physics it sits in a
+spring-loaded holder, like a pen plotter's: its point presses on the table and drags with friction.
+The spring stands for the give in the tape and the felt tip; how much give the real one has is not
+measured. (Held rigidly, the pressing depth had to be right to a fraction of a millimetre: see PRESS.)
+The code still calls it "pencil".
 The page is PAGE metres square and faces a person standing in front of the arm.
 """
 import importlib
@@ -30,7 +32,7 @@ PAGE = 0.12            # the drawing area: a square this many metres across
 PAGE_X = 0.125         # its edge nearest the arm; the page runs from here away from the arm
 PAPER_Z = 0.0003       # top of the sheet above the table
 PEN = 0.040            # pencil tip below the gripper's reference point
-PENCIL = 0.100         # the pencil's length
+PENCIL = 0.125         # the marker's length without its cap (the name is from when this was a pencil)
 POINT = 0.0012         # radius of the pencil's point, the only part of it that touches anything
 # With a rigid holder the pressing depth decided everything. Measured: at 1 mm the point trailed the gripper by
 # 5 to 6 mm (strokes ended short, corners were cut); at 0.5 mm it was accurate where it touched but skipped
@@ -42,8 +44,13 @@ SPRING = float(os.environ.get("SPRING", "120"))   # the holder's spring, newtons
 SPRING_TRAVEL = 0.008  # how far the pencil can slide up into the holder
 RUB = float(os.environ.get("RUB", "0.4"))         # friction of the pencil's point on the paper
 PEN_DRAG = 0.0         # lead for a trailing point (see draw.py). Not needed at this pressing depth; at 1 mm, 0.033 fixed it
-BESIDE = float(os.environ.get("BESIDE", "-0.0155"))  # the pencil lies against the fixed jaw: this far from the gripper's reference point, across the jaws
-GRIP = float(os.environ.get("GRIP", "12"))  # gripper value taught around the pencil; skills/draw.py squeezes PEN_SQUEEZE past it, onto the pencil
+BARREL = 0.006         # the marker's radius: too thin for the real jaws to hold firmly
+TAPE = float(os.environ.get("TAPE", "0.011"))        # radius of the duct tape wound round the marker where the jaws close
+TAPE_LONG = 0.035      # how much of the marker the tape covers
+TAPE_UP = float(os.environ.get("TAPE_UP", "0.016"))  # middle of the tape above the jaw tips, so the jaws close on tape
+JAW_FACE = -0.0195     # the fixed jaw's gripping face, across the jaws from the gripper's reference point
+BESIDE = float(os.environ.get("BESIDE", str(JAW_FACE + TAPE)))  # the taped part lies against the fixed jaw, so the marker's centre is here
+GRIP = float(os.environ.get("GRIP", "26"))  # gripper value taught around the pencil; skills/draw.py squeezes PEN_SQUEEZE past it, onto the pencil
 INK_GAP = 0.0015       # ink is laid down in segments at least this long
 BLACK = [0.05, 0.05, 0.08, 1]
 
@@ -64,15 +71,20 @@ class DrawArm(sim.SimArm):
                      f'<camera name="page" pos="{x + 0.20} {y - 0.26} 0.34" xyaxes="0.79 0.61 0 -0.42 0.55 0.72" fovy="30"/>')
         # The pencil sits in a spring-loaded holder on the gripper, like a pen plotter's: it can slide up
         # SPRING_TRAVEL against a light spring. Only its point touches anything. It is added to a copy of the arm model.
-        cone = " ".join(f"{0.004 * math.cos(a):.5f} {0.004 * math.sin(a):.5f} {-PENCIL / 2 + 0.012}"
+        cone = " ".join(f"{BARREL * math.cos(a):.5f} {BARREL * math.sin(a):.5f} {-PENCIL / 2 + 0.014}"
                         for a in np.linspace(0, 2 * math.pi, 12, endpoint=False)) + f" 0 0 {-PENCIL / 2}"
+        look = 'contype="0" conaffinity="0"'  # the marker's body is for show: only its point touches anything
         pencil = (f'<body name="pencil" pos="{0.012 + BESIDE} -0.000218 {-0.098127 - PEN + PENCIL / 2}">'
                   f'<joint name="pen_spring" type="slide" axis="0 0 1" range="0 {SPRING_TRAVEL}" stiffness="{SPRING}" '
                   f'damping="0.4" armature="0.0005"/>'
-                  f'<geom type="cylinder" size="0.004 {PENCIL / 2 - 0.006}" pos="0 0 0.006" rgba="0.8 0.15 0.15 1" '
-                  f'mass="0.006" contype="0" conaffinity="0"/>'
-                  f'<geom type="mesh" mesh="pencil_cone" rgba="0.85 0.7 0.5 1" contype="0" conaffinity="0" density="0"/>'
-                  f'<geom name="pencil_tip" type="sphere" size="{POINT}" pos="0 0 {-PENCIL / 2}" rgba="0.1 0.1 0.1 1" '
+                  f'<geom type="cylinder" size="{BARREL} {PENCIL / 2 - 0.007}" pos="0 0 0.007" rgba="0.17 0.17 0.19 1" '
+                  f'mass="0.008" {look}/>'
+                  f'<geom type="cylinder" size="{BARREL + 0.0003} 0.012" pos="0 0 {PENCIL / 2 - 0.012}" rgba="0.08 0.08 0.08 1" '
+                  f'density="0" {look}/>'
+                  f'<geom name="tape" type="cylinder" size="{TAPE} {TAPE_LONG / 2}" pos="0 0 {-PENCIL / 2 + PEN + TAPE_UP}" '
+                  f'rgba="0.78 0.80 0.82 1" density="0" {look}/>'
+                  f'<geom type="mesh" mesh="pencil_cone" rgba="0.08 0.08 0.08 1" density="0" {look}/>'
+                  f'<geom name="pencil_tip" type="sphere" size="{POINT}" pos="0 0 {-PENCIL / 2}" rgba="0.05 0.05 0.05 1" '
                   f'mass="0.0003" friction="{RUB} 0.005 0.0001"/></body>')
         source = (sim.MODEL / "so101.xml").read_text()
         marker = "<!-- Camera mount -->"
