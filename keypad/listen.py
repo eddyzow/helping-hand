@@ -31,8 +31,12 @@ from pathlib import Path
 PORT = int(os.environ.get("BUDDY_PORT", "8765"))
 # KEYPAD_MODE=show: for the demo table. Wave key = dance, jump key = the next gesture in turn, stop key = stop.
 # Without it the jump key is the Geometry Dash key, as before.
-SHOW = os.environ.get("KEYPAD_MODE") == "show"
+SHOW = os.environ.get("KEYPAD_MODE") == "show" or "--show" in sys.argv
+print("mode:", "SHOW (X = " + os.environ.get("KEYPAD_WAVE", "dance") + ", C = " + os.environ.get("KEYPAD_JUMP", "high_five")
+      + ", Z = " + os.environ.get("KEYPAD_THIRD", "victory") + ")" if SHOW else "GAME (jump key = Geometry Dash)", flush=True)
 SHOW_WAVE = 'run gesture {"name": "' + os.environ.get("KEYPAD_WAVE", "dance") + '"}'
+SHOW_JUMP = None if os.environ.get("KEYPAD_JUMP") == "next" else 'run gesture {"name": "' + os.environ.get("KEYPAD_JUMP", "high_five") + '"}'
+SHOW_THIRD = 'run gesture {"name": "' + os.environ.get("KEYPAD_THIRD", "victory") + '"}'   # what the stop key plays in show mode
 DEVICE = os.environ.get("KEYPAD_ID", "VID_8089").upper()  # SayoDevice USB vendor id; "" = any keyboard
 KEYS_FILE = Path(__file__).with_name("keys.json")
 ROLES = ["wave", "jump", "stop"]
@@ -174,8 +178,8 @@ def main() -> None:
         now = time.perf_counter()
         show = globals().get("SHOW", False)  # looked up this way so the handler still works when lifted out on its own
         if show and vk == keys["jump"]:  # show mode: the jump key plays the next gesture, and never clicks
-            if down:
-                print(f"next gesture -> {send('run gesture')}", flush=True)
+            if down:  # one fixed gesture per key (KEYPAD_JUMP=next brings back the cycle through all of them)
+                print(f"gesture -> {send(globals().get('SHOW_JUMP') or 'run gesture')}", flush=True)
             return
         if vk == keys["jump"]:  # mirror press and release as an Up arrow
             title = ctypes.create_unicode_buffer(200)
@@ -197,6 +201,10 @@ def main() -> None:
                 recording["events"].append((now - recording["t0"], down))
         elif down and vk == keys["wave"]:
             print(f"gesture -> {send(globals().get('SHOW_WAVE') if show else 'run gesture')}", flush=True)
+        elif down and vk == keys["stop"] and show and globals().get("SHOW_THIRD"):
+            # Daniel, 15 Nov: at the demo table all three keys play gestures; there is no stop key on the pad in show
+            # mode. Stop from the keyboard instead: "stop" typed at the dispatcher, or arm_stop in demo/cmds.sh.
+            print(f"gesture -> {send(globals().get('SHOW_THIRD'))}", flush=True)
         elif down and vk == keys["stop"]:
             print(f"STOP -> {send('stop')}", flush=True)  # the stop goes out first; nothing may delay or block it
             if recording.get("events"):
