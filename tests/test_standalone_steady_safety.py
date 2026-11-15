@@ -29,7 +29,7 @@ def scenario(mode):
         writes.append((steady.state["hold"], dict(action)))
         if mode in ("hold_during_ease", "hold_grip") and len(writes) == 2:
             steady.command("hold on")
-        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 3 if mode in ("hold_during_ease", "hold_grip") else 2):
+        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 7 if mode == "load_failure" else 3 if mode in ("hold_during_ease", "hold_grip") else 2):
             steady.state["quit"] = True
 
     def observe():
@@ -52,6 +52,17 @@ def scenario(mode):
     bad = {**ranges, steady.JOINTS[0]: SimpleNamespace(range_min=float("nan"), range_max=3000)}
     follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {}, calibration=ranges)
     leader.bus = SimpleNamespace(calibration=bad if mode == "invalid_calibration" else ranges)
+    load_reads = []
+
+    def load_read(*args, **kwargs):
+        assert kwargs["num_retry"] == 5
+        load_reads.append(args)
+        if len(load_reads) > 1:
+            raise ConnectionError("fake unavailable load reading")
+        return {"gripper": 1000}
+
+    if mode == "load_failure":
+        follower.bus.sync_read = load_read
 
     def make_follower(config):
         follower.config = config
@@ -66,7 +77,7 @@ def scenario(mode):
     def sleep(seconds):
         now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode in ("stop_during_read", "spoken_off") else 1
         sleeps[0] += 1
-        if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 4):
+        if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 8 if mode == "load_failure" else 4):
             steady.state["quit"] = True
 
     clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake", sleep=sleep)
@@ -130,6 +141,12 @@ def test_invalid_calibration():
     assert not writes, ("invalid calibration reached send_action", writes)
 
 
+def test_load_failure():
+    writes, _ = scenario("load_failure")
+    assert len(writes) == 7, "load-only failure stopped following"
+    assert steady.shared["grip_effort"] == 100.0, "last load reading was not retained"
+
+
 def test_meter_timestamps():
     scenario("slow_meter")  # Six-Hz input sampled at 25 Hz, not the nominal 50 Hz.
     assert abs(steady.shared["tremor_hz"] - 6) < .3, ("six-Hz input reported as", steady.shared["tremor_hz"])
@@ -168,7 +185,7 @@ if __name__ == "__main__":
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
-                 test_spoken_off, test_latch_start, test_invalid_calibration):
+                 test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure):
         try:
             test()
             print("PASS", test.__name__)
