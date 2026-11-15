@@ -90,6 +90,9 @@ PHRASES = {
 # Either word anywhere means stop, whatever else was said: "stop the shaking" and "stop the steadying"
 # stop too (in steady.py that freezes the arm), because steady on now releases a hold and moves.
 STOP_WORDS = {"stop", "halt"}
+NEGATIVES = {"dont", "not", "never", "no", "cant", "cannot", "wont", "shouldnt", "stay"}  # after normalise(): no apostrophes
+NOT_SURE = "I heard a no in that, so I did nothing. Say stop if you want me to freeze."
+TWO_THINGS = "I heard two different things, so I did nothing. Say just one."
 
 
 def normalise(text: str) -> str:
@@ -104,9 +107,18 @@ def understand(text: str):
     words = heard.split()
     if STOP_WORDS & set(words):
         return STOP
+    # "don't release", "do not go home": matching words would do the very thing the person said NOT
+    # to do. A negative never becomes an action; the person can say "stop" or "hold" to freeze.
+    if NEGATIVES & set(words):
+        return None, NOT_SURE
     found = [p for p in PHRASES if f" {p} " in f" {heard} "]
     if not found:
         return None, SORRY
+    # "go home ... stay here", "release ... hold": two different requests in one breath. Phrases that
+    # sit inside a longer matched phrase ("hold" inside "hold this") are the same request, not a second.
+    whole = [p for p in found if not any(p != q and f" {p} " in f" {q} " for q in found)]
+    if len({PHRASES[p] for p in whole}) > 1:
+        return None, TWO_THINGS
     best = PHRASES[max(found, key=lambda p: len(p.split()))]
     return FREEZE if best == STEADY_ON and "off" in words else best
 
