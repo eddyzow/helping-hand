@@ -36,6 +36,7 @@ def scenario(mode):
     def send(action):
         if mode == "stop_during_retry" and len(writes) == 1 and not retrying[0]:
             retrying[0] = True
+            steady.command("stop")
             raise ConnectionError("fake send failure before write")
         writes.append((steady.state["hold"], dict(action)))
         if mode == "hold_recovery" and len(writes) == 1:
@@ -99,8 +100,6 @@ def scenario(mode):
             if now[0] >= 75:
                 steady.state["quit"] = True
             return
-        if mode == "stop_during_retry" and retrying[0]:
-            steady.command("stop")
         now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode in ("stop_during_read", "spoken_off") else 1
         sleeps[0] += 1
         if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 8 if mode == "load_failure" else 4):
