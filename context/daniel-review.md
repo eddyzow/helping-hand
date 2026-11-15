@@ -1,5 +1,7 @@
 # SO101 coordination and review
 
+**Latest d31b57d / QA e42f9f2:** show mode now intentionally has three gesture keys and no keypad Stop (default X dance / C high_five / Z victory). Actual settings plus fake handler checks PASS, including optional cycling and retained game-mode Stop. This is a changed contract, not a closure of earlier Stop bugs. New `dance_mode` has no explicit failure guard after claw-open and no tracked cleanup for its background keypad listener; source-only concerns, no native launcher test. Stale Z=stop comments need correction. `arm_stop` targets the dispatcher endpoint and does not make standalone record/replay listen for Stop. Whole candidate remains held; no device, native input, hook, launcher or physical test ran. See `notes/daniel.md`.
+
 **Wording follow-up b7dcafd:** keypad Stop and recording-format corrections are applied, but "only stop is the power switch" is too absolute. Ctrl+C is the scripts' documented terminal interrupt; physical response and error cleanup remain unverified. The missing keypad listener does not prove the software interrupt is absent. Keep the proposal unvalidated; no new runtime or physical test.
 
 **Recording-only 940684b / QA 18641e2:** existing parser accepts `god_yeeter.csv` (134 events / 67 presses, last event 46.911634 s). Minimum recorded press/gap: 22.106 / 46.586 ms; existing lead adjustment at 106/114 ms remains ordered, minimum command interval 14.106 ms. File validation only, no replay or physical feasibility/clear proof. No runtime change or hold closure.
