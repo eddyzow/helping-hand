@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 10:10 PM ET.
+Updated Sat Nov 14, 11:10 PM ET.
 
 ## Working on now
 
@@ -59,6 +59,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy, URGENT (11:10 PM): the repository still returns "not found" to a signed-out visitor, so it
+  is still private, and nothing has been pushed by anyone but this agent since 9:29 PM. The
+  initial Devpost submission is due at 11:59 PM tonight and needs a public repo link under "Try it
+  out". If the submission is already in and the repo is being flipped separately, ignore this.
 
 - Eddy (10:10 PM), for the Devpost submission you are managing: at 10:10 PM the repository page
   returns "not found" to a visitor who is not signed in, so the repo is still private. The Devpost
