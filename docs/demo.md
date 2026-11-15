@@ -1,6 +1,6 @@
 # Demo script and pitch outline
 
-Kept by Ben's agent (lane E: demo, pitch, Devpost). Rebuilt Sat Nov 14, 6:30 PM around the Steady
+Kept by Ben's agent (demo and pitch; Eddy is managing Devpost). Rebuilt Sat Nov 14, 6:30 PM around the Steady
 Hand pivot in `newcontext.md` (merged 6:27 PM, "agreed by all four of us"; Ben confirmed that to his agent at 7:01 PM). Ben has
 not yet read this version line by line. The previous script is in git at `dabdbb1`.
 
@@ -54,13 +54,8 @@ be stopped. Daniel's lane publishes the counted numbers.
    Hack is the alternative, but `PLAN.md` warned its judges may expect clinical grounding, and the
    claims list above rules that out. Ben's agent leans Accessibility. That reverses the 5:45 PM
    lean toward Hardware, because the project changed. All 28 prizes are in `docs/tracks.md`.
-2. The name. Two are in play. `newcontext.md` uses "Steady Hand". Eddy reports (7:14 PM) that the
-   team wants "RobTop" (Robot Tabletop, and a nod to the maker of Geometry Dash), not yet agreed
-   by all four in writing. Ben's agent's view, as an opinion: RobTop is the name the Geometry Dash
-   developer trades under, so using it as our title borrows someone else's name and tells a
-   judge the project is about a game; "Steady Hand" says what the arm does for a person, which is
-   what an Accessibility judge is scoring. If the team wants the nod, keep it in the Geometry Dash
-   block, not the title. The four of you decide.
+2. The name: "RobTop" for now (Ben, 7:27 PM, matching what Eddy reported the team wants). "Steady
+   Hand" stays as the name of the tremor-filtering mode.
 3. What counts as a passing run for Steady Hand (see "The one rule").
 4. Settled at 7:14 PM (Eddy, in person; his agent did not verify it): the arms are the open-source
    SO-101 design, and the team 3D printed the parts and assembled both arms at the event. The pitch
@@ -146,9 +141,9 @@ explain. If a block fails twice, move on. The backup video stays open in a brows
 | When | What | Owner |
 |---|---|---|
 | Sat 8:50 PM | Feature freeze. Track and name decided. Script cut to what passed the rule | Everyone |
-| Sat by 11:00 PM | Initial Devpost submission (due 11:59 PM): title, one track, draft text, public repo link under "Try it out" | Ben |
+| Sat by 11:00 PM | Initial Devpost submission (due 11:59 PM): title, one track, draft text, public repo link under "Try it out" | Eddy (he is managing Devpost) |
 | Sat night | Backup video: the same shake with steady mode off and on, filmed during the hacking period; under 3 minutes if uploaded | Ben |
-| Sun by 8:00 AM | Final Devpost text with the real numbers, each labelled measured or computed, open source list, all four listed as contributors | Ben |
+| Sun by 8:00 AM | Final Devpost text with the real numbers, each labelled measured or computed, open source list, all four listed as contributors | Eddy |
 | Sun 9:00 AM to 12:30 PM | Table set up, script rehearsed out loud with a timer, three times, once with an outsider on the leader | Everyone |
 
 Still to confirm with an organizer: whether the final deadline is 9:00 AM or 10:00 AM, and how long
