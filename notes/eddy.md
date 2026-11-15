@@ -4,7 +4,7 @@ Updated Sun Nov 15, 5:25 AM.
 
 ## Working on now
 
-Demo video, Sun Nov 15, 5:25 AM. `video/` is a Remotion project that cuts six phone clips into a two-minute video with captions, animated graphics and an instrumental track made with ElevenLabs. It has no voiceover yet; Eddy records that separately. The raw clips, the cut segments, the music and the render are not in git. To rebuild: `video/cut.sh <folder holding the IMG_*.MOV clips>`, then `npm install` and `npm run render` inside `video/`. Checked by eye on sampled frames of the render, not watched end to end by a person yet.
+Demo video, Sun Nov 15, 5:25 AM. `video/` is a Remotion project that cuts six phone clips into a two-minute video with captions, animated graphics and an instrumental track made with ElevenLabs. It has no voiceover yet; Eddy records that separately. The captions at the bottom are the voiceover script, timed as a guide for the read (the `CUES` list at the top of `video/src/Demo.tsx`), and need retiming once the voice is recorded. The music is mixed quietly so a voice can go on top. The raw clips, the cut segments, the music and the render are not in git. To rebuild: `video/cut.sh <folder holding the IMG_*.MOV clips>`, then `npm install` and `npm run render` inside `video/`. Checked by eye on sampled frames of the render, not watched end to end by a person yet.
 
 What the video shows, in order: title, house and flower drawing, tic-tac-toe, Geometry Dash, the Cheeto fed by hand control, a six-tile recap, the closing question. There is no teach-by-showing clip, so that section is not in it.
 

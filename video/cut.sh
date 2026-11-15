@@ -34,7 +34,7 @@ cut title $FLOWER 20 29 2
 cut d1 $HOUSE 14 36.8 4
 cut d2 $HOUSE 50 3.7 1
 cut d3 $FLOWER 24 44 12
-cut d4 $FLOWER 69.3 2.3 1
+cut d4 $FLOWER 70.3 2.3 1
 # Tic-tac-toe
 cut t1 $TTT 8 23 8
 cut t2 $TTT 33 5.7 1.5
