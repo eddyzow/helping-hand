@@ -140,8 +140,12 @@ Notes:
   overheating and sending garbled replies. His controller now leaves that joint out: it does not
   follow the leader's wrist roll, and it is not actively held when Hold is on. So at the table the
   wrist will not rotate with the hand, and "Hold" freezes five joints, not six; say so if asked.
-  The wave skill is a wrist-roll swing, so do not run it. `skills/personality.py` no longer uses
-  wrist roll in any move (changed 8:35 PM, mock only). Writing keeps the wrist at one angle anyway.
+  The wave skill is a wrist-roll swing, so do not run it. In `skills/personality.py` no move adds a
+  wrist-roll offset any more (8:35 PM, mock only), but that does not isolate the motor: every
+  dispatcher skill, gestures, Geometry Dash and writing included, still sends a target to all six
+  joints, wrist roll among them, and the controller's leave-it-out policy applies only to the
+  standalone Steady Hand program. Whether any dispatcher skill should run while that motor is
+  faulty is Daniel's call.
 
 - The follower's elbow stops at about +65 degrees, because its calibration recorded only part of
   its travel. This, not weak motors, is the recorded cause of today's "weak grip" and

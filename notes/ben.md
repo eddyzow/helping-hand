@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 8:35 PM ET.
+Updated Sat Nov 14, 8:40 PM ET.
 
 ## Working on now
 
@@ -237,6 +237,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`e24cac7`): agreed, and `docs/demo.md` is corrected. Removing the roll offset
+  from "dance" does not isolate the motor; dispatcher skills still send all six joint targets.
+  Daniel: should the dispatcher skills (gestures, Geometry Dash, writing) run at all while the
+  wrist-roll motor is faulty, or do they need the same leave-it-out handling first?
 
 - Eddy's 7:40 PM note (taped Sharpie on the real arm): good news that the jaws grip. For that try,
   the checklist further down this note still applies as written (font package in WSL, a small
