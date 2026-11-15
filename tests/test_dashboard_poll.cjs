@@ -9,6 +9,8 @@ const source = js.match(/const COMMANDS = [\s\S]*?\n(?=setLink\('wait'\);)/);
 assert(source, 'Inspect the changed poll fixture before running it.');
 const controls = js.match(/function controls\(s\) \{[\s\S]*?\n\}\n(?=function grip)/);
 assert(controls, 'Inspect the changed controls fixture before running it.');
+const statusSource = js.match(/function statusOf\(s\) \{[\s\S]*?\n\}\n(?=let lastState)/);
+assert(statusSource, 'Inspect the changed status fixture before running it.');
 
 const rollNote = {};
 const controlScope = vm.createContext({ $: () => rollNote, pressed: () => {}, setText: () => {} });
@@ -58,4 +60,10 @@ async function poll(ok, payload, renderFails = false, lastOk = 0) {
   assert(!calibrating.elements['hold-on'].disabled, 'A live calibrating page must retain Hold so the user can prevent automatic resumption.');
   assert(['hold-off', 'gain', 'letgo'].every(id => calibrating.elements[id].disabled));
   console.log('calibration Hold control remains available');
+  const statusScope = vm.createContext({ link: 'live' });
+  vm.runInContext(statusSource[0], statusScope);
+  const waiting = statusScope.statusOf({ steady: true, hold: false, why_still: 'link' });
+  assert(waiting.cls !== 'ok' && !waiting.text.includes('Following your hand'),
+    'Arm-link recovery must not show normal following: ' + JSON.stringify(waiting));
+  console.log('arm-link recovery is distinguished from following');
 })().catch(error => { console.error(error); process.exitCode = 1; });

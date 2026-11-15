@@ -13,23 +13,36 @@ import steady
 
 def scenario(mode):
     now, reads, writes, cleanup = [0.0], [0], [], []
+    retrying, failure_started = [False], [None]
     follower = SimpleNamespace()
     leader = SimpleNamespace(connect=lambda: None, disconnect=lambda: cleanup.append(("leader", False)))
 
     def read():
         reads[0] += 1
-        if mode == "read_failure" and reads[0] == 3:
+        if mode == "read_failure" and reads[0] >= 3:
             raise ConnectionError("fake lost leader")
+        if mode == "hold_recovery" and reads[0] == 3:
+            raise ConnectionError("fake transient lost leader")
+        if mode == "link_deadline" and reads[0] >= 3:
+            if failure_started[0] is None:
+                failure_started[0] = now[0]
+            now[0] += .5
+            raise ConnectionError("fake half-second read failure")
         if mode in ("stop_during_read", "spoken_off") and reads[0] == 3:
             steady.command("steady off" if mode == "spoken_off" else "stop")
         pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode in ("slow_meter", "meter_warmup") else 50
         return dict(zip(steady.KEYS, [pan, 0, 0, 0, 60 if mode == "roll_no_follow" else 0, 80 if mode == "latch_start" else 0]))
 
     def send(action):
+        if mode == "stop_during_retry" and len(writes) == 1 and not retrying[0]:
+            retrying[0] = True
+            raise ConnectionError("fake send failure before write")
         writes.append((steady.state["hold"], dict(action)))
+        if mode == "hold_recovery" and len(writes) == 1:
+            steady.command("stop")
         if mode in ("hold_during_ease", "hold_grip", "hold_roll") and len(writes) == 2:
             steady.command("hold on")
-        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 7 if mode == "load_failure" else 3 if mode in ("hold_during_ease", "hold_grip", "hold_roll") else 2):
+        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 7 if mode == "load_failure" else 3 if mode in ("hold_during_ease", "hold_grip", "hold_roll", "hold_recovery") else 2):
             steady.state["quit"] = True
 
     def observe():
@@ -40,6 +53,8 @@ def scenario(mode):
             values["gripper.pos"] = 20.0
         if mode == "hold_roll" and len(writes) >= 2:
             values["wrist_roll.pos"] = 20.0
+        if mode == "hold_recovery" and len(writes) >= 2:
+            values["shoulder_pan.pos"] = 20.0
         if mode == "latch_start":
             values["gripper.pos"] = steady.GRIP_FLOOR
         return values
@@ -79,6 +94,13 @@ def scenario(mode):
     sleeps = [0]
 
     def sleep(seconds):
+        if mode == "link_deadline":
+            now[0] += seconds
+            if now[0] >= 75:
+                steady.state["quit"] = True
+            return
+        if mode == "stop_during_retry" and retrying[0]:
+            steady.command("stop")
         now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode in ("stop_during_read", "spoken_off") else 1
         sleeps[0] += 1
         if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 8 if mode == "load_failure" else 4):
@@ -110,8 +132,10 @@ def scenario(mode):
             try:
                 steady.main()
             except (ConnectionError, ValueError):
-                if mode not in ("read_failure", "invalid_offset", "invalid_calibration", "invalid_follower"):
+                if mode not in ("read_failure", "link_deadline", "invalid_offset", "invalid_calibration", "invalid_follower"):
                     raise
+    if mode == "link_deadline":
+        cleanup.append(("elapsed", now[0] - failure_started[0]))
     return writes, cleanup
 
 
@@ -133,6 +157,23 @@ def test_spoken_off():
 def test_failure_cleanup():
     _, cleanup = scenario("read_failure")
     assert ("follower", True) not in cleanup, ("unconfirmed torque-off after read failure", cleanup)
+
+
+def test_stop_during_retry():
+    writes, _ = scenario("stop_during_retry")
+    assert len(writes) < 2 or writes[1][1] == writes[0][1], ("pending target retried after stop", writes)
+
+
+def test_link_deadline():
+    _, cleanup = scenario("link_deadline")
+    elapsed = next(value for key, value in cleanup if key == "elapsed")
+    assert elapsed <= steady.LINK_WAIT_S + .5, ("read time excluded from recovery deadline", elapsed)
+
+
+def test_hold_recovery():
+    writes, _ = scenario("hold_recovery")
+    assert len(writes) == 3 and all(action == writes[0][1] for _, action in writes), (
+        "recovery replaced held target", writes)
 
 
 def test_invalid_offset():
@@ -216,7 +257,8 @@ if __name__ == "__main__":
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
                  test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure,
-                 test_hold_roll, test_roll_no_follow, test_hold_roll_enabled, test_torque_limit):
+                 test_hold_roll, test_roll_no_follow, test_hold_roll_enabled, test_torque_limit,
+                 test_stop_during_retry, test_link_deadline, test_hold_recovery):
         try:
             test()
             print("PASS", test.__name__)
