@@ -39,7 +39,7 @@ marks on the table.
 Return only JSON: [{"box_2d": [ymin, xmin, ymax, xmax], "label": "<colour and shape>"}]
 Coordinates are normalized to 0-1000."""
 
-# ponytail: the hint names our Duplo set. Edit it when the objects on the table change.
+# the hint names our Duplo set. Edit it when the objects on the table change.
 CHOOSE = """A robot arm picks objects off a table. Each object in the image has a green box and a
 numbered badge. The objects (the detector's guess at what each is may be wrong; trust the image):
 {labels}

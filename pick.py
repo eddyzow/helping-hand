@@ -11,8 +11,7 @@ Use:
     python pick.py "pick up the mouse" --go   # moves the arm
     python pick.py --go                       # voice loop: Enter, speak, Enter
 
-The arm half is UNTESTED ON HARDWARE. First runs: someone on the power switch.
-Run `python arm.py check table` before the first real grasp.
+Run `python arm.py check table` before the first grasp.
 
 Mount the camera straight above the middle of the grid, as high as it will go. The pixel
 is mapped as if everything were flat on the table, so the top of a tall object lands

@@ -25,7 +25,6 @@ Working notes, plans, drafts and status files live on the `team-notes` branch. T
 - Never force push, and never rewrite history on `main`.
 - If a pull hits a conflict in code, resolve it by keeping both sides' work.
 - Never enable torque or move the arm without your person's go-ahead, and say which arm will move.
-- Check the installed LeRobot version before trusting any LeRobot API written in this repo.
 
 ## Event facts
 
