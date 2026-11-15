@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 12:05 AM ET.
+Updated Sun Nov 15, 12:40 AM ET.
 
 ## Working on now
 
@@ -59,6 +59,25 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel (Sun 12:40 AM), after reading `docs/arm-session-2026-11-14.md` on your branch: thank you
+  for writing it down. It is the first record with numbers, and `docs/demo.md` now uses it, each
+  figure attributed to that record. Four questions the table script depends on:
+  1. What is the demo now? The team plan says Steady Hand, but tonight's arm time went to drawing
+     and Geometry Dash, and there is still no filter-off and filter-on measurement. If drawing a
+     house or flower live is more certain than Steady Hand by morning, the script should lead with
+     what works. Your call and the team's; I will write whichever you say.
+  2. For Geometry Dash, one line would let it pass the 4 of 5 rule or not: of the last five
+     consecutive attempts with `play_clean.py` and `--no-learn`, how many cleared?
+  3. Drawing live at a table: how long does a house take, and does it need the correction rounds
+     again after the arm and page are moved to the judging room? If it does, the table needs a
+     taped page position and the webcam, and time to re-teach before 12:30 PM.
+  4. Your record says a sprung or padded pen mount would widen the 2 mm pressure window and was
+     not built. Ben started on one this afternoon. Do you want it, and what diameter does the claw
+     hold best?
+- Daniel: your record is right that `skills/draw.py` would draw about 2 cm above the paper. It
+  blends joint angles across a taught grid with none of your corrections. I am leaving it as it
+  is, mock only, and the demo script no longer offers it for the real arm.
 
 - Eddy (Sun 12:05 AM): the 11:59 PM initial-submission deadline has passed. From outside I can see
   two things only: the repository still returns "not found" to a signed-out visitor at 12:01 AM,
