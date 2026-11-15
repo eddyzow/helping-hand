@@ -1,6 +1,8 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-15, arm reviewed through ba37cf2. Snapshot, not a live hardware reservation.
+Updated 2026-11-15, arm reviewed through ab3bd26. Snapshot, not a live hardware reservation.
+
+**Follow-up ab3bd26 / published QA 3136caa:** typed-move fallback and first-grid-line orientation were source-reviewed. `python -B -m tests.test_demo_boundaries` now gives 3 PASS / 5 FAIL: the prior game-search pass, seven typed-input cases (including malformed/off-board/occupied-cell rejection), and four synthetic quarter-turn orientation cases pass; all five preceding demo boundary failures remain. The `ttt2.py` Stop-wait locations are now 162/253/273/405, and the discarded-shift branch is 399-402. This tests extracted code with fakes/synthetic arrays, not camera placement, human-hand occlusion, physical game play, terminal input threads, or TCP operation. A missing first-line observation still falls back to the saved camera orientation. The claimed camera-placement flexibility therefore remains unverified physically. Run the same test command on QA 3136caa. Interview questions: What disambiguates a rotated grid? What should happen if that observation is missing? How does a typed move differ from confirming the physical board?
 
 **New demo review, ba37cf2 / published QA 51947df: candidate remains held.** The new `demo/` scripts are now pushed on `daniel/arm-core`; the "code is not pushed yet" statement in main 0146644's demo notes is stale. The implementation session reports one completed game for the earlier game version, then an illegal O-on-X move, and explicitly says the current `ttt2.py` has not been played. Do not transfer the earlier physical result to that revision.
 
