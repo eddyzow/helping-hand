@@ -89,6 +89,11 @@ Notes:
   FREEZES the arm. So blocks 2 and 3 are "filter off" then "filter on". Never say "steady off" at
   the table unless you mean stop. Switch with the dashboard's filter button or a typed command; the
   voice path for these phrases has not been checked end to end.
+- Filming and showing the screen: two findings mean a screen can show data that is not from the
+  arm. The dashboard keeps "Live from the arm" over old readings after an error, and the new 3D
+  demo page switches to made-up motion after one failed poll without saying so (reviewer, 7:53 PM).
+  So the backup video has to show the real arms in the same shot as the screen, and nobody points
+  at a screen as proof unless the arm beside it is visibly doing the same thing.
 - Blocks 2 and 3 are the whole argument: the same shake with the filter off and on. Run them back
   to back every time. If only one thing is filmed tonight, film these two.
 - Block 4 is what a judge remembers. It also means a stranger's hand on the leader, so the
