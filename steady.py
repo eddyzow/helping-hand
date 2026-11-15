@@ -349,6 +349,8 @@ class Dashboard(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", kind)
         self.send_header("Access-Control-Allow-Origin", "*")
+        if not self.path.startswith("/meshes/"):   # a browser kept showing the old page after the redesign
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
