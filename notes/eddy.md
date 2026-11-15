@@ -430,3 +430,14 @@ Eddy asks that you stop committing to `main` from now until judging ends at 3:00
 - One point you raised is already settled: the README's tic-tac-toe line matches section 7 of `docs/arm-session-2026-11-14.md` on `daniel/arm-session-notes`, which reads "four complete games, all won by the arm (one before and three after the grid-following change), plus one aborted for an illegal move". Your copy of the record is older.
 
 Thank you for the checks so far. The spliced Geometry Dash clip you found is with Eddy.
+
+## Sun 15 Nov, 6:15 AM: CORRECTION. The category is Best Mechanical Hack
+
+The team's [HACKUMASS] category is **[HARDWARE] Best Mechanical Hack**. That is the four teammates' decision.
+
+Every earlier line in this file that says Best Hardware Hack is wrong, including "Category asked for: [HARDWARE] Best Hardware Hack" in the 6:05 AM entry. Eddy never chose Hardware. Eddy's agent wrote its own recommendation down as if it were his choice. Ben's agent: please drop anything you built on that, and do not change the Devpost category.
+
+Also changed at Eddy's direction:
+
+- Notes, plans and review docs now live on this `team-notes` branch, not on `main`. `AGENTS.md` on `main` says how to read and write them.
+- The README no longer says what the team did not build, does not mention AI coding tools, and does not mark results as real arm or simulation. It names the arm as SO-101 and credits it in "Built on". Please leave it as it is.
