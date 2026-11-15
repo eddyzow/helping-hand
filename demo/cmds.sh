@@ -8,7 +8,7 @@
 PY=/mnt/c/Users/Khang/so101/.venv/Scripts/python.exe
 cd /mnt/c/Users/Khang/helping-hand
 # Windows programs only see these settings from WSL if they are listed here.
-export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:KEYPAD_MODE:KEYPAD_WAVE:KEYPAD_JUMP:KEYPAD_THIRD:ROLL_POWER:${WSLENV}"
+export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:KEYPAD_MODE:KEYPAD_WAVE:KEYPAD_JUMP:KEYPAD_THIRD:ROLL_POWER:LEADER_PORT:${WSLENV}"
 
 # --- claw ---------------------------------------------------------------------------------------------------
 grip()      { $PY demo/grip.py "${1:-50}"; }      # grip the pen (50 % force; "grip 30" for a long hold)
@@ -32,7 +32,11 @@ house()     { USED=1 OVERDRAW=1 FAST=1 STATE=state_house.json  $PY demo/loop.py 
 heart()     { USED=1 OVERDRAW=1 FAST=1 STATE=state_heart.json  $PY demo/loop.py demo/heart.json; }
 flower_scored() { USED=1 OVERDRAW=1 STATE=state_flower.json $PY demo/loop.py demo/flower.json; }   # with photos and a score
 
+# --- switching: stop every arm program and pad listener started from this repo, so the next one can take COM3 ----
+stop_all()  { powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.Name -like 'python*' -and \$_.CommandLine -match 'keypad/listen.py|core.dispatcher|demo/loop.py|demo/ttt|demo/measure.py|demo/voice_draw.py|robtop_voice.py|steady.py|teleop_sync.py|play_clean.py' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }" 2>/dev/null; echo "stopped: the arm is free for the next program"; }
+
 # --- the other demos ---------------------------------------------------------------------------------------------
+teleop()    { $PY teleop_sync.py; }               # plain teleop: follower copies the leader (leader on COM4). Ctrl+C: follower goes LIMP, hold it
 steady()    { $PY steady.py; }                    # tremor-filter teleop (leader arm must be plugged in)
 dispatcher(){ FOLLOWER_PORT=COM3 ARM_NO_PROMPT=1 $PY -m core.dispatcher; }   # needed for Geometry Dash and gestures
 gd()        { $PY keypad/geometry_dash/play_clean.py my_macro_full.csv --press-lead-ms "${1:-106}" --release-lead-ms "${2:-114}" --no-learn; }
@@ -61,4 +65,4 @@ gd_cal()   { arm_do "run tap_calibrate" && arm_do 'run tap_delay {"times": 30}';
 # The whole live demo as a menu:  bash demo/run.sh   (it stops old pad listeners itself, which dance_mode does not)   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
 gesture()   { $PY -c "import socket,sys; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(('run gesture {\"name\": \"'+sys.argv[1]+'\"}\n').encode()); print(c.makefile().readline().strip())" "${1:-dance}"; }   # gesture bow
 
-echo "arm demo commands loaded: grip grip_open grip_off | measure | ttt ttt_used ttt_lighter ttt_firmer | flower house heart | steady dispatcher gd keypad"
+echo "arm demo commands loaded: stop_all | grip grip_open grip_off | measure | ttt ttt_used ttt_lighter ttt_firmer | flower house heart | dance_mode show_keys arm_stop | teleop steady | voice voice_draw | dispatcher keypad gd_place gd_cal gd"
