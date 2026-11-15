@@ -102,7 +102,7 @@ def scenario(mode):
     sleeps = [0]
 
     def sleep(seconds):
-        if mode == "link_deadline":
+        if mode in ("link_deadline", "send_deadline"):
             now[0] += seconds
             if now[0] >= 75:
                 steady.state["quit"] = True
