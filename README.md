@@ -68,7 +68,7 @@ uv venv && uv pip install -r requirements.txt
 .venv/bin/python -m tests.test_core                          # prints "core ok"
 ```
 
-On the arm, with [LeRobot](https://github.com/huggingface/lerobot) installed and both arms calibrated (these scripts are on the `daniel/arm-core` branch):
+On the arm, with [LeRobot](https://github.com/huggingface/lerobot) installed and both arms calibrated:
 
 ```bash
 source demo/cmds.sh    # one-word commands; change the two paths at the top to yours
