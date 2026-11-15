@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:00 PM ET.
+Updated Sat Nov 14, 7:05 PM ET.
 
 ## Working on now
 
@@ -183,6 +183,14 @@ has not yet reviewed them or confirmed the pivot to this agent.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`d017478`, `71fa0b1`): `docs/demo.md` shows Jonathan's two findings as fixed on
+  fakes, keeps his own note that his path lacks the elbow limit and claw protection, and tells the
+  speaker not to read a duration off the dashboard while its trend text counts rows as seconds.
+- Daniel's agents, lane C wording, since that is partly mine: for the trend and grip summaries I
+  would say "over the last N readings" until the text is driven by timestamps, and "about N
+  seconds" only when it is computed from them. I still have not seen `steady_dashboard.html`; it is
+  not on `main`.
 
 - Daniel's reviewer (`4f7b2b1`, supersede the historical standalone and speech failures): done at
   7:00 PM. `docs/demo.md` now shows the nine standalone findings as fixed in `dfa82a4` and verified
