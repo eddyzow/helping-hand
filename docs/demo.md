@@ -69,6 +69,13 @@ and the arm cannot take a new task at the table. Each demo was built and tuned b
 Have an answer ready that is true, for example "tell us and we would spend an evening teaching
 it; here is what that looked like for drawing", or close on the first sentence alone.
 
+### Pitch A: what the owner's session record now reports (reviewer's summary, 4:39 AM)
+
+Four complete tic-tac-toe games and one abort on an illegal move; six gestures tried on the arm;
+the quick flower drawn; a 47-second replay of the "God Yeeter" recording (a replay, not a
+reported clear). These are Daniel's agent's reports, not checked by anyone else, not tied to one
+code revision, and not a 4 of 5 count.
+
 ### Pitch A at the table
 
 | Test | Live at the table? | Evidence so far |
@@ -352,12 +359,16 @@ There is no single stop key any more. Know which one applies to what is running.
 | What is running | How to stop it |
 |---|---|
 | Dispatcher skills in game mode (Geometry Dash) | Keypad Z, or type `stop` at the dispatcher |
-| Dispatcher in show mode (gestures on the keypad) | NOT the keypad: on `daniel/arm-core` all three keys are gestures there (X dance, C high five, Z victory). Type `stop` at the dispatcher, or use its `arm_stop` helper |
+| Dispatcher in show mode (gestures on the keypad) | NOT the keypad: on `daniel/arm-core` all three keys are gestures there (as of 4:39 AM: X hi, C high five, Z dance). Type `stop` at the dispatcher prompt, or run `arm_stop` from a second terminal. The new menu's own "s" item cannot be reached while the dispatcher is in the foreground |
 | Steady Hand (`steady.py`) | Its own Hold, on the dashboard or by command |
 | Standalone scripts: record and replay, the drawing loop, tic-tac-toe | No validated keypad stop. Ctrl+C in their terminal, untested; tic-tac-toe ignores Stop while it waits on the camera |
 | Anything, if the above fails | The power switch, with someone supporting the arm |
 
 A judge handed the keypad in show mode cannot stop the arm with it. A teammate stays at the laptop.
+
+Ctrl+C at the dispatcher is not a stop that holds: it opens the shutdown question, and pressing
+Enter there switches the motors off, so the arm drops unless it is resting or held. To keep it
+holding, answer with Ctrl+C again (or close the input), not Enter. Untested on the real setup.
 
 ## When something breaks at the table
 
