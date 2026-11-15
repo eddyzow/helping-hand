@@ -80,8 +80,11 @@ anything that needs it may not run at the table. Film these now, real arm and sc
 each under a minute, saying on camera what it is:
 
 1. The drawing loop drawing a house or flower, start to finish.
-2. Tic-tac-toe against a person (reported working by Eddy at 3:06 AM; its code is not pushed yet,
-   so nobody else has seen it).
+2. Tic-tac-toe against a person. Its code is on `daniel/arm-core` (`demo/`). Per the session
+   record as the reviewer reads it (3:13 AM): one game with the earlier version completed, a
+   later run drew an O on top of an X, and the current version, `ttt2.py`, has not been played on
+   the arm. So film whichever version actually finishes a legal game, and say which. The reviewer
+   holds this code on fake-device findings, including camera waits that ignore Stop.
 3. A Geometry Dash clear, even though it needs no camera: it is the proof of the claim.
 4. Steady Hand with the filter off and then on, same shake, if it runs.
 
@@ -89,7 +92,9 @@ Then, before packing: photograph the rig from two sides, write down the camera h
 the arm base and paper sit, save the calibration files, and time one fresh camera setup.
 
 What should run at the table with no overhead camera, as far as the notes show: Geometry Dash,
-Steady Hand, take and hold, gestures. Check each with the camera unplugged before packing.
+Steady Hand, take and hold, gestures. The quick drawings (`FAST=1` flower, house, heart) still
+need the camera for their first and last photographs, so they are not a camera-free fallback.
+Check each piece with the camera unplugged before packing.
 
 ## The one rule
 

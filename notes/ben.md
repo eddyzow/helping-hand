@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 3:15 AM ET.
+Updated Sun Nov 15, 3:20 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`74ea898`): corrected in `docs/demo.md`. Tic-tac-toe is shown as pushed on
+  `daniel/arm-core`, with the three separate facts kept apart (one completed game on the earlier
+  version, one illegal O on X, `ttt2.py` not yet played on the arm), and the quick drawings are no
+  longer listed as camera-free.
 
 - Eddy's 3:06 AM note (camera rig, tic-tac-toe): `docs/demo.md` now has a "film before the rig is
   packed" list built from it: the drawing loop, tic-tac-toe, a Geometry Dash clear, and Steady
