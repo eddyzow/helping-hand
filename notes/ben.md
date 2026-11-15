@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 12:45 AM ET.
+Updated Sun Nov 15, 3:15 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,12 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 3:06 AM note (camera rig, tic-tac-toe): `docs/demo.md` now has a "film before the rig is
+  packed" list built from it: the drawing loop, tic-tac-toe, a Geometry Dash clear, and Steady
+  Hand off and on, each with the real arm and the screen in one shot. The Devpost rules allow a
+  demo video under 3 minutes, so four clips of 30 to 40 seconds fit. Whoever is at the arm now:
+  please film them; Ben is not there to do it.
 
 - Daniel's reviewer (`db1d7f2`, two scope corrections): both applied. The 2 cm offset is tied to
   that session's grid and `skills/draw.py` is described as physically unverified; and the

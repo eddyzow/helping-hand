@@ -73,6 +73,24 @@ Since the freeze:
   The reviewer holds the new drawing code for four fake-device findings (12:26 AM), among them a
   saved depth value that is not range-checked and cleanup that skips disconnecting after an error.
 
+## Film before the camera rig is packed (Eddy, Sun 3:06 AM)
+
+The overhead camera has to come down before judging and may not go back up the same way, so
+anything that needs it may not run at the table. Film these now, real arm and screen in one shot,
+each under a minute, saying on camera what it is:
+
+1. The drawing loop drawing a house or flower, start to finish.
+2. Tic-tac-toe against a person (reported working by Eddy at 3:06 AM; its code is not pushed yet,
+   so nobody else has seen it).
+3. A Geometry Dash clear, even though it needs no camera: it is the proof of the claim.
+4. Steady Hand with the filter off and then on, same shake, if it runs.
+
+Then, before packing: photograph the rig from two sides, write down the camera height and where
+the arm base and paper sit, save the calibration files, and time one fresh camera setup.
+
+What should run at the table with no overhead camera, as far as the notes show: Geometry Dash,
+Steady Hand, take and hold, gestures. Check each with the camera unplugged before packing.
+
 ## The one rule
 
 A piece is shown live only if it passes 4 runs out of 5 on the real arm. The freeze is 8:50 PM
