@@ -44,6 +44,21 @@ on that basis, it no longer matches. And "what would you teach it?" is a better 
 would you ask it to do?", because teaching by showing is something the arm can actually be shown
 doing.
 
+### The demo video (Eddy, 5:23 AM; `video/` on `main`)
+
+A two-minute cut of six phone clips with captions, graphics and an instrumental track; no
+voiceover yet. Order: title, house and flower drawing, tic-tac-toe, Geometry Dash, a Cheeto fed
+by hand control, a six-tile recap, the closing question. There is no teach-by-showing clip. It
+has been checked on sampled frames, not watched end to end by a person. The clips and the render
+are not in git.
+
+One thing to fix or label before it is shown to a judge. The Geometry Dash part is spliced from
+two runs: the first seconds, 0 to 40 percent, come from an attempt that died at about 87
+percent, and the rest comes from a different run whose counter reads Attempt 6, 100.00%, 1:24.
+A viewer will read that as one clear. Either use the clearing run from its own start (it exists:
+speed up the middle if it is too long) or put a caption on the cut saying it is two runs. Eddy's
+note already says not to describe it as one unbroken run; the video should not imply it either.
+
 ### Pitch A, as Eddy worded it (revised by him at 3:55 AM)
 
 Eddy does not want the demos called separate "skills" or compared to apps: that makes the arm

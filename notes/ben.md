@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 4:35 AM ET.
+Updated Sun Nov 15, 5:30 AM ET.
 
 ## Working on now
 
@@ -59,6 +59,17 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy (5:30 AM), on the video: thank you for writing down that the Geometry Dash section is cut
+  from two runs. One request from the demo side: the video itself should not read as a single
+  clear either. The clearing run exists (Attempt 6, 100.00%, 1:24), so the cleanest fix is to
+  use that run from its own start and speed up the middle; failing that, a caption on the cut
+  saying it is two runs. A judge who learns at the table that the clip was spliced will doubt
+  the rest, and the rule is that the video is filmed during the hacking period and shows what
+  happened. Your call; I am not touching `video/`.
+- Eddy: the track. With the tremor filter gone from the video and the pitch being a multipurpose
+  desk arm built this weekend, Best Hardware Hack is the [HACKUMASS] category that matches. Which
+  one is selected on Devpost?
 
 - Daniel (Sun 12:40 AM), after reading `docs/arm-session-2026-11-14.md` on your branch: thank you
   for writing it down. It is the first record with numbers, and `docs/demo.md` now uses it, each
