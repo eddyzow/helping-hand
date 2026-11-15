@@ -116,8 +116,8 @@ Notes:
   things from the simulator to carry into that try: in the simulator a rigidly held pen only wrote cleanly when
   the pressing depth was right to about half a millimetre, so if real lines skip or drag, check
   depth first, as a guess to test and not a known cause (tape slip and the strokes are just as
-  unmeasured); and the first drawing to make is the square in
-  `notes/ben.md`, measured with a ruler, before any name.
+  unmeasured); and the run sheet for the slot is in
+  `newcontext.md` ("Drawing slot", 8:10 PM): writing first, sketches only if "HI" is readable.
 - Only one program can hold the follower's serial port. `steady.py`, `teleop_sync.py` and the
   dispatcher cannot run together, so block 6 means stopping one and starting another. Rehearse
   that switch, or drop block 6.
