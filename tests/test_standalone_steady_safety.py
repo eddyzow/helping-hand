@@ -23,13 +23,13 @@ def scenario(mode):
         if mode in ("stop_during_read", "spoken_off") and reads[0] == 3:
             steady.command("steady off" if mode == "spoken_off" else "stop")
         pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode in ("slow_meter", "meter_warmup") else 50
-        return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 80 if mode == "latch_start" else 0]))
+        return dict(zip(steady.KEYS, [pan, 0, 0, 0, 60 if mode == "roll_no_follow" else 0, 80 if mode == "latch_start" else 0]))
 
     def send(action):
         writes.append((steady.state["hold"], dict(action)))
-        if mode in ("hold_during_ease", "hold_grip") and len(writes) == 2:
+        if mode in ("hold_during_ease", "hold_grip", "hold_roll") and len(writes) == 2:
             steady.command("hold on")
-        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 7 if mode == "load_failure" else 3 if mode in ("hold_during_ease", "hold_grip") else 2):
+        if len(writes) >= (205 if mode == "slow_meter" else 50 if mode == "meter_warmup" else 7 if mode == "load_failure" else 3 if mode in ("hold_during_ease", "hold_grip", "hold_roll") else 2):
             steady.state["quit"] = True
 
     def observe():
@@ -38,6 +38,8 @@ def scenario(mode):
             values[steady.KEYS[0]] = float("nan")
         if mode == "hold_grip" and len(writes) >= 2:
             values["gripper.pos"] = 20.0
+        if mode == "hold_roll" and len(writes) >= 2:
+            values["wrist_roll.pos"] = 20.0
         if mode == "latch_start":
             values["gripper.pos"] = steady.GRIP_FLOOR
         return values
@@ -63,6 +65,8 @@ def scenario(mode):
 
     if mode == "load_failure":
         follower.bus.sync_read = load_read
+    if mode == "torque_limit":
+        follower.bus.sync_write = lambda *args, **kwargs: cleanup.append(("register", args, kwargs))
 
     def make_follower(config):
         follower.config = config
@@ -162,6 +166,23 @@ def test_hold_grip():
     assert len(writes) < 3 or writes[2][1] == writes[1][1], ("held grip target changed", writes)
 
 
+def test_hold_roll():
+    writes, _ = scenario("hold_roll")
+    assert len(writes) == 3 and writes[2][1] == writes[1][1], ("held wrist-roll target changed", writes)
+
+
+def test_roll_no_follow():
+    writes, _ = scenario("roll_no_follow")
+    assert writes and all(action["wrist_roll.pos"] == 0 for _, action in writes)
+
+
+def test_torque_limit():
+    _, cleanup = scenario("torque_limit")
+    registers = [entry for entry in cleanup if entry[0] == "register"]
+    assert registers == [("register", ("Torque_Limit", dict.fromkeys(steady.JOINTS[:5], 600)),
+                          {"normalize": False, "num_retry": 5})], registers
+
+
 def test_shake():
     writes, _ = scenario("shake")
     assert writes and all(math.isfinite(value) for _, action in writes for value in action.values())
@@ -185,7 +206,8 @@ if __name__ == "__main__":
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
-                 test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure):
+                 test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure,
+                 test_hold_roll, test_roll_no_follow, test_torque_limit):
         try:
             test()
             print("PASS", test.__name__)
