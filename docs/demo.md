@@ -74,9 +74,11 @@ recording whether or not they are still there.
 - Record it slowly; the replay runs at the recorded speed.
 - The keypad stop key does NOT stop these programs. `arm.py record` and `replay`, and
   `teleop_sync.py --record`, talk to the arm directly and do not listen for the keypad's stop
-  (reviewer, 4:08 AM, from reading the source). The only stop is the power switch, with someone
-  supporting the arm. Until a path with a working, tested stop is chosen, do not run a replay
-  with a person in the arm's reach.
+  (reviewer, 4:08 AM, from reading the source). There is no validated keypad stop for these scripts. Ctrl+C in
+  their terminal is their software interrupt; how the arm responds to it, and whether cleanup
+  runs, has not been tested. The power switch, with someone supporting the arm, is the other
+  way to stop. Until a stop has been tried and seen to work on the chosen path, do not run a
+  replay with a person in the arm's reach.
 - The person being fed is a teammate, never a judge.
 - The two recorders are not interchangeable. `arm.py record feed` writes `motions/feed.json`,
   which `arm.py replay feed` reads. `teleop_sync.py --record feed` (on `daniel/arm-core` only)
