@@ -9,6 +9,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Standalone fixes verified: dfa82a4
 
+**1b5d565 / QA d77cdca:** latch startup preservation now passes, alongside the ten prior controls and owner synthetic tests. This supersedes the default-opening finding below. The original row-count timing failure passes too, but the new elapsed-session bound fails: rows at 1,11,12,13,14 seconds yield 23 seconds of calm/grip time. spans=[gaps[0]]+gaps imputes another ten seconds before the first sample and exceeds the entire session's elapsed time. Count only a known interval (or clearly label an estimate) rather than asserting that time was measured. Voice negation/contradiction and other branch holds remain; neither candidate is merged into main by QA.
+
 **Candidate fa6ed31 / voice 61c9e5d remains wholly held, outside main.** Latch is now enabled by default and the existing fake startup 7->24.667 opening still reproduces without a trigger squeeze. The high-priority finding now applies to default startup, not only opt-in latch mode.
 
 New `tests.test_voice_control_boundaries` executes actual understand/exchange with fake send/speech. Seven negative/contradictory phrases dispatch release, drop, home or resume commands instead of refusing: don't release; don't drop it; do not go home; don't steady on; release no don't release; go home no stay here; steady on no stay frozen. Require no action dispatch for these; reject or clarify before substring routes, keeping explicit stop/hold supported. No live speech or robot action was executed.

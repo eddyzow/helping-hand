@@ -279,7 +279,7 @@ helping-hand/
 ## 10. Hardware and setup
 
 **Arms**
-- Seeed Studio SO-ARM101 Pro kit, pre-assembled.
+- Open-source SO-101 arm kit. We 3D printed the parts and assembled both arms ourselves at the event (corrected by Eddy, Sat Nov 14, 7:30 PM; the earlier "pre-assembled" was wrong).
 - Follower: 6 Feetech STS3215 12V motors (1/345 gearing), 12V power supply.
 - Leader: 6 STS3215 7.4V motors, 5V power supply. **Never plug the 12V supply into the leader.**
 - Each arm has its own USB serial adapter. Motor IDs 1 to 6, baudrate 1,000,000.
