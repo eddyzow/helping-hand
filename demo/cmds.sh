@@ -8,7 +8,7 @@
 PY=/mnt/c/Users/Khang/so101/.venv/Scripts/python.exe
 cd /mnt/c/Users/Khang/helping-hand
 # Windows programs only see these settings from WSL if they are listed here.
-export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:KEYPAD_MODE:KEYPAD_WAVE:ROLL_POWER:${WSLENV}"
+export WSLENV="STATE:USED:OVERDRAW:FAST:ANY:RESUME:BOARD:GRID_PRESS:O_PRESS:GRIP:LEAD:FOLLOWER_PORT:ARM_NO_PROMPT:KEYPAD_MODE:KEYPAD_WAVE:KEYPAD_JUMP:KEYPAD_THIRD:ROLL_POWER:${WSLENV}"
 
 # --- claw ---------------------------------------------------------------------------------------------------
 grip()      { $PY demo/grip.py "${1:-50}"; }      # grip the pen (50 % force; "grip 30" for a long hold)
@@ -37,7 +37,12 @@ steady()    { $PY steady.py; }                    # tremor-filter teleop (leader
 dispatcher(){ FOLLOWER_PORT=COM3 ARM_NO_PROMPT=1 $PY -m core.dispatcher; }   # needed for Geometry Dash and gestures
 gd()        { $PY keypad/geometry_dash/play_clean.py my_macro_full.csv --press-lead-ms "${1:-106}" --release-lead-ms "${2:-114}" --no-learn; }
 keypad()    { $PY keypad/listen.py; }             # the 3-key pad listener, game mode: C is the Geometry Dash key
-show_keys() { KEYPAD_MODE=show $PY keypad/listen.py; }   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
+arm_stop()  { $PY -c "import socket; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(b'stop\n'); print(c.makefile().readline().strip())"; }   # stop a gesture: the pad has no stop key in show mode
+# Gestures: nod shake fist_bump high_five dance bow look_around victory impatient droop
+show_keys() { KEYPAD_WAVE="${1:-dance}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-victory}" $PY keypad/listen.py --show; }   # show_keys dance bow victory
+# After a drawing: take the pen out, then this. The pad listener goes to the background, the dispatcher takes the arm.
+dance_mode() { $PY demo/grip.py open; echo "TAKE THE PEN OUT NOW (the claw is open). Starting in 6 s..."; sleep 6;
+               (KEYPAD_WAVE="${1:-dance}" KEYPAD_JUMP="${2:-high_five}" KEYPAD_THIRD="${3:-victory}" $PY keypad/listen.py --show &); dispatcher; }   # show mode: X = dance, C = next gesture, Z = stop (needs dispatcher)
 gesture()   { $PY -c "import socket,sys; c=socket.create_connection(('127.0.0.1',8765),timeout=5); c.sendall(('run gesture {\"name\": \"'+sys.argv[1]+'\"}\n').encode()); print(c.makefile().readline().strip())" "${1:-dance}"; }   # gesture bow
 
 echo "arm demo commands loaded: grip grip_open grip_off | measure | ttt ttt_used ttt_lighter ttt_firmer | flower house heart | steady dispatcher gd keypad"
