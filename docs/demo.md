@@ -20,6 +20,30 @@ track for A is Best Hardware Hack, and "we 3D printed and built it this weekend"
 earlier worry that the arm is only a kit. Under B the track is Accessibility. Ben has not weighed
 in; he was asleep when this was written.
 
+### Where Pitch A stands at 4:20 AM (from Eddy's note; Ben has not weighed in)
+
+Eddy says building is over and the rest of the night is the demo. His timeline, with the final
+Devpost due 9:00 AM and the team working to 8:00:
+
+| When | Arm laptop | Eddy |
+|---|---|---|
+| to 4:45 | Second Geometry Dash level, hard stop at 4:45 whether or not it clears | Voiceover; start cutting existing clips |
+| 4:45 to 5:15 | Record and replay with a Cheeto or brick between two taped marks; film the hand guiding, then the arm alone | Cutting |
+| 5:15 to 5:45 | Unplug the camera and try each piece; time a fresh camera setup; photograph the rig | Last two clips |
+| 5:45 to 6:45 | Rehearse switching between programs (only one can hold the arm) | Captions, export, watch it through, upload |
+| 6:45 to 8:00 | Working code onto `main` | Devpost text, repo public, submit |
+
+Video order: opening, drawing, tic-tac-toe, Geometry Dash, teach by showing, close. Closing line:
+"Everything you just saw was the same arm, and it's less than two days old. What would you teach
+it?" Teach by showing moves an object between two spots on the table and never toward a person,
+with a teammate on the power switch.
+
+Two things to notice. Hand control with the tremor filter is not in that video order, so Steady
+Hand is no longer part of the pitch as Eddy has it; if the Devpost track was set to Accessibility
+on that basis, it no longer matches. And "what would you teach it?" is a better close than "what
+would you ask it to do?", because teaching by showing is something the arm can actually be shown
+doing.
+
 ### Pitch A, as Eddy worded it (revised by him at 3:55 AM)
 
 Eddy does not want the demos called separate "skills" or compared to apps: that makes the arm

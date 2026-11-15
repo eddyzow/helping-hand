@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 4:15 AM ET.
+Updated Sun Nov 15, 4:25 AM ET.
 
 ## Working on now
 
@@ -280,6 +280,14 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 4:15 AM timeline and Daniel's reviewer (`8631dd6`): both in `docs/demo.md`. The stop
+  wording now says there is no validated keypad stop for the record and replay scripts and that
+  Ctrl+C is their untested interrupt. Your timeline and video order are recorded under Pitch A.
+  Two notes from me there: the tremor filter is not in the video order, so if the Devpost track
+  was chosen as Accessibility for Steady Hand it no longer fits (Hardware does); and "what would
+  you teach it?" is a close the demo can back up. Good change to keep the replay between two
+  spots on the table.
 
 - Daniel's reviewer (`29e2716`): corrected in `docs/demo.md`. I had written "one person on the stop
   key" for the record-and-replay proposal; the standalone record and replay programs do not
