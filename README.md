@@ -1,124 +1,139 @@
 # RobTop
-*because your desk could use an extra arm...*
 
-RobTop (short for Robot Tabletop) is a robot arm that sits on your desk and takes on whatever job you put in front of it. So far that includes drawing, playing tic-tac-toe against you, beating Geometry Dash levels, copying your hand, a few dance moves, and more! Built at HackUMass XIV, November 13 to 15, 2026.
+**A robot arm for your desk that takes on whatever you put in front of it: it draws, plays you at tic-tac-toe, and beats Geometry Dash levels.**
 
-## Inspiration
+[![Built at HackUMass XIV](https://img.shields.io/badge/built%20at-HackUMass%20XIV-881C1C?style=flat-square&labelColor=17141F)](https://hackumass.com)
+[![Arm: SO-101](https://img.shields.io/badge/arm-SO--101%2C%20open%20source-F2A97C?style=flat-square&labelColor=17141F)](https://github.com/TheRobotStudio/SO-ARM100)
+[![Simulator](https://img.shields.io/badge/simulator-runs%20without%20the%20arm-7CF2C8?style=flat-square&labelColor=17141F)](#quick-start)
 
-Robot arms that can do more than one job usually live in labs and cost thousands of dollars. The cheap ones you can print at home tend to do one trick. We wanted to know how many different jobs one cheap arm can do when the software makes up for the hardware. So we 3D printed an open-source arm, assembled it at the event, put it on a table, and started handing it things.
+**[Results](#results)** · [How it works](#how-it-works) · [Hardware](#hardware) · [Quick start](#quick-start) · [What we built](#what-we-built-at-the-hackathon--what-we-did-not-build)
 
-## What it does
+Robot arms that can do many different jobs usually sit in labs and cost thousands of dollars. The ones you can print at home tend to do one trick.
 
-Give it a pen and it draws. A webcam above the table photographs the page, compares the ink with the drawing RobTop meant to make, and the arm corrects itself on the next pass. It has drawn a house and a flower. On the house, the ink ended up about a millimetre from the planned shape, and the flower takes 50 seconds.
+RobTop (short for Robot Tabletop) is one cheap arm on a table, with a webcam above it, that we keep handing new jobs. Give it a pen and it draws. Draw an X and it plays you at tic-tac-toe. Give it a key to press and it plays a video game where one late press ends the run. Take the second arm in your hand and it follows you.
 
-<img src="docs/drawloop/house_round10.jpg" width="320" alt="A house drawn by the arm, as the webcam scores it: the planned lines in green and the ink in red">
+The arm is the open-source [SO-101](https://github.com/TheRobotStudio/SO-ARM100). We 3D printed the parts, assembled both arms and wrote the software at HackUMass XIV, November 13 to 15, 2026.
 
-What the webcam sees: the plan in green, RobTop's ink in red.
+<img src="docs/drawloop/house_round10.jpg" width="360" alt="A house drawn by RobTop on paper, as its webcam scores it. The planned drawing is overlaid in thin green lines and the ink the camera found is in red. The red follows the green closely around the walls, roof, two windows and door.">
 
-Draw an X and it plays you. RobTop draws a tic-tac-toe grid and waits. When the webcam sees a new X in a square, the arm thinks through every possible game and draws its O. It has played four full games against us and won all four. The best you can do against it is a draw.
+What the webcam sees after RobTop draws a house: the plan in green, the ink in red.
 
-Give it a key to press and it plays a video game. Geometry Dash has one button, and a single press that comes a moment late sends you back to the start. RobTop presses a real key with its claw and plays the level from memory, sending each press about a tenth of a second early to make up for its own reaction time. It cleared Stereo Madness, the game's first level, three times on Saturday night. It also played a 47-second, 67-press recording of a second level, God Yeeter, without dying.
+## Results
 
-Take the second arm in your hand and it follows you. We built two arms. Move the small one and the big one copies you, joint for joint, with a filter you can switch on to smooth out a shaky hand.
+Everything below ran on the real arm unless it says otherwise.
 
-Press a key and it says hi. A three-key pad next to the arm sets off a wave, a nod, a fist bump, a victory pose and a dance.
+| | Result | Source |
+|---|---|---|
+| Drawing a house | **97.6% of the planned line has ink within 2 mm.** The ink sits 1.0 to 1.2 mm from the plan on average, after ten rounds of camera correction. The photo is lined up with the plan before scoring, so this measures the shape, not where it sits on the page. | `docs/arm-session-2026-11-14.md` |
+| Drawing a flower | **9 of 9 strokes drawn**, 0.99 mm from the plan on average. The quick version takes **50 s**. | same |
+| Small circles | 14 mm circles came out 8.5 to 39% out of round. With a run-in before the pen lands: **5.7 to 12.5%**. | same |
+| Tic-tac-toe | **4 full games against a person, 4 won by the arm.** One earlier game was stopped when it drew an O on top of an X. We changed it to follow the grid it had drawn, and the three games since were clean. In simulation: 400 games, 0 lost. | same, section 7 |
+| Geometry Dash | **Stereo Madness cleared 3 times** on Saturday night (11:37, 11:46 and 11:51 PM), with six failed runs among the attempts. | same |
+| Key timing | Presses go out **105 ms early** and releases 116 ms early. Both are measured on the arm. | `poses/` on `daniel/arm-core` |
+| A second level | A 47 s recording of God Yeeter: **67 presses, no deaths**, in one run. | `docs/arm-session-2026-11-14.md`, section 7 |
+| Gestures | **6 of 11** have run on the real arm from the keypad: dance, victory, nod, shake, fist bump and hi. The other five have only run in the simulator. | same, section 7 |
+| Shake filter | Ran once with a real hand. **No figure was measured on the arm, so we don't claim one.** On synthetic input it removes 90% of a 6 Hz shake. | `tests/test_steady.py` on `daniel/arm-core` |
 
-Or just tell it. Type a sentence like "wave at me" and a language model picks the matching move.
+The session record is on the `daniel/arm-core` branch until that branch is merged.
 
-## How we built it
+## How it works
 
-- Hardware: two SO-101 arms (one to do the work, one to hold), 3D printed and assembled at the event, each with six Feetech STS3215 servos. A 1080p USB webcam over the table, a SayoDevice O3C three-key pad, a Sharpie, and a Windows laptop.
-- Motion: Python on LeRobot's motor drivers. One program owns the arm and runs one move at a time, and everything else asks it over a local socket.
-- Drawing: OpenCV finds the sheet of paper by its corners and flattens the photo to millimetres. We showed the arm where the paper is by hand, measured how much slack the joints have, and start each stroke a few millimetres early to cancel it.
-- Tic-tac-toe: the same camera code looks for new ink in each of the nine squares, and a full search of the game picks the reply.
-- Geometry Dash: we recorded the key presses for a level, measured how long the arm takes to press and release the key (about 105 and 116 ms), and send every command early by that much.
-- Second arm: the two arms were calibrated differently, so we measure a fixed offset per joint and add it. The shake filter is a low-pass filter on the joint angles.
-- Language: Claude reads a one-line description of each move and picks one. It only chooses the move. The motion is always one we taught the arm.
-- Simulation: a MuJoCo model of the arm, so new moves get tried on a laptop before they touch the real thing.
-- Testing: a lot of paper.
+1. **Show.** Before a job, we place the arm by hand on what it will work with: the corners of the paper, the top of the key. RobTop saves those joint angles and blends between them to reach any point in between.
+2. **Plan.** A drawing is a list of strokes in millimetres. A Geometry Dash level is a list of key presses in milliseconds. A tic-tac-toe reply comes from searching every possible game.
+3. **Lead.** Hobby servos have slack and lag. The pen starts each stroke 3 to 4.5 mm early and runs in along the stroke's direction before it touches the paper. Each key press is sent about 105 ms before it is due.
+4. **Look.** The webcam photographs the page. OpenCV finds the sheet's four corners, flattens the photo to millimetres, and compares the ink with the plan. That scores a drawing and corrects the next attempt. In tic-tac-toe it finds the X a person just drew.
 
-## Challenges we ran into
+RobTop does not watch the Geometry Dash screen. The level never changes, so the hard part is pressing on time with a cheap arm, and that is the part we measured.
 
-The arm doesn't go where you tell it. Hobby servos have slack in every joint, so the pen lands a few millimetres from where it was sent. Every small circle RobTop drew started with a straight tail and came out looking like a 6. We fixed it by measuring the slack, starting each stroke early, and letting the pen run in along the direction of the stroke before it touches the paper.
+The second arm is a copy of the first that a person holds. RobTop reads its joints 30 times a second and follows, adding a fixed offset per joint because the two arms were calibrated differently. A low-pass filter can be switched on to smooth out a shaky hand.
 
-A Sharpie is too thin to hold. The claw was plenty strong, but the marker was too thin for it to get a firm hold. The fix was duct tape wrapped around the barrel until it was thick enough. In typical hacker fashion, it stayed that way!
+One program, the dispatcher, owns the arm and runs one move at a time. The keypad, the Geometry Dash player and typed requests all reach it over a local socket. For a typed request such as "wave at me", Claude reads a one-line description of each move and picks one. The model only chooses. The motion is always one we taught the arm.
 
-One motor kept overheating. The wrist-roll servo reached 63 C and stopped answering for a few minutes at a time, and because every program checked all six motors, it took everything else down with it. Drawing and tic-tac-toe don't need that joint, so now they switch it off as soon as they connect.
+## Hardware
 
-Geometry Dash doesn't forgive a late press. The arm takes about a tenth of a second to press a key, and that delay changes whenever the keypad gets nudged. So we measure it again every time the pad moves.
+| Part | What it does here |
+|---|---|
+| SO-101 follower arm, 3D printed, six Feetech STS3215 servos | Does the work |
+| SO-101 leader arm, 3D printed, six Feetech STS3215 servos | The arm a person holds |
+| USB webcam, 1080p, above the table | Reads the paper for drawing and tic-tac-toe |
+| SayoDevice O3C three-key pad | The Geometry Dash key, and the buttons that set off gestures |
+| Sharpie wrapped in duct tape | The pen. The claw was strong enough, but the bare marker was too thin to hold |
+| Windows laptop with WSL | Runs everything |
 
-## What we learned
+RobTop lifts light things only: a marker, a Cheeto, a Duplo brick.
 
-- Cheap servos have slack, and you can measure it and plan around it.
-- A camera looking at the result fixes more than a better model of the arm does.
-- Geometry Dash is a very strict timing test.
-- Duct tape is a legitimate engineering material.
+## Quick start
 
-## What's next for RobTop
-
-The next thing we want is teaching by showing: guide RobTop once with the second arm, and have it repeat the job without you. The recording code is already in the repo. After that:
-
-- Writing any text you type, which already works in our simulator.
-- Picking things up off the table by sight.
-- Asking for any job out loud, as well as by typing.
-- More levels.
-
-## Individual contributions
-
-Daniel owned the real arm: the motion core, the drawing loop, tic-tac-toe, the gestures and the second-arm control.
-
-Jonathan owned Geometry Dash: recording the levels, replaying them, and a simulated keypad to test the timing on.
-
-Eddy built the plain-English control, the drawing generator and the simulators, and made the demo video.
-
-Ben wrote the demo and the pitch, and gave the arm its personality moves.
-
-## Run it
-
-You need Python 3.12 and, for the real arm, [LeRobot](https://github.com/huggingface/lerobot) and a calibrated pair of SO-101 arms. The simulator needs no hardware. The real-arm demo scripts (`demo/`, `teleop_sync.py`) live on the `daniel/arm-core` branch until they are merged.
+You need Python 3.12 and `uv`. These steps run in the simulator, so they need no arm and no API keys.
 
 ```bash
+git clone https://github.com/eddyzow/helping-hand.git
+cd helping-hand
 uv venv && uv pip install -r requirements.txt
-python keypad/geometry_dash/fetch_so101_model.py   # downloads the arm's simulator model, once
-python sim_draw.py cat                             # simulator: the arm draws a cat
-python -m tests.test_core                          # prints "core ok"
-
-source demo/cmds.sh        # on the arm laptop; change the two paths at the top to yours
-ttt                        # tic-tac-toe against a person
-flower                     # or: house
-dispatcher                 # owns the arm; Geometry Dash and the pad gestures need it
-gd                         # Geometry Dash, with `keypad` running in another terminal
-python teleop_sync.py      # the big arm copies the small one
+.venv/bin/python keypad/geometry_dash/fetch_so101_model.py   # download the arm's simulator model, once
+.venv/bin/python sim_draw.py cat                             # the simulated arm draws a cat
+.venv/bin/python -m tests.test_core                          # prints "core ok"
 ```
 
-## Built with
+On the real arm, with [LeRobot](https://github.com/huggingface/lerobot) installed and both arms calibrated:
 
-Anthropic API, Feetech STS3215, Hershey Fonts, LeRobot, MuJoCo, NumPy, OpenAI API, OpenCV, Python, SO-101
+```bash
+source demo/cmds.sh    # one-word commands; change the two paths at the top to yours
+ttt                    # tic-tac-toe against a person
+flower                 # or: house
+dispatcher             # owns the arm; Geometry Dash and the pad gestures need it
+gd                     # Geometry Dash, with `keypad` running in another terminal
+```
 
-## What we made, and what we built on
+The real-arm scripts (`demo/`, `teleop_sync.py`, `steady.py`) are on the `daniel/arm-core` branch until it is merged.
 
-We wrote the project's code during the event, 3D printed the parts, and assembled and calibrated both arms ourselves. We did not design the arm. We wrote the code with a lot of help from AI coding agents, Claude Code among them, and each of us ran an agent that left notes for the others in `notes/`.
+Other entry points:
 
-- [SO-101](https://github.com/TheRobotStudio/SO-ARM100) by TheRobotStudio: the arm's mechanical design.
-- [LeRobot](https://github.com/huggingface/lerobot) by Hugging Face: motor drivers and calibration.
-- [MuJoCo](https://mujoco.org) and the SO-101 model from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie): the simulator.
-- Hershey Fonts and Google's Quick, Draw! doodles: stroke data for writing and sketches.
-- SayoDevice Visualizer (MIT): the keypad's 3D model in the simulator.
-- Claude and OpenAI models: picking a move from a sentence, and speech to text.
+- Second arm: `python teleop_sync.py`. Run it with `--measure` once to line the two arms up.
+- A typed request: `python voice/route.py "wave at me"`, with `ANTHROPIC_API_KEY` in `.env`.
+- More of the simulator: `python sim.py --skill wave`.
 
-Geometry Dash is played from key presses we recorded. RobTop doesn't watch the screen.
+Only one program can hold the arm's serial port at a time, so stop one before starting the next.
 
-## Bill of Materials
+## Architecture
 
-| Item | Purpose | Quantity |
-|:---|:---|:---|
-| SO-101 follower arm, 3D printed | The arm that does the work | 1 |
-| SO-101 leader arm, 3D printed | The one you hold | 1 |
-| Feetech STS3215 servo | Six per arm | 12 |
-| USB serial motor adapter | One per arm | 2 |
-| USB webcam (1080p) | Eyes above the table | 1 |
-| SayoDevice O3C three-key pad | The Geometry Dash key and the gesture buttons | 1 |
-| Sharpie | Drawing | 1 |
-| Duct tape | Makes the Sharpie thick enough to hold | some |
-| A4 paper | Drawings and tic-tac-toe | a lot |
-| Windows laptop | Brains | 1 |
+| Folder | Owner | What's in it |
+|---|---|---|
+| `core/` | Daniel | The dispatcher (`127.0.0.1:8765`: `run`, `stop`, `home`, `status`, `list`) and the arm wrapper, with a mock arm for tests |
+| `demo/` | Daniel | The drawing loop, tic-tac-toe, the webcam code and the one-word demo commands |
+| `skills/` | shared | One file per move, each with a `NAME`, a `DESCRIPTION`, `PARAMS` and `run(arm, params, stop)` |
+| `keypad/` | Jonathan | The pad listener, the Geometry Dash recordings and player, and a simulated keypad for testing timing |
+| `voice/` | Eddy | Turns a typed or spoken sentence into a move |
+| `sim.py`, `sim_draw.py` | Eddy | The MuJoCo simulator for moves and for drawing |
+| `docs/` | Ben | The demo script, the pitch and the record of what ran on the arm |
+| `tests/` | shared | Run each with `python -m tests.<name>` |
+| `notes/` | shared | One file per teammate, kept by that teammate's coding agent |
+| `video/` | Eddy | The demo video, built with Remotion |
+
+## Built on
+
+| Project | What it does here |
+|---|---|
+| [SO-101](https://github.com/TheRobotStudio/SO-ARM100) by TheRobotStudio | The arm's mechanical design |
+| [LeRobot](https://github.com/huggingface/lerobot) by Hugging Face | Motor drivers, calibration and reading the second arm |
+| [MuJoCo](https://mujoco.org) and [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) | The simulator and its model of the SO-101 |
+| OpenCV | Finding the paper and the ink in the webcam photo |
+| Claude (Anthropic API) | Picks a move from a typed sentence |
+| OpenAI API | Speech to text |
+| Hershey Fonts and Google's Quick, Draw! | Stroke data for writing and sketches in the simulator |
+
+## What we built at the hackathon & what we did not build
+
+Built at HackUMass XIV, November 13 to 15, 2026: both arms, 3D printed and assembled at the event, and the code in `core/`, `skills/`, `demo/`, `keypad/`, `voice/`, `tests/`, `video/` and the scripts at the top of the repo. We wrote it with AI coding agents, Claude Code among them.
+
+What we did not build:
+
+- **The arm's design.** SO-101 is by TheRobotStudio. We printed, assembled and calibrated it.
+- **Motor drivers and calibration.** Those are LeRobot's.
+- **The simulator models.** The SO-101 model comes from MuJoCo Menagerie, and the keypad's 3D model from SayoDevice Visualizer (MIT, see `keypad/geometry_dash/sayodevice_o3c/LICENSE`).
+- **Geometry Dash** is by RobTop Games. Our name is a nod to it, and we are not affiliated with RobTop Games.
+- **Prior work, made before the event:** the event clock `.hackathon/hackclock.py`.
+
+## Contributing
+
+Each of us works with a coding agent that reads `AGENTS.md` and writes to its own file in `notes/`. Run `git pull --rebase` before every push, and never force-push `main`.

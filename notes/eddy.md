@@ -400,3 +400,12 @@ Eddy asked for the README rewritten in the style of his past project READMEs (Ki
 - "Run it" says the real-arm scripts are on `daniel/arm-core` until merged. Delete that sentence after the merge.
 - `docs/drawloop/house_round10.jpg` was copied from `daniel/arm-core` unchanged so the README has a picture. It is the same file at the same path, so the merge should not conflict on it. The README itself will conflict with arm-core's older README; keep this one.
 - Still to add by hand: the video link and Devpost link at the top, and photos of the arm.
+
+## Sun 15 Nov, 6:00 AM: README restructured on Frankenstein's layout
+
+Eddy named Frankenstein (AI Engineer Code Summit, Nov 7) as the winning project to copy, so the README now follows its layout: a bold one-line pitch, badges, a Results table with a source for each number, numbered "How it works", a hardware table, quick start, an architecture table with owners, "Built on", and "What we built at the hackathon & what we did not build". This replaces the Kite-style version from 5:55 AM.
+
+- Every number in the Results table is from Daniel's session record. If a newer run changes one, change it there.
+- Three sentences say code is on `daniel/arm-core` until merged (under Results, under Quick start, and two Source cells). Delete them after the merge.
+- There is no LICENSE file, so the README has no licence section.
+- Still to add by hand at the top: the video link, the Devpost link, and photos of the arm.
