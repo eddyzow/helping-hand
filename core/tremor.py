@@ -188,27 +188,38 @@ class GripLatch:
     """One squeeze of the leader's trigger closes the claw and KEEPS it closed; the next squeeze opens it.
 
     Why: copying the trigger means holding a squeeze for as long as you hold the object, which is what
-    a weak or trembling hand does worst (Eddy's suggestion, 14 Nov). A squeeze counts once the trigger
-    has stayed below `squeeze_below` for `dwell_s` (a 5 Hz tremor crosses a line for well under 0.1 s),
-    and the next one only after it has come back above `release_above` (so a hand hovering at the
-    threshold cannot make it chatter)."""
+    a weak or trembling hand does worst (Eddy's suggestion, 14 Nov).
 
-    def __init__(self, closed_to, open_to=60.0, squeeze_below=25.0, release_above=45.0, dwell_s=0.2):
+    A squeeze is measured against where the trigger RESTS, not against fixed numbers: the real
+    leader's trigger was seen resting at about 43 of 100, so a fixed "released above 45" would never
+    have been reached and the claw could never have opened again. The resting level follows the
+    trigger up at once and down slowly, and stands still while the trigger is squeezed.
+    A squeeze counts once the trigger has stayed `depth` below rest for `dwell_s` (a 5 Hz tremor
+    crosses a line for well under 0.1 s), and the next one only after it has come back to within
+    half of `depth` (so a hand hovering at the threshold cannot make it chatter)."""
+
+    def __init__(self, closed_to, open_to=60.0, depth=15.0, dwell_s=0.2, settle=3.0):
         self.closed_to, self.open_to = closed_to, open_to
-        self.squeeze_below, self.release_above, self.dwell_s = squeeze_below, release_above, dwell_s
+        self.depth, self.dwell_s, self.settle = depth, dwell_s, settle   # settle: units a second the rest level may fall
         self.closed = False      # is the claw latched shut
+        self.rest = None         # where the trigger sits when nobody squeezes it
         self._armed = True       # has the trigger been released since the last squeeze
-        self._since = None       # when the trigger went below squeeze_below
+        self._since = None       # when this squeeze began
+        self._last = None
 
     def step(self, t, trigger):
         """Feed the trigger's position (0 shut .. 100 open) at time t; returns the claw target."""
-        if trigger < self.squeeze_below:
+        if self.rest is None:
+            self.rest, self._last = trigger, t
+        dt, self._last = max(0.0, t - self._last), t
+        if trigger < self.rest - self.depth:
             if self._since is None:
                 self._since = t
             if self._armed and t - self._since >= self.dwell_s:
                 self.closed, self._armed = not self.closed, False
         else:
             self._since = None
-            if trigger > self.release_above:
+            self.rest = max(trigger, self.rest - self.settle * dt)
+            if trigger > self.rest - self.depth / 2:
                 self._armed = True
         return self.closed_to if self.closed else self.open_to

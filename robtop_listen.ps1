@@ -1,9 +1,9 @@
-# Rubby's ears, with no internet and no API key: Windows' own speech recognition, limited to a
-# short list of phrases, sends the matching command to the dispatcher and speaks a short reply.
+# RobTop's ears, with no internet and no API key: Windows' own speech recognition, limited to a
+# short list of phrases, sends the matching command to the robot (dispatcher or teleoperation) and speaks a short reply.
 #
-#   powershell -ExecutionPolicy Bypass -File rubby_listen.ps1            # say "Rubby, wave" or just "wave"
-#   powershell -ExecutionPolicy Bypass -File rubby_listen.ps1 -Sure 0.8  # stricter, for a noisy room
-#   powershell -ExecutionPolicy Bypass -File rubby_listen.ps1 -NeedName  # only react to phrases that start with "Rubby"
+#   powershell -ExecutionPolicy Bypass -File robtop_listen.ps1            # say "RobTop, wave" or just "wave"
+#   powershell -ExecutionPolicy Bypass -File robtop_listen.ps1 -Sure 0.8  # stricter, for a noisy room
+#   powershell -ExecutionPolicy Bypass -File robtop_listen.ps1 -NeedName  # only react to phrases that start with "RobTop"
 #
 # A fixed phrase list is the noise filter: anything that is not one of these phrases is ignored,
 # and a phrase heard with less confidence than -Sure is ignored too. Ctrl+C to quit.
@@ -11,10 +11,12 @@ param([double]$Sure = 0.70, [switch]$NeedName, [int]$Port = 8765)
 
 Add-Type -AssemblyName System.Speech
 
-# phrase -> (line for the dispatcher, what Rubby says)
+# phrase -> (line for the robot, what RobTop says). No phrase ever sends 'filter off': that switch is
+# only for the keypad, the dashboard or a typed line. 'steady off' freezes the arm in steady.py.
+# 'run wave {}', not bare 'run wave', which steady.py reads as the keypad's steady toggle.
 $commands = [ordered]@{
-    "wave"             = @('run wave', 'Hello!')
-    "say hi"           = @('run wave', 'Hello!')
+    "wave"             = @('run wave {}', 'Hello!')
+    "say hi"           = @('run wave {}', 'Hello!')
     "nod"              = @('run gesture {"name": "nod"}', 'Yes.')
     "shake your head"  = @('run gesture {"name": "shake"}', 'No.')
     "fist bump"        = @('run gesture {"name": "fist_bump"}', 'Boom.')
@@ -29,6 +31,13 @@ $commands = [ordered]@{
     "let go"           = @('run hand {"do": "drop"}', 'Letting go.')
     "go home"          = @('home', 'Going home.')
     "stop"             = @('stop', 'Stopped.')
+    "steady on"        = @('steady on', 'Steadying your hand.')
+    "filter on"        = @('steady on', 'Steadying your hand.')
+    "steady off"       = @('steady off', 'Holding still.')
+    "filter off"       = @('steady off', 'Holding still.')
+    "hold"             = @('hold on', 'Holding still.')
+    "release"          = @('hold off', 'Released.')
+    "start the test"   = @('test', 'Starting the ten second test. Hold still.')
 }
 
 function Send-Line([string]$line) {
@@ -50,16 +59,17 @@ $phrases = New-Object System.Speech.Recognition.Choices
 $phrases.Add([string[]]$commands.Keys)
 $builder = New-Object System.Speech.Recognition.GrammarBuilder
 $builder.Culture = [System.Globalization.CultureInfo]'en-US'
-if ($NeedName) { $builder.Append('Rubby') } else { $builder.Append('Rubby', 0, 1) }  # the name is optional unless -NeedName
+$name = New-Object System.Speech.Recognition.GrammarBuilder((New-Object System.Speech.Recognition.Choices(,[string[]]@('RobTop', 'Rob Top'))))
+if ($NeedName) { $builder.Append($name) } else { $builder.Append($name, 0, 1) }  # the name is optional unless -NeedName
 $builder.Append($phrases)
 $ears.LoadGrammar((New-Object System.Speech.Recognition.Grammar($builder)))
 $ears.SetInputToDefaultAudioDevice()
 
-Write-Host "Rubby is listening. Phrases: $($commands.Keys -join ', '). Ctrl+C to quit."
+Write-Host "RobTop is listening. Phrases: $($commands.Keys -join ', '). Ctrl+C to quit."
 while ($true) {
     $heard = $ears.Recognize([TimeSpan]::FromSeconds(4))
     if ($null -eq $heard) { continue }
-    $text = ($heard.Text -replace '^Rubby\s+', '')
+    $text = ($heard.Text -replace '^Rob ?Top\s+', '')
     # not "$sure": PowerShell names ignore case, so that would overwrite the -Sure threshold itself
     $shown = [math]::Round($heard.Confidence, 2)
     if ($heard.Confidence -lt $Sure -or -not $commands.Contains($text)) {
@@ -71,5 +81,5 @@ while ($true) {
     Write-Host "heard '$($heard.Text)' ($shown) -> $line -> $reply"
     if ($reply -match '"busy"') { $say = 'One moment.' }
     elseif ($reply -match 'no dispatcher') { $say = 'My arm is not switched on.' }
-    $voice.Speak($say)   # blocks, so Rubby does not hear its own voice as a command
+    $voice.Speak($say)   # blocks, so RobTop does not hear its own voice as a command
 }
