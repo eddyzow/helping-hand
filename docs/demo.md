@@ -55,12 +55,15 @@ Since the freeze:
   photos and says they show recognisable drawings with visible line errors.
   - The arm draws on paper with a Sharpie held in the claw. A house and a flower were drawn on A4
     and scored by a USB webcam. House, after ten rounds of camera correction: 97.6 percent of the
-    line inked, 1.0 to 1.2 mm from the plan; it never passed the session's own 1.0 mm gate.
-    Flower, one run: 9 of 9 strokes, 90 percent, 1.04 mm.
-  - It does this with new code in `drawloop/`, not with `skills/draw.py`. The record says
-    `skills/draw.py` on the real arm would draw about 2 cm above the paper, because blending joint
-    angles between taught corners rides high, and that a circle on a taught grid comes out as an
-    oval. So the drawing skill on `main` does not work on the real arm as it stands.
+    intended points had ink within 2 mm, and the ink sat 1.0 to 1.2 mm from the plan on average; it
+    never passed the session's own 1.0 mm gate. Flower, one run: 9 of 9 strokes, 90 percent, 1.04
+    mm. Those scores are taken after the photo is aligned to the plan (rotation, shift and
+    mirroring allowed) and leave out ink more than 10 mm away, so they are not absolute placement.
+  - It does this with new code in `drawloop/`, not with `skills/draw.py`. On the grid taught in
+    that session, the record reports the blended "pen down" layer sat about 2 cm above the paper
+    mid-page and a circle came out as an oval. `skills/draw.py` on `main` has none of the
+    session's corrections (confirmed by reading the source) and has never been run on the arm, so
+    its real behaviour is unknown, not measured as failing. Do not offer it for live use.
   - Geometry Dash: Stereo Madness completed at 11:37, 11:46 and 11:51 PM. It also died at 40.3
     percent four times, and twice at 75 seconds when started from the level-complete screen.
   - Hardware: the claw motor reached 62 C gripping continuously (it cuts out at 70 C); the

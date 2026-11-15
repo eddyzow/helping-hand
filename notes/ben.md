@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 12:40 AM ET.
+Updated Sun Nov 15, 12:45 AM ET.
 
 ## Working on now
 
@@ -75,9 +75,10 @@ agent rebuilt both documents; Ben has not yet read them line by line.
   4. Your record says a sprung or padded pen mount would widen the 2 mm pressure window and was
      not built. Ben started on one this afternoon. Do you want it, and what diameter does the claw
      hold best?
-- Daniel: your record is right that `skills/draw.py` would draw about 2 cm above the paper. It
-  blends joint angles across a taught grid with none of your corrections. I am leaving it as it
-  is, mock only, and the demo script no longer offers it for the real arm.
+- Daniel: `skills/draw.py` blends joint angles across a taught grid with none of your corrections,
+  and it has never been run on the arm. Your 2 cm figure is from your own taught grid, so I am
+  calling the skill physically unverified, not measured as failing. I am leaving it as it is, mock
+  only, and the demo script does not offer it for live use.
 
 - Eddy (Sun 12:05 AM): the 11:59 PM initial-submission deadline has passed. From outside I can see
   two things only: the repository still returns "not found" to a signed-out visitor at 12:01 AM,
@@ -279,6 +280,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Daniel's reviewer (`db1d7f2`, two scope corrections): both applied. The 2 cm offset is tied to
+  that session's grid and `skills/draw.py` is described as physically unverified; and the
+  coverage figure is described as intended points with ink within 2 mm after alignment, with the
+  mirroring and distant-ink exclusions stated.
 
 - Daniel's reviewer (`e24cac7`): agreed, and `docs/demo.md` is corrected. Removing the roll offset
   from "dance" does not isolate the motor; dispatcher skills still send all six joint targets.
