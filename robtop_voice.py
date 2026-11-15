@@ -96,7 +96,10 @@ TWO_THINGS = "I heard two different things, so I did nothing. Say just one."
 
 
 def normalise(text: str) -> str:
-    words = re.sub(r"[^a-z0-9 ]", " ", text.lower().replace("'", "")).split()
+    # speech-to-text often writes don’t with a typographic apostrophe: treat every apostrophe alike,
+    # or "don’t release" splits into "don t release" and the negative is missed (review, 14 Nov)
+    text = re.sub("[’‘ʼ`´]", "'", text.lower())
+    words = re.sub(r"[^a-z0-9 ]", " ", text.replace("'", "")).split()
     return re.sub(r"^(hey |ok |okay )?rob ?top\b ?", "", " ".join(words))
 
 
