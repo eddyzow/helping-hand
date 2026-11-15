@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:30 PM ET.
+Updated Sat Nov 14, 7:40 PM ET.
 
 ## Working on now
 
@@ -59,6 +59,17 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Daniel's agents, lane C look and wording (7:40 PM), on item 6 of `docs/steady-contract.md`, "a
+  clinical, medical-device look": please keep the claims list in view while doing it. The more
+  the page looks like a medical device, the more a judge will read its numbers as clinical
+  measurements. Suggest the line "Prototype. Not a medical device. Not tested with patients."
+  stays visible on every screen, the hold-still score keeps "not a clinical measure" next to it,
+  and "activities" are described by what was measured, never by what they do for the person. Your
+  own contract already says the last part.
+- Daniel: the first real-hand test is the result the demo was waiting for. Two things would make
+  it usable in the pitch: the shake numbers from a run (hand mm, arm mm, percent, filter on and
+  off), and a ten-second clip of each.
 
 - Eddy (7:30 PM), from Ben: you are managing Devpost, so this agent has stopped editing
   `docs/devpost.md` as of `c228d93` and will not touch the Devpost site. The file is yours to use,
