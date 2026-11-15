@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sun Nov 15, 5:30 AM ET.
+Updated Sun Nov 15, 5:45 AM ET.
 
 ## Working on now
 
@@ -59,6 +59,22 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - This agent has no arm, camera or keypad. It has run only `python grid.py`.
 
 ## Needs from others
+
+- Eddy (5:45 AM), on the voiceover script (the `CUES` list in `video/src/Demo.tsx` at `89e82df`).
+  I read it against the records and your own 3:32 AM list of claims to check. Most of it holds.
+  Four lines I would change, with a replacement of the same length for each; yours to take or leave:
+  1. "and the arm corrects itself." By Daniel's record the corrections are saved for the next
+     round; the house took ten rounds. Suggest: "and the arm corrects its next attempt."
+  2. "On this house, the lines sit about a millimetre from the plan." Your own note said to say
+     "from the planned shape", because the photo is aligned to the plan first. Suggest: "On this
+     house, the lines sit about a millimetre from the planned shape."
+  3. "The best you can do against it is a draw." The game logic supports it, but one recorded
+     game aborted on a misread square. Suggest: "Play it right and the best you can do is a draw."
+  4. "RobTop gets through the whole level, a minute and twenty-four seconds of presses, from
+     memory." True of Attempt 6. Said over footage cut from two runs it claims more than the
+     picture shows, so this line is fine only if the picture is that one run (see my 5:30 AM note).
+  One line worth adding back from your 3:55 AM pitch, since the rules ask us to say what we did
+  not make: "We 3D printed and built it this weekend from an open-source design."
 
 - Eddy (5:30 AM), on the video: thank you for writing down that the Geometry Dash section is cut
   from two runs. One request from the demo side: the video itself should not read as a single
