@@ -36,7 +36,12 @@ def scenario(mode):
     follower.get_observation = lambda: dict.fromkeys(steady.KEYS, 0.0)
     follower.send_action = send
     follower.disconnect = lambda: cleanup.append(("follower", follower.config.disable_torque_on_disconnect))
-    follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {})
+    # the line-up offset now comes from the two arms' calibration ranges; the invalid case is a range
+    # that is not a number, as it was a NaN in the old offsets file (still written below)
+    ranges = {j: SimpleNamespace(range_min=1000, range_max=3000) for j in steady.JOINTS}
+    bad = {**ranges, steady.JOINTS[0]: SimpleNamespace(range_min=float("nan"), range_max=3000)}
+    follower.bus = SimpleNamespace(sync_read=lambda *args, **kwargs: {}, calibration=ranges)
+    leader.bus = SimpleNamespace(calibration=bad if mode == "invalid_offset" else ranges)
 
     def make_follower(config):
         follower.config = config
@@ -48,7 +53,7 @@ def scenario(mode):
     server = lambda *args, **kwargs: SimpleNamespace(serve_forever=lambda: None)
     clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake",
         sleep=lambda seconds: now.__setitem__(0, now[0] + (4 if mode == "stop_during_read" else 1)))
-    tip = SimpleNamespace(mm=lambda joints: np.zeros(3), chain=lambda joints: [])
+    tip = SimpleNamespace(mm=lambda joints: np.zeros(3), chain=lambda joints: [], geoms=lambda joints: [])
     with tempfile.TemporaryDirectory() as temporary:
         offsets = Path(temporary) / "offsets.json"
         values = dict.fromkeys(steady.KEYS, 0.0)
@@ -59,6 +64,7 @@ def scenario(mode):
                 "lerobot.teleoperators.so_leader": fake_leader}), \
                 patch.object(sys, "argv", ["steady", "--yes"]), \
                 patch.object(steady, "OFFSETS", offsets), patch.object(steady, "OUT", Path(temporary) / "out"), \
+                patch.object(steady, "USERS", Path(temporary) / "users.json"), \
                 patch.object(steady, "Fingertip", lambda: tip), patch.object(steady, "time", clock), \
                 patch.object(steady.socketserver, "ThreadingTCPServer", server), \
                 patch.object(steady, "HTTPServer", server), \
