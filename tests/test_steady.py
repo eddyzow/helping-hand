@@ -135,13 +135,23 @@ def test_grip_latch():
     latch = tremor.GripLatch(closed_to=7.0)
     out = play(latch, lambda t: 28.0 + 12.0 * math.sin(2 * math.pi * 6 * t), 5.0)
     assert set(out) == {60.0} and not latch.closed, "a tremor toggled the latch"
-    # a squeeze that is held does not toggle twice, and a hand hovering half-open does not re-arm it
+    # a squeeze that is held does not toggle twice, and a hand that only half lets go does not re-arm it
     latch = tremor.GripLatch(closed_to=7.0)
-    out = play(latch, lambda t: 10.0, 3.0)
+    play(latch, lambda t: 80.0, 0.5)
+    out = play(latch, lambda t: 10.0, 3.0, start=0.5)
     assert latch.closed and out[-1] == 7.0
-    play(latch, lambda t: 35.0, 2.0, start=3.0)   # between the two thresholds: not released yet
-    play(latch, lambda t: 10.0, 1.0, start=5.0)
+    play(latch, lambda t: 68.0, 0.3, start=3.5)   # a brief half release, 12 below rest: not released yet
+    play(latch, lambda t: 10.0, 1.0, start=3.8)   # (held there for seconds it would become the new rest)
     assert latch.closed, "a half release must not allow a second toggle"
+    # the REAL leader's trigger rests at about 43 of 100 and closes to about 0: squeeze, release, squeeze
+    latch = tremor.GripLatch(closed_to=7.0)
+    real = lambda t: 2.0 if (1.0 < t < 1.6 or 3.0 < t < 3.6) else 43.0
+    out = play(latch, real, 5.0)
+    assert out[int(2.5 * 50)] == 7.0 and out[-1] == 60.0, "with a trigger resting at 43 it must close and open again"
+    # starting with the trigger already squeezed does not count as a squeeze; the first real one does
+    latch = tremor.GripLatch(closed_to=7.0)
+    out = play(latch, lambda t: 5.0 if t < 1.0 else (45.0 if t < 2.0 else (5.0 if t < 2.6 else 45.0)), 4.0)
+    assert out[40] == 60.0 and out[-1] == 7.0
     # the command
     steady.state.update(latch=False)
     assert steady.command("latch on")["latch"] is True and steady.command("latch")["latch"] is False

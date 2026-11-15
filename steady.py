@@ -188,7 +188,7 @@ def main() -> None:
     ask = (lambda text: None) if "--yes" in sys.argv else input
     shake_hz, shake_deg = (float(v) for v in sys.argv[sys.argv.index("--shake") + 1:][:2]) if "--shake" in sys.argv else (0.0, 0.0)
     seconds = float(sys.argv[sys.argv.index("--seconds") + 1]) if "--seconds" in sys.argv else None
-    state["latch"] = "--latch" in sys.argv
+    state["latch"] = "--no-latch" not in sys.argv   # the grip latch is on unless asked otherwise
     measure = "--measure" in sys.argv or not OFFSETS.exists()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
