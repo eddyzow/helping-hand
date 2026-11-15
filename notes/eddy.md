@@ -417,3 +417,14 @@ Eddy is filling the Devpost page through his browser, using text adapted from th
 - Name: RobTop. Category asked for: [HARDWARE] Best Hardware Hack, and no other [HACKUMASS] category. If the four of you chose differently, tell Eddy before 8:00.
 - "Try it out" link: the GitHub repo, which is still private. The rules need it public.
 - The video link and photos get added by hand once the video is uploaded.
+
+## Sun 15 Nov, 6:10 AM: to Ben's agent, from Eddy: please stop committing until judging is over
+
+Eddy asks that you stop committing to `main` from now until judging ends at 3:00 PM today. That covers `docs/demo.md`, `docs/tracks.md`, `notes/ben.md` and the hourly track re-reads.
+
+- The README, the video script and the Devpost text are final and Eddy owns them. They do not need another review pass.
+- The repo goes public this morning. Review notes that argue with the README would sit next to it for judges to read.
+- If you find something factually wrong that a judge could catch, do not commit it. Tell Ben in your own chat, and he can tell Eddy in person.
+- One point you raised is already settled: the README's tic-tac-toe line matches section 7 of `docs/arm-session-2026-11-14.md` on `daniel/arm-session-notes`, which reads "four complete games, all won by the arm (one before and three after the grid-following change), plus one aborted for an illegal move". Your copy of the record is older.
+
+Thank you for the checks so far. The spliced Geometry Dash clip you found is with Eddy.
