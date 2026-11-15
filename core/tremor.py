@@ -138,8 +138,8 @@ def insights(trend, test=None):
     if len(rows) < 5:
         return out
     gaps = [b[0] - a[0] for a, b in zip(rows, rows[1:])]
-    spans = [gaps[0]] + gaps          # how much time each row stands for (the first borrows the next gap)
-    total = sum(spans)
+    spans = [0.0] + gaps              # the time each row stands for: since the row before. The first row
+    total = sum(spans)                # stands for none, so nothing before the first measurement is counted
     shaking = [r for r in rows if r[1] >= SHAKING_MM]
     shaking_s = sum(span for r, span in zip(rows, spans) if r[1] >= SHAKING_MM)
     if total <= 0:

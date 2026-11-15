@@ -106,12 +106,15 @@ def test_insights():
     assert by["size"]["value"] == "7.5 mm" and "92% less" in by["size"]["text"], by["size"]
     assert by["rate"]["value"] == "5.5 Hz" and by["change"]["value"] == "31% larger", (by["rate"], by["change"])
     assert by["grip"]["value"] == "41%" and by["test"]["value"] == "62 out of 100"
-    # durations come from the timestamps, not from counting rows: five rows two seconds apart are 10 s
+    # durations come from the timestamps, not from counting rows: five rows two seconds apart span 8 s
     slow = tremor.insights([[2.0 * i, 0.1, 0.0, 40.0, 0.0] for i in range(5)])
-    assert "last 10 seconds" in slow[0]["text"], slow
+    assert "last 8 seconds" in slow[0]["text"], slow
     slow = {o["id"]: o for o in tremor.insights([[2.0 * i, 5.0, 0.5, 40.0, 6.0] for i in range(20)])}
-    assert "for 40 seconds" in slow["grip"]["text"] and "of the 40 seconds measured" in slow["size"]["text"], slow
-    assert "change" in slow, "40 s of shaking in 20 rows is enough to compare the start with the end"
+    assert "for 38 seconds" in slow["grip"]["text"] and "of the 38 seconds measured" in slow["size"]["text"], slow
+    assert "change" in slow, "38 s of shaking in 20 rows is enough to compare the start with the end"
+    # uneven rows: nothing before the first measurement is counted (1, 11, 12, 13, 14 is 13 s, not 23)
+    uneven = tremor.insights([[t, 0.1, 0.0, 40.0, 0.0] for t in (1, 11, 12, 13, 14)])
+    assert "last 13 seconds" in uneven[0]["text"], uneven
     flat = tremor.insights([[i, 5.0, 0.5, 0.0, 6.0] for i in range(60)])
     assert [o["id"] for o in flat] == ["size", "rate", "change"] and flat[2]["value"] == "about the same"
     for o in out + flat:  # the wording rules: observations only, and grip effort is never called a force
