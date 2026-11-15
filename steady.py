@@ -120,6 +120,8 @@ def clean_profile(saved):
     profile["gains"] = numbers(saved["gains"], 5, 1.0, 3.0)
     profile["range_deg"] = numbers(saved["range_deg"], 5, 0.0, 360.0)
     rest, squeezed, opened = numbers([saved["trigger"][k] for k in ("rest", "squeezed", "open")], 3, 0.0, 100.0)
+    if not squeezed < rest < opened:   # reversed or equal ends would turn a squeeze into an opening
+        raise ValueError(f"trigger must be squeezed < rest < open: {squeezed}, {rest}, {opened}")
     profile["trigger"] = {"rest": rest, "squeezed": squeezed, "open": opened}
     if saved.get("neutral") is not None:
         profile["neutral"] = numbers(saved["neutral"], 5, -360.0, 360.0)
@@ -456,6 +458,8 @@ def main() -> None:
                 redo, state["re_ease"] = state["re_ease"], False
                 capture, state["neutral"] = state["neutral"], False
                 user_now, profile = state["user"], users[state["user"]]
+            if notch.hz is not None and notch.hz * dt >= 0.225:   # a loop too slow for the notch: the low-pass
+                cutoff = min(cutoff, 2.0)                         # alone must do the work, at the old 2 Hz
             cut = np.array([cutoff] * 5 + [max(cutoff, GRIP_CUTOFF_HZ)])
             # the notch (a pass-through until a shake is measured) works on the five arm joints only: its step
             # response overshoots a little, and the trigger must never read deeper than the hand squeezed
