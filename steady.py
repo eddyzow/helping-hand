@@ -63,6 +63,11 @@ GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than t
 # 1626, so stored poses keep their meaning) to about +120.8 at the top. Kept inside that at +118; at the bottom -64,
 # because the lower stop was only ever swept to -64.9 and nothing below has been seen working. Folded at rest the
 # elbow reads past +118 (3088 ticks): it is then brought inside at the speed cap, never jumped (see the loop).
+# The follower's wrist-roll motor is faulty (measured 14 Nov): holding a 7-tick error it draws about 86 units of
+# current where the wrist-bend motor draws 1, reaches 68 C within a minute (its cut-out is 70 C) and then garbles
+# its replies. Until that motor is replaced the wrist roll does not follow the hand. "--roll" turns it back on.
+ROLL_FOLLOWS = "--roll" in sys.argv
+TORQUE_LIMIT = 600  # of 1000: the most each arm joint may push. Lower = gentler and safer; too low and the arm sags
 ELBOW_MAX = 118.0
 ELBOW_MIN = -64.0
 TABLE_Z = -2.4           # mm, the table top in the model's frame: the underside of the base in the model, where it
@@ -391,6 +396,11 @@ def main() -> None:
         bus.sync_read = (lambda read: lambda *a, **k: read(*a, **{**k, "num_retry": 12}))(bus.sync_read)
         # 12, whatever the caller asks: measured 14 Nov, the follower's wrist roll garbles about 3 replies in 10
         # while the whole arm is powered (none with the motors off), so 3 tries still failed within a second
+    # the arm pushes gently: a joint that meets the table or a person gives way instead of stalling at full
+    # current (a stall on several joints cut the supply and reset every motor: "motor 1: Operation timed out",
+    # 14 Nov). A setting in the motors' memory until power-off, not their stored configuration.
+    if hasattr(follower.bus, "sync_write"):
+        follower.bus.sync_write("Torque_Limit", {j: TORQUE_LIMIT for j in JOINTS[:5]}, normalize=False, num_retry=5)
     tip = Fingertip()
     OUT.mkdir(parents=True, exist_ok=True)
     log = (OUT / f"session_{time.strftime('%Y%m%d_%H%M%S')}.csv").open("w")
@@ -436,6 +446,7 @@ def main() -> None:
         sent = np.array([float(observation[k]) for k in KEYS])   # what the follower was last told
         if not np.all(np.isfinite(sent)):   # the very first target is the arm's own reading: it must be real too
             raise ValueError(f"the follower sent a reading that is not a number: {sent}")
+        roll_seen = float(sent[4])
         smooth, notch = LowPass(read_leader()), Notch()
         grip, grip_was, trigger_args = None, False, {}
         neutral, active_user = None, None   # neutral: the pose scaling works about; None until the start-up glide ends
@@ -541,12 +552,16 @@ def main() -> None:
                 grip_longest = max(grip_longest, now - grip_since)
             else:
                 grip_since = None
-            follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})   # while held: the same target, all six joints
+            order = {k: float(v) for k, v in zip(KEYS, sent)}   # while held: the same target, all six joints
+            if not ROLL_FOLLOWS:   # the wrist roll is told to be where it is: no error, so its motor draws nothing
+                order[KEYS[4]] = roll_seen
+            follower.send_action(order)
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not
             # from what it was told: the honest number, since a motor also smooths what it is sent
             observation = follower.get_observation()
             seen = np.array([float(observation[k]) for k in KEYS])
+            roll_seen = float(seen[4]) if math.isfinite(seen[4]) else roll_seen
             raw_tip, out_tip = tip.mm(raw), tip.mm(seen)
             raw_tips.append(raw_tip.copy())
             out_tips.append(out_tip.copy())
