@@ -23,7 +23,7 @@ def scenario(mode):
         if mode in ("stop_during_read", "spoken_off") and reads[0] == 3:
             steady.command("steady off" if mode == "spoken_off" else "stop")
         pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode in ("slow_meter", "meter_warmup") else 50
-        return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 0]))
+        return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 80 if mode == "latch_start" else 0]))
 
     def send(action):
         writes.append((steady.state["hold"], dict(action)))
@@ -38,6 +38,8 @@ def scenario(mode):
             values[steady.KEYS[0]] = float("nan")
         if mode == "hold_grip" and len(writes) >= 2:
             values["gripper.pos"] = 20.0
+        if mode == "latch_start":
+            values["gripper.pos"] = steady.GRIP_FLOOR
         return values
 
     leader.get_action = read
@@ -76,7 +78,7 @@ def scenario(mode):
         read_sessions, save_sessions = steady.read_sessions, steady.save_sessions
         with patch.dict(sys.modules, {"lerobot.robots.so_follower": fake_follower,
                 "lerobot.teleoperators.so_leader": fake_leader}), \
-                patch.object(sys, "argv", ["steady", "--yes"] + (["--shake", "6", "2"] if mode == "shake" else [])), \
+                patch.object(sys, "argv", ["steady", "--yes"] + (["--shake", "6", "2"] if mode == "shake" else ["--latch"] if mode == "latch_start" else [])), \
                 patch.object(steady, "read_sessions", lambda: read_sessions(history)), \
                 patch.object(steady, "save_sessions", lambda values: save_sessions(values, history)), \
                 patch.object(steady, "OFFSETS", offsets), patch.object(steady, "OUT", Path(temporary) / "out"), \
@@ -143,6 +145,12 @@ def test_meter_warmup():
     assert steady.shared["tremor_hz"] == 0 or abs(steady.shared["tremor_hz"] - 6) < .3, steady.shared["tremor_hz"]
 
 
+def test_latch_start():
+    writes, _ = scenario("latch_start")
+    assert all(action["gripper.pos"] == steady.GRIP_FLOOR for _, action in writes), (
+        "latch opens a previously closed claw without a squeeze", writes)
+
+
 if __name__ == "__main__":
     normal, _ = scenario("normal")
     assert normal and all(math.isfinite(value) for _, action in normal for value in action.values())
@@ -150,7 +158,7 @@ if __name__ == "__main__":
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
-                 test_spoken_off):
+                 test_spoken_off, test_latch_start):
         try:
             test()
             print("PASS", test.__name__)
