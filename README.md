@@ -6,7 +6,7 @@
 [![Arm: SO-101](https://img.shields.io/badge/arm-SO--101%2C%203D%20printed-F2A97C?style=flat-square&labelColor=17141F)](https://github.com/TheRobotStudio/SO-ARM100)
 [![Simulator](https://img.shields.io/badge/simulator-runs%20without%20the%20arm-7CF2C8?style=flat-square&labelColor=17141F)](#quick-start)
 
-**[Devpost](https://devpost.com/software/robtop)** · [Results](#results) · [How it works](#how-it-works) · [Hardware](#hardware) · [Quick start](#quick-start) · [What's next](#whats-next-for-robtop)
+**[Demo video](https://www.youtube.com/watch?v=jjjTcaHcitc)** · [Devpost](https://devpost.com/software/robtop) · [Results](#results) · [How it works](#how-it-works) · [Hardware](#hardware) · [Quick start](#quick-start) · [What's next](#whats-next-for-robtop)
 
 Robot arms that can do many different jobs usually sit in labs and cost thousands of dollars. The ones you can print at home tend to do one trick.
 
