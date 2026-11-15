@@ -40,6 +40,15 @@ within millimetres. Here the person does the aiming.
 - The follower's wrist-roll motor is reported faulty.
 - Nothing has passed the rule below. After a freeze the work is fixing and counting, not adding.
 
+Since the freeze:
+
+- 9:29 PM: the reviewer closed every finding it had reproduced on the standalone Steady Hand
+  controller (`3378d33`): all 22 fake-device checks pass, including Stop after a failed send, held
+  targets through a read loss, the recovery deadline, and the link-loss message on the page. That
+  is the software side only. It says nothing yet about the real arm: holding, torque coming back
+  after a power dip, the faulty wrist-roll motor, or timing on real hardware. The controller is
+  still on `daniel/arm-core`, not on `main`.
+
 ## The one rule
 
 A piece is shown live only if it passes 4 runs out of 5 on the real arm. The freeze is 8:50 PM
