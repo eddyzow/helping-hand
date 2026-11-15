@@ -20,8 +20,8 @@ def scenario(mode):
         reads[0] += 1
         if mode == "read_failure" and reads[0] == 3:
             raise ConnectionError("fake lost leader")
-        if mode == "stop_during_read" and reads[0] == 3:
-            steady.command("stop")
+        if mode in ("stop_during_read", "spoken_off") and reads[0] == 3:
+            steady.command("steady off" if mode == "spoken_off" else "stop")
         pan = 5 * math.sin(2 * math.pi * 6 * now[0]) if mode in ("slow_meter", "meter_warmup") else 50
         return dict(zip(steady.KEYS, [pan, 0, 0, 0, 0, 0]))
 
@@ -58,7 +58,7 @@ def scenario(mode):
     sleeps = [0]
 
     def sleep(seconds):
-        now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode == "stop_during_read" else 1
+        now[0] += .04 if mode in ("slow_meter", "meter_warmup") else 4 if mode in ("stop_during_read", "spoken_off") else 1
         sleeps[0] += 1
         if sleeps[0] >= (210 if mode in ("slow_meter", "meter_warmup") else 4):
             steady.state["quit"] = True
@@ -103,6 +103,11 @@ def test_hold_during_ease():
     assert len(writes) < 3 or writes[2][1] == writes[1][1], ("hold changed target", writes)
 
 
+def test_spoken_off():
+    writes, _ = scenario("spoken_off")
+    assert len(writes) < 2 or (writes[1][0] and writes[1][1] == writes[0][1]), writes
+
+
 def test_failure_cleanup():
     _, cleanup = scenario("read_failure")
     assert ("follower", True) not in cleanup, ("unconfirmed torque-off after read failure", cleanup)
@@ -144,7 +149,8 @@ if __name__ == "__main__":
     print("finite normal-loop control passes")
     failures = []
     for test in (test_stop_during_read, test_hold_during_ease, test_failure_cleanup, test_invalid_offset,
-                 test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup):
+                 test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
+                 test_spoken_off):
         try:
             test()
             print("PASS", test.__name__)
