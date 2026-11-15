@@ -45,21 +45,57 @@ def band_rms_and_peak(samples, rate):
     return rms, float(freqs[band][np.argmax(power[band])])
 
 
+MODEL = Path("keypad") / "geometry_dash" / "robotstudio_so101"   # under ROOT; gitignored, so not in every checkout
+ELBOW_ZERO_DEG = 30.0    # the real elbow reads 30 degrees more than the model's for the same pose (measured 14 Nov)
+
+
 class Fingertip:
-    """Where the fingertip is for a set of joint angles, from the SO-101 model. Used only to turn
-    joint shake into millimetres at the hand; a few degrees of zero error do not matter for that."""
+    """The SO-101 model posed with the real arm's joint angles: the fingertip in mm (to turn joint
+    shake into millimetres at the hand) and every part's place, for the dashboard's 3D view."""
 
     def __init__(self):
         import mujoco
         self.mj = mujoco
-        self.model = mujoco.MjModel.from_xml_path(str(ROOT / "keypad" / "geometry_dash" / "robotstudio_so101" / "so101.xml"))
-        self.data = mujoco.MjData(self.model)
-        self.site = self.model.site("gripperframe").id
+        self.model = m = mujoco.MjModel.from_xml_path(str(ROOT / MODEL / "so101.xml"))
+        self.data = mujoco.MjData(m)
+        self.site = m.site("gripperframe").id
+        self.claw = m.jnt_range[m.joint("gripper").id]   # the jaw joint's range, radians: shut .. open
+        # the drawn parts are the visual meshes (group 2); group 4 are red collision copies of the jaws
+        self.meshes = [g for g in range(m.ngeom) if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH and m.geom_group[g] == 2]
+        self.files = [m.paths[m.mesh_pathadr[k]:].split(b"\0")[0].decode() for k in range(m.nmesh)]
+
+    def _pose(self, degrees):
+        """The one place real joint angles become the model's: the elbow's zero shift, and the claw's
+        0 (shut) .. 100 (open) spread over the jaw joint's range (an assumption: not measured)."""
+        q = [math.radians(v) for v in degrees[:5]]
+        q[2] -= math.radians(ELBOW_ZERO_DEG)
+        self.data.qpos[:5] = q
+        if len(degrees) > 5:
+            low, high = self.claw
+            self.data.qpos[5] = low + (high - low) * min(100.0, max(0.0, float(degrees[5]))) / 100.0
+        self.mj.mj_forward(self.model, self.data)
 
     def mm(self, degrees):
-        self.data.qpos[:5] = [math.radians(v) for v in degrees[:5]]
-        self.mj.mj_forward(self.model, self.data)
+        self._pose(degrees)
         return self.data.site_xpos[self.site] * 1000.0
+
+    def geoms(self, degrees):
+        """Every drawn part in this pose: {"mesh": STL file, "pos": mm, "quat": [w, x, y, z], "rgba"}, in
+        the model's frame. Placed so the STL file AS IT IS ON DISK (in metres) lands right: MuJoCo moves
+        each mesh to its own centre and axes when it loads it (mesh_pos, mesh_quat), so that is undone here."""
+        self._pose(degrees)
+        m, d, out = self.model, self.data, []
+        turn, quat = np.zeros(9), np.zeros(4)
+        for g in self.meshes:
+            k = m.geom_dataid[g]
+            self.mj.mju_quat2Mat(turn, m.mesh_quat[k])
+            rot = d.geom_xmat[g].reshape(3, 3) @ turn.reshape(3, 3).T
+            pos = d.geom_xpos[g] - rot @ m.mesh_pos[k]
+            self.mj.mju_mat2Quat(quat, rot.flatten())
+            rgba = m.mat_rgba[m.geom_matid[g]] if m.geom_matid[g] >= 0 else m.geom_rgba[g]   # a material's colour wins
+            out.append({"mesh": self.files[k], "pos": [round(float(v) * 1000.0, 2) for v in pos],
+                        "quat": [round(float(v), 5) for v in quat], "rgba": [round(float(v), 3) for v in rgba]})
+        return out
 
     def chain(self, degrees):
         """The arm as a line of points (mm), base to fingertip, for the dashboard's drawing."""

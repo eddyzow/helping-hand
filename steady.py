@@ -40,6 +40,7 @@ from pathlib import Path
 
 import numpy as np
 
+from core import tremor
 from core.tremor import (CUTOFF_HZ, GRIP_CUTOFF_HZ, Fingertip, GripLatch, HoldStillTest, LowPass, Session,
                          band_rms_and_peak, insights)
 
@@ -58,6 +59,7 @@ GRIP_FLOOR = 7.0         # the follower's claw is never commanded tighter than t
                          # about 5.3 (measured closing on nothing), so anything lower pushes them together at full
                          # effort for as long as the leader's claw is shut: 98 % load in the first three real runs.
 ELBOW_MAX = 64.0         # degrees: the follower's elbow cannot go past this until that joint is recalibrated
+TABLE_Z = -12.0          # mm, the table top in the model's frame: measured by touch, between -9 and -27 across the reach
 # --shake HZ DEG adds a pretend tremor; like a real one it is not the same size or in step on every joint
 SHAKE_SHARE = np.array([0.6, 0.5, 0.7, 1.0, 0.8, 0.0])
 SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
@@ -65,7 +67,7 @@ SHAKE_PHASE = np.array([0.0, 1.3, 2.1, 0.4, 2.9, 0.0])
 state = {"steady": True, "hold": False, "cutoff": CUTOFF_HZ, "quit": False, "latch": False}
 shared = {"t": 0.0, "tremor_mm": 0.0, "tremor_hz": 0.0, "out_mm": 0.0, "removed_pct": 0.0, "grip_effort": 0.0,
           "arm_load": 0.0, "speed_mm_s": 0.0, "leader": [0.0] * 6, "follower": [0.0] * 6, "raw_tip": [0.0] * 3,
-          "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [],
+          "smooth_tip": [0.0] * 3, "history": [], "raw_chain": [], "out_chain": [], "robot": [], "hand": [], "table_z": TABLE_Z,
           "test": {"running": False, "seconds_left": 0, "score": None, "tremor_mm": None}}
 lock = threading.Lock()
 hold_test = HoldStillTest()
@@ -164,6 +166,17 @@ class Dashboard(BaseHTTPRequestHandler):
                 self.send_error(404)
                 return
             body, kind = file.read_bytes(), STATIC[file.suffix]
+        elif self.path.startswith("/meshes/"):   # the robot's STL files for the 3D view, only from the model's assets folder
+            root = (tremor.ROOT / tremor.MODEL / "assets").resolve()
+            name = self.path[len("/meshes/"):].split("?")[0]
+            if name == "index.json":
+                body, kind = json.dumps(sorted(f.name for f in root.glob("*.stl"))).encode(), "application/json"
+            else:
+                file = (root / name).resolve()
+                if root not in file.parents or not file.is_file() or file.suffix != ".stl":
+                    self.send_error(404)
+                    return
+                body, kind = file.read_bytes(), "model/stl"
         else:
             page = HERE / "steady_dashboard.html"
             body = page.read_bytes() if page.exists() else b"steady_dashboard.html is not written yet; /state has the numbers"
@@ -327,7 +340,8 @@ def main() -> None:
                                   arm_load=round(max(effort.get(j, 0.0) for j in JOINTS[1:4]), 1), speed_mm_s=round(speed),
                                   leader=[round(float(v), 1) for v in raw], follower=[round(float(v), 1) for v in seen],
                                   raw_tip=[round(float(v), 1) for v in raw_tip], smooth_tip=[round(float(v), 1) for v in out_tip],
-                                  raw_chain=tip.chain(raw), out_chain=tip.chain(seen))   # the follower as MEASURED, not as told
+                                  raw_chain=tip.chain(raw), out_chain=tip.chain(seen),   # the follower as MEASURED, not as told
+                                  robot=tip.geoms(seen), hand=tip.geoms(raw))
                     shared["history"] = (shared["history"] + [[round(now - began, 2), round(float(raw_tip[2]), 1),
                                                                round(float(out_tip[2]), 1)]])[-300:]
                     # one point a second for the slower graphs: [seconds, hand shake mm, arm shake mm, grip effort %]

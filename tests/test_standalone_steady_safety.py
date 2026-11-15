@@ -48,7 +48,7 @@ def scenario(mode):
     server = lambda *args, **kwargs: SimpleNamespace(serve_forever=lambda: None)
     clock = SimpleNamespace(perf_counter=lambda: now[0], strftime=lambda _: "fake",
         sleep=lambda seconds: now.__setitem__(0, now[0] + (4 if mode == "stop_during_read" else 1)))
-    tip = SimpleNamespace(mm=lambda joints: np.zeros(3), chain=lambda joints: [])
+    tip = SimpleNamespace(mm=lambda joints: np.zeros(3), chain=lambda joints: [], geoms=lambda joints: [])
     with tempfile.TemporaryDirectory() as temporary:
         offsets = Path(temporary) / "offsets.json"
         values = dict.fromkeys(steady.KEYS, 0.0)

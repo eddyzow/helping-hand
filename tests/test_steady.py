@@ -1,4 +1,5 @@
 """Run with python -m tests.test_steady; synthetic signals only, no arm, no serial port."""
+import json
 import math
 import tempfile
 
@@ -175,9 +176,79 @@ def test_grip_latch():
     assert steady.command("latch maybe")["ok"] is False
 
 
+def model_root():
+    """A folder holding the SO-101 model (gitignored, so a worktree may lack it): this checkout, or
+    one above it (a worktree lives inside the main checkout). None, with a note, if there is none."""
+    from core import tremor
+    for root in [tremor.ROOT, *tremor.ROOT.parents]:
+        if (root / tremor.MODEL / "so101.xml").exists():
+            return root
+    print("  note: no SO-101 model folder found; the model checks are skipped")
+    return None
+
+
+def get(path):
+    """Call the dashboard's handler in memory, no socket: returns (status, content type, body)."""
+    import io
+    handler = steady.Dashboard.__new__(steady.Dashboard)
+    handler.path, handler.command, handler.request_version = path, "GET", "HTTP/1.1"
+    handler.requestline, handler.client_address, handler.wfile = f"GET {path} HTTP/1.1", ("test", 0), io.BytesIO()
+    handler.do_GET()
+    head, _, body = handler.wfile.getvalue().partition(b"\r\n\r\n")
+    lines = head.decode().split("\r\n")
+    kind = next((line.split(": ", 1)[1] for line in lines if line.startswith("Content-Type")), "")
+    return int(lines[0].split()[1]), kind, body
+
+
+def test_model_and_meshes():
+    from unittest.mock import patch
+
+    from core import tremor
+    root = model_root()
+    if root is None:
+        return
+    with patch.object(tremor, "ROOT", root):
+        tip = tremor.Fingertip()
+        # the elbow's zero shift lives in Fingertip: a real elbow at 30 is the model's elbow at 0
+        tip.data.qpos[:] = 0.0
+        tip.mj.mj_forward(tip.model, tip.data)
+        straight = tip.data.site_xpos[tip.site] * 1000.0
+        assert np.allclose(tip.mm([0, 0, tremor.ELBOW_ZERO_DEG, 0, 0, 50]), straight), "the elbow shift is not applied"
+        # every visual mesh, and the STL file as it is on disk lands where MuJoCo has the part
+        parts = tip.geoms([10, -20, 40, 15, 30, 70])
+        assert len(parts) == len(tip.meshes) and all(set(p) == {"mesh", "pos", "quat", "rgba"} for p in parts)
+        assert all(abs(np.linalg.norm(p["quat"]) - 1) < 1e-4 for p in parts)
+        for part, g in zip(parts, tip.meshes):
+            raw = (root / tremor.MODEL / "assets" / part["mesh"]).read_bytes()   # binary STL: 80 byte header, count, 50 byte facets
+            facets = np.frombuffer(raw, np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]),
+                                   int(np.frombuffer(raw, np.uint32, 1, 80)[0]), 84)
+            rot = np.zeros(9)
+            tip.mj.mju_quat2Mat(rot, np.array(part["quat"], float))
+            drawn = facets["v"].reshape(-1, 3) @ rot.reshape(3, 3).T * 1000.0 + part["pos"]   # metres on disk, mm out
+            k = tip.model.geom_dataid[g]
+            vert = tip.model.mesh_vert[tip.model.mesh_vertadr[k]:tip.model.mesh_vertadr[k] + tip.model.mesh_vertnum[k]]
+            truth = (vert @ tip.data.geom_xmat[g].reshape(3, 3).T + tip.data.geom_xpos[g]) * 1000.0
+            assert np.allclose(drawn.min(0), truth.min(0), atol=0.1) and np.allclose(drawn.max(0), truth.max(0), atol=0.1), part
+        # the claw joint turns the jaw (its file's origin sits on the hinge, so the rotation is what changes)
+        jaw = lambda claw: next(p["quat"] for p in tip.geoms([0, 0, 0, 0, 0, claw]) if p["mesh"] == "moving_jaw_so101_v1.stl")
+        assert jaw(0) != jaw(100)
+        # the routes: the list, a file, and nothing from outside the assets folder
+        status, kind, body = get("/meshes/index.json")
+        names = json.loads(body)
+        assert status == 200 and kind == "application/json" and "upper_arm_so101_v1.stl" in names, names
+        assert {p["mesh"] for p in parts} <= set(names)
+        status, kind, body = get("/meshes/upper_arm_so101_v1.stl")
+        assert status == 200 and kind == "model/stl" and body == (root / tremor.MODEL / "assets" / "upper_arm_so101_v1.stl").read_bytes()
+        for bad in ("/meshes/../so101.xml", "/meshes/../../../../steady.py", "/meshes/..%2fso101.xml", "/meshes/nothing.stl",
+                    "/meshes/C:/Windows/win.ini"):
+            assert get(bad)[0] == 404, bad
+    assert steady.shared["table_z"] == steady.TABLE_Z == -12.0
+
+
 if __name__ == "__main__":
     test_steady()
     test_core_tremor()
     test_insights()
     test_grip_latch()
+    test_model_and_meshes()
     print("steady ok")
