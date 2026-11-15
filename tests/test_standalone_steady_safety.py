@@ -14,11 +14,15 @@ import steady
 def scenario(mode):
     now, reads, writes, cleanup = [0.0], [0], [], []
     retrying, failure_started = [False], [None]
+    read_fails_until = [0.0]
     follower = SimpleNamespace()
     leader = SimpleNamespace(connect=lambda: None, disconnect=lambda: cleanup.append(("leader", False)))
 
     def read():
         reads[0] += 1
+        if mode == "mixed_deadline" and now[0] < read_fails_until[0]:
+            now[0] += .5
+            raise ConnectionError("fake intermittent half-second read failure")
         if mode == "read_failure" and reads[0] >= 3:
             raise ConnectionError("fake lost leader")
         if mode == "hold_recovery" and reads[0] == 3:
@@ -34,10 +38,11 @@ def scenario(mode):
         return dict(zip(steady.KEYS, [pan, 0, 0, 0, 60 if mode == "roll_no_follow" else 0, 80 if mode == "latch_start" else 0]))
 
     def send(action):
-        if mode == "send_deadline" and len(writes) == 1:
+        if mode in ("send_deadline", "mixed_deadline") and len(writes) == 1:
             if failure_started[0] is None:
                 failure_started[0] = now[0]
             now[0] += .5
+            read_fails_until[0] = now[0] + 18
             if now[0] - failure_started[0] >= 25:
                 steady.state["quit"] = True
             raise ConnectionError("fake persistent send failure")
@@ -102,7 +107,7 @@ def scenario(mode):
     sleeps = [0]
 
     def sleep(seconds):
-        if mode in ("link_deadline", "send_deadline"):
+        if mode in ("link_deadline", "send_deadline", "mixed_deadline"):
             now[0] += seconds
             if now[0] >= 75:
                 steady.state["quit"] = True
@@ -138,9 +143,9 @@ def scenario(mode):
             try:
                 steady.main()
             except (ConnectionError, ValueError):
-                if mode not in ("read_failure", "link_deadline", "send_deadline", "invalid_offset", "invalid_calibration", "invalid_follower"):
+                if mode not in ("read_failure", "link_deadline", "send_deadline", "mixed_deadline", "invalid_offset", "invalid_calibration", "invalid_follower"):
                     raise
-    if mode in ("link_deadline", "send_deadline"):
+    if mode in ("link_deadline", "send_deadline", "mixed_deadline"):
         cleanup.append(("elapsed", now[0] - failure_started[0]))
     return writes, cleanup
 
@@ -180,6 +185,12 @@ def test_send_deadline():
     _, cleanup = scenario("send_deadline")
     elapsed = next(value for key, value in cleanup if key == "elapsed")
     assert elapsed <= steady.LINK_WAIT_S + .5, ("send failures have no recovery deadline", elapsed)
+
+
+def test_mixed_deadline():
+    _, cleanup = scenario("mixed_deadline")
+    elapsed = next(value for key, value in cleanup if key == "elapsed")
+    assert elapsed <= steady.LINK_WAIT_S + .5, ("alternating read/send failures restart recovery budgets", elapsed)
 
 
 def test_hold_recovery():
@@ -270,7 +281,8 @@ if __name__ == "__main__":
                  test_meter_timestamps, test_invalid_follower, test_hold_grip, test_shake, test_meter_warmup,
                  test_spoken_off, test_latch_start, test_invalid_calibration, test_load_failure,
                  test_hold_roll, test_roll_no_follow, test_hold_roll_enabled, test_torque_limit,
-                 test_stop_during_retry, test_link_deadline, test_hold_recovery, test_send_deadline):
+                 test_stop_during_retry, test_link_deadline, test_hold_recovery, test_send_deadline,
+                 test_mixed_deadline):
         try:
             test()
             print("PASS", test.__name__)
