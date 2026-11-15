@@ -17,7 +17,10 @@ Keys (the keypad listener and typed commands both arrive on port 8765, like the 
     middle key  -> steady mode on/off (the A/B that shows what the filter does)
     jump key    -> hold: the follower freezes and keeps holding, the person can let go and rest
     stop key    -> hold, at once
-    typed: steady on|off, hold on|off, cutoff <Hz>, test (10 s hold-still score), status, quit
+    typed: filter on|off (the A/B: off lets the shake through), hold on|off, cutoff <Hz>,
+           test (10 s hold-still score), status, quit
+    spoken: "steady on" = filter on and follow; "steady off" = FREEZE (hold). A spoken "off" never
+            makes the arm copy the shake.
 
 Limits, stated plainly: this is a prototype, tested only with a person shaking the leader on
 purpose. The arm holds light things (well under 200 g). Grip effort and arm load are the motors'
@@ -93,10 +96,19 @@ def command(line: str) -> dict:
     word, _, rest = line.partition(" ")
     rest = rest.strip()
     with lock:
-        if line in ("run gesture", "run wave") or (word == "steady" and rest in ("", "toggle")):  # the middle key
+        # Two different things, kept apart on purpose (review, 14 Nov):
+        #   filter on|off  = the A/B for the demo: off lets the hand's shake THROUGH to the arm. Only the
+        #                    middle key, the dashboard button and a typed "filter off" can do that.
+        #   steady on|off  = what a person SAYS. "Steady off" must never mean "now copy my shake", so it
+        #                    freezes the arm (hold). "Steady on" releases the hold and turns the filter on.
+        if line in ("run gesture", "run wave") or (word == "filter" and rest in ("", "toggle")):  # the middle key
             state["steady"] = not state["steady"]
-        elif word == "steady" and rest in ("on", "off"):
+        elif word == "filter" and rest in ("on", "off"):
             state["steady"] = rest == "on"
+        elif word == "steady" and rest == "off":
+            state["hold"] = True
+        elif word == "steady" and rest == "on":
+            state["steady"], state["hold"] = True, False
         elif line == "key down" or (word == "hold" and rest in ("", "toggle")):                 # the jump key
             state["hold"] = not state["hold"]
         elif word == "hold" and rest in ("on", "off"):
@@ -123,7 +135,7 @@ def command(line: str) -> dict:
         elif word in ("status", "key", "clock", "ready", "remote", "cue", "home"):
             pass  # the keypad listener's other reports: nothing to do here
         else:
-            return {"ok": False, "reason": "commands: steady on|off, hold on|off, cutoff <Hz>, test, status, quit"}
+            return {"ok": False, "reason": "commands: steady on|off, filter on|off, hold on|off, cutoff <Hz>, test, status, quit"}
         return {"ok": True, **{k: state[k] for k in ("steady", "hold", "cutoff")}}
 
 

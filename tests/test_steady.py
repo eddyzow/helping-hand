@@ -32,6 +32,13 @@ def test_steady():
     # the keys: middle key toggles steady, jump key toggles hold, stop always holds
     steady.state.update(steady=True, hold=False, cutoff=steady.CUTOFF_HZ)
     assert steady.command("run gesture")["steady"] is False and steady.command("steady on")["steady"] is True
+    # "steady off" is what a person says: it must freeze the arm and must NOT let the shake through
+    off = steady.command("steady off")
+    assert off["hold"] is True and off["steady"] is True, off
+    on = steady.command("steady on")
+    assert on["hold"] is False and on["steady"] is True, on
+    # only "filter off" (the dashboard button, the middle key, a typed line) shows the unfiltered arm
+    assert steady.command("filter off")["steady"] is False and steady.command("filter on")["steady"] is True
     assert steady.command("key down")["hold"] is True and steady.command("hold off")["hold"] is False
     assert steady.command("stop")["hold"] is True
     assert steady.command("cutoff 99")["cutoff"] == 8.0 and steady.command("cutoff x")["ok"] is False
