@@ -58,7 +58,8 @@ copies your movement with the tremor filtered out.
 - Holds things for you. [CONFIRM the skill on the arm; the grasp alone worked 4 of 4.] Hand the
   claw a light object and it holds it steady and gives it back.
 - Extras [only those that passed 4 of 5]: it plays Geometry Dash by pressing the key itself
-  [so far: one full clear of Stereo Madness in three counted attempts], gestures, voice commands.
+  [so far, as reported by Eddy and awaiting Jonathan's confirmation: three full clears of Stereo
+  Madness in five attempts, the last three in a row], gestures, voice commands.
 
 What it is not: [ONLY ONCE TRUE: it has been tested by us shaking our own hands on purpose;] it
 has not been tested with patients. It

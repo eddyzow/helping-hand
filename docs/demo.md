@@ -22,7 +22,7 @@ within millimetres. Here the person does the aiming.
 | Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip. Open at 6:59 PM: its trend text counts rows and calls them seconds (five rows two seconds apart are reported as "the last 5 seconds"), so do not read a duration off the dashboard aloud until that is fixed | No |
 | Simulated comparison (`sim_steady.py`, Jonathan, 6:44 PM) | His report, not re-run by anyone: placing a brick with a simulated 3 degree, 5 Hz shake succeeded 1 time in 6 unfiltered and 6 in 6 filtered. The simulated servos are stronger and more exact than ours, and the "hand" is a script | Simulation |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
-| Geometry Dash | One full clear of Stereo Madness in 3 counted attempts; the other two reached 95 percent | No: 1 of 3 |
+| Geometry Dash | Reported by Eddy in person at 7:17 PM, not yet confirmed in Jonathan's note: 3 full clears of Stereo Madness in 5 attempts, the last 3 in a row; the first two attempts reached 95 percent | Not yet: 3 of 5. One more clear on the next attempt makes the last five 4 of 5 |
 | Gestures, offline voice phrases | Mock-tested; voice started once | No |
 | Pointing, drawing, writing by the arm alone | Mock and simulation only | No |
 
@@ -44,7 +44,8 @@ be stopped. Daniel's lane publishes the counted numbers.
 - Do not say it measures force or torque. Load readings are the motors' own estimates.
 - Do not say it treats or improves tremor, and do not call the tests therapy. Say "steadiness
   tests that measure and track".
-- Geometry Dash is "reported, one clear in three attempts" until five counted attempts exist.
+- Geometry Dash is "three clears in five attempts, as reported" until Jonathan confirms the count
+  and it reaches 4 of 5.
 
 ## Open decisions for the four of you
 

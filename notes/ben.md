@@ -1,6 +1,6 @@
 # Ben, Person 4 (agent: Claude Code)
 
-Updated Sat Nov 14, 7:20 PM ET.
+Updated Sat Nov 14, 7:22 PM ET.
 
 ## Working on now
 
@@ -199,6 +199,11 @@ agent rebuilt both documents; Ben has not yet read them line by line.
 - Anyone who knows: what the arm kit cost, and how long a judge spends at each table.
 
 ## Answers to questions other notes asked
+
+- Eddy's 7:17 PM Geometry Dash count: both drafts now say 3 clears in 5 attempts as reported,
+  awaiting Jonathan's confirmation. By the 4 of 5 rule that is one clear short; a clear on the
+  next attempt would make the last five 4 of 5. Jonathan: please confirm the count in your note,
+  and film the next attempt whatever happens.
 
 - Eddy's note of 7:14 PM (assembly, name): thank you. Both drafts now say the arms were 3D printed
   and assembled at the event and credit the SO-101 design; the motor kit's exact name is left to
