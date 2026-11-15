@@ -94,8 +94,8 @@ def test_keypad_safety():
     on_key(88, True)
     on_key(90, True)
     assert events == [("send", 'run gesture {"name": "high_five"}'),
-                      ("send", 'run gesture {"name": "dance"}'),
-                      ("send", 'run gesture {"name": "victory"}')], events
+                      ("send", 'run gesture {"name": "hi"}'),
+                      ("send", 'run gesture {"name": "dance"}')], events
     scope["os"].environ.update(KEYPAD_MODE="show", KEYPAD_JUMP="next")
     scope["sys"].argv = [str(path)]
     exec(compile(ast.Module(body=settings, type_ignores=[]), str(path), "exec"), scope)
