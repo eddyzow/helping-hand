@@ -3,7 +3,7 @@ import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, staticFile,
 import { ACCENT, BigTitle, Clip, Dip, INK, Label, MONO, PAPER, Rise, SERIF, SHADOW, Shade, Shot, Shots, Subtitles, clamp, ramp } from "./ui";
 
 /* Section start frames at 30 fps. They match the music's section changes. */
-export const T = { open: 0, draw: 540, ttt: 1080, gd: 1650, feed: 2686, close: 3046, end: 3466 };
+export const T = { open: 0, draw: 540, ttt: 1080, gd: 1650, feed: 2700, close: 3060, end: 3480 };
 
 /*
  * Voiceover captions: [start s, end s, text]. The voice is not recorded yet, so the
@@ -35,10 +35,10 @@ const CUES: Array<[number, number, string]> = [
   [82.4, 84.8, "RobTop has cleared the whole level:"],
   [84.8, 87.8, "about ninety seconds of presses, from memory."],
 
-  [91.4, 94.6, "Take the second arm in your hand and RobTop follows you."],
-  [95.6, 98.4, "Here it's feeding someone a snack."],
+  [90.8, 94.6, "Take the second arm in your hand and RobTop follows you."],
+  [96.0, 98.8, "Here it's feeding Daniel a snack."],
 
-  [102.3, 105.5, "Everything you just saw was the same arm."],
+  [102.8, 106.0, "Everything you just saw was the same arm."],
 ];
 
 /* ============ 0:00 cold open ============ */
@@ -194,11 +194,11 @@ function TicTacToe() {
 
 /* ============ 0:55 Geometry Dash ============ */
 
-const GD = { g1: 0, g2: 132, key: 325, g3: 397, g4: 611, slow: 942, clear: 996, end: 1036 };
+const GD = { g1: 0, g2: 132, key: 325, g3: 397, g4: 611, clear: 950, freeze: 956, end: 1050 };
 /** Position in the level, as a thin line along the bottom edge. */
 function LevelLine() {
   const f = useCurrentFrame();
-  const pct = interpolate(f, [GD.g1, GD.g2, GD.key, GD.g3, GD.g4, GD.slow, GD.clear], [0.1, 5.2, 42.5, 45.3, 86.8, 99.7, 100], clamp);
+  const pct = interpolate(f, [GD.g1, GD.g2, GD.key, GD.g3, GD.g4, GD.clear], [0.1, 5.2, 42.5, 45.3, 86.8, 100], clamp);
   const opacity = Math.min(ramp(f, 20, 14), interpolate(f, [GD.clear + 2, GD.clear + 14], [1, 0], clamp));
   return (
     <AbsoluteFill style={{ opacity }}>
@@ -223,14 +223,33 @@ function LevelLine() {
   );
 }
 
+function Cleared() {
+  const f = useCurrentFrame();
+  const ring = ramp(f, 0, 40);
+  return (
+    <AbsoluteFill>
+      <AbsoluteFill style={{ backgroundColor: `rgba(12,12,14,${0.5 * ramp(f, 0, 10)})` }} />
+      <AbsoluteFill style={{ backgroundColor: PAPER, opacity: interpolate(f, [0, 10], [0.55, 0], clamp) }} />
+      <svg viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+        <circle cx={960} cy={470} r={240 + 520 * ring} fill="none" stroke={PAPER} strokeWidth={3} opacity={1 - ring} />
+      </svg>
+      <AbsoluteFill style={{ alignItems: "center", color: PAPER, textShadow: SHADOW }}>
+        <Rise at={0} style={{ marginTop: 250, fontFamily: SERIF, fontSize: 420, lineHeight: 1, letterSpacing: -10 }}>
+          100%
+        </Rise>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+}
+
 function GeometryDash() {
   const shots: Shot[] = [
     { src: "g1.mp4", dur: GD.g2 - GD.g1, speed: "REAL TIME", zoom: [1.0, 1.05], origin: "35% 55%" },
     { src: "g2.mp4", dur: GD.key - GD.g2, speed: "5×", zoom: [1.02, 1.02] },
     { src: "gk.mp4", dur: GD.g3 - GD.key, speed: "REAL TIME", zoom: [1.0, 1.08], origin: "45% 55%" },
     { src: "g3.mp4", dur: GD.g4 - GD.g3, speed: "5×", zoom: [1.0, 1.0] },
-    { src: "g4.mp4", dur: GD.slow - GD.g4, speed: "REAL TIME", zoom: [1.0, 1.0] },
-    { src: "g5.mp4", dur: GD.end - GD.slow, speed: "SLOW MOTION", zoom: [1.0, 1.05], origin: "40% 45%" },
+    { src: "g4.mp4", dur: GD.freeze - GD.g4, speed: "REAL TIME", zoom: [1.0, 1.0] },
+    { src: "g_end.jpg", dur: GD.end - GD.freeze, still: true, zoom: [1.0, 1.04], origin: "40% 50%" },
   ];
   return (
     <AbsoluteFill>
@@ -239,8 +258,8 @@ function GeometryDash() {
       <Label text="Geometry Dash" dur={T.feed - T.gd} at={60} />
       <BigTitle text="Geometry Dash" size={250} />
       <LevelLine />
-      <Sequence from={GD.clear - 14} durationInFrames={GD.end - GD.clear + 14}>
-        <BigTitle text="Level complete" hold={200} size={250} />
+      <Sequence from={GD.clear} durationInFrames={GD.end - GD.clear}>
+        <Cleared />
       </Sequence>
     </AbsoluteFill>
   );
@@ -252,16 +271,9 @@ function Feeding() {
   const dur = T.close - T.feed;
   return (
     <AbsoluteFill>
-      <Shots
-        shots={[
-          { src: "f1.mp4", dur: 117, zoom: [1.0, 1.05] },
-          { src: "f2.mp4", dur: 42, zoom: [1.02, 1.08] },
-          { src: "f3.mp4", dur: dur - 159, zoom: [1.0, 1.05] },
-        ]}
-      />
+      <Shots shots={[{ src: "f1.mp4", dur, speed: "1.4×", zoom: [1.0, 1.05] }]} />
       <Shade />
-      <Label text="Feeding" dur={dur} at={60} />
-      <BigTitle text="Feeding" />
+      <Label text="Follows your hand" dur={dur} />
     </AbsoluteFill>
   );
 }

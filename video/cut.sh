@@ -12,9 +12,6 @@ HOUSE=IMG_3888 FLOWER=IMG_3896 TTT=IMG_3895 GD_A=IMG_3891 GD_B=IMG_5239 CHEETO=I
 GD_B_CROP="crop=1574:885:104:195,"
 # Tight crop on the gripper and keypad in IMG_5239, for the close-up of it pressing the key.
 KEY_CROP="crop=720:405:1090:338,"
-# Right-hand part of the Cheeto clip: the main arm and the person eating. It leaves out
-# the hand on the left, which shakes on purpose and makes the shot look jittery.
-FEED_CROP="deshake=rx=32:ry=32,crop=1210:680:700:40,"
 
 # cut NAME CLIP START DURATION SPEED [SIZE] [PREFILTER]
 cut() {
@@ -61,22 +58,17 @@ cut g2 $GD_A 8 32.3 5
 # IMG_5239 starts with the phone being turned; skip that first second.
 cut gk $GD_B 2.0 2.5 1 1920:1080 "$KEY_CROP"
 cut g3 $GD_B 4.4 36 5 1920:1080 "$GD_B_CROP"
-cut g4 $GD_B 39.95 11.05 1 1920:1080 "$GD_B_CROP"
-# The last half second in slow motion, so the level finish reads without a freeze frame.
-ffmpeg -v error -y -display_rotation 0 -ss 51.0 -i "$SRC/$GD_B.MOV" \
-  -vf "${GD_B_CROP}setpts=PTS/0.14,minterpolate=fps=30:mi_mode=blend,scale=1920:1080,format=yuv420p" \
-  -an -c:v libx264 -preset veryfast -crf 19 -g 30 -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
-  -movflags +faststart "$OUT/g5.mp4"
+cut g4 $GD_B 39.95 11.55 1 1920:1080 "$GD_B_CROP"
+# The clip ends a quarter second after 100%, so the last frame is held under the "100%" title.
+ffmpeg -v error -y -sseof -0.12 -i "$OUT/g4.mp4" -frames:v 1 -update 1 -q:v 2 "$OUT/g_end.jpg"
 # Feeding
-cut f1 $CHEETO 10.3 4.1 1
-cut f2 $CHEETO 14.7 1.5 1
-cut f3 $CHEETO 18.4 6.3 0.93 1920:1080 "$FEED_CROP"
+cut f1 $CHEETO 9 17.1 1.4
 # Close: six small tiles and the arm at rest over a blank page
 cut gr1 $HOUSE 18 33 4 960:540
 cut gr2 $FLOWER 30 41 5 960:540
 cut gr3 $TTT 40 41 5 960:540
 cut gr4 $GD_A 8 33 4 960:540
 cut gr5 $GD_B 18.5 33 4 960:540 "$GD_B_CROP"
-cut gr6 $CHEETO 18.4 6.3 1 960:540 "$FEED_CROP"
+cut gr6 $CHEETO 9 16.5 2 960:540
 cut rest $FLOWER 12.3 1.45 0.14
 echo "all segments written to $OUT"
