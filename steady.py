@@ -451,11 +451,12 @@ def main() -> None:
             """An arm that stops answering (a plug knocked, a power dip: both happened on 14 Nov the moment
             the leader was picked up) does not end the session. Nothing is sent meanwhile; the call is
             tried again for LINK_WAIT_S, and the loop then lines everything up again before it moves."""
-            for attempt in range(int(LINK_WAIT_S / 0.25) + 1):
+            deadline = time.perf_counter() + LINK_WAIT_S   # on the clock, so slow failing calls count too
+            while True:
                 try:
                     return call(*args)
                 except ConnectionError as error:
-                    if state["quit"] or attempt == int(LINK_WAIT_S / 0.25):
+                    if state["quit"] or time.perf_counter() >= deadline:
                         raise
                     if not link["lost"]:
                         print(f"  an arm stopped answering ({str(error)[-60:]}); waiting for it, nothing is being sent", flush=True)
@@ -487,18 +488,29 @@ def main() -> None:
             if seconds is not None and now - began > seconds:
                 break
             if link["lost"]:   # an arm went quiet and is back: start again from where the follower really is
+                # Only reads are waited for here; no command is replayed, and a hold or stop given meanwhile stands.
                 observation = patient(follower.get_observation)
                 here = np.array([float(observation[k]) for k in KEYS])
-                if np.all(np.isfinite(here)):
+                restarted = (hasattr(follower.bus, "sync_read") and
+                             not all(patient(lambda: follower.bus.sync_read("Torque_Enable", normalize=False)).values()))
+                if restarted:
+                    # a power dip restarted the motors limp: where the arm was told to be is no longer where
+                    # it is. It is powered again where it now lies and HELD; a person must say continue.
+                    if not np.all(np.isfinite(here)):
+                        raise ValueError(f"the follower sent a reading that is not a number: {here}")
                     sent = here
-                if hasattr(follower.bus, "enable_torque"):   # a power dip restarts the motors limp, at full push
-                    patient(follower.send_action, {k: float(v) for k, v in zip(KEYS, sent)})
-                    patient(follower.bus.enable_torque)
-                    patient(lambda: follower.bus.sync_write("Torque_Limit", {j: TORQUE_LIMIT for j in JOINTS[:5]}, normalize=False))
-                smooth, notch, grip = LowPass(patient(read_leader)), Notch(), None
+                    follower.send_action({k: float(v) for k, v in zip(KEYS, sent)})
+                    follower.bus.enable_torque()
+                    follower.bus.sync_write("Torque_Limit", {j: TORQUE_LIMIT for j in JOINTS[:5]}, normalize=False)
+                    with lock:
+                        state["hold"] = True
+                    grip = None
+                    print("  the follower's motors had restarted: the arm is HELD where it lies. Hold off (or Continue) to follow.", flush=True)
+                else:   # the targets stand as they were; a held arm keeps exactly its held targets
+                    print("  the arms answer again", flush=True)
+                smooth, notch = LowPass(patient(read_leader)), Notch()
                 link["lost"], state["re_ease"], now = False, True, time.perf_counter()
                 last = now - 1.0 / HZ   # the wait is not a time step: the speed cap must not open up
-                print("  the arms answer again: gliding back to the hand", flush=True)
             dt, last = max(1e-3, now - last), now
             raw = patient(read_leader)   # this can block for a moment, so the keys are read AFTER it, not before
             if shake_deg:  # a pretend tremor on top of the hand, for a demo or a test with a steady hand
@@ -593,8 +605,13 @@ def main() -> None:
             order = {k: float(v) for k, v in zip(KEYS, sent)}   # while held: the same target, all six joints
             if not ROLL_FOLLOWS:   # the wrist roll is told to be where it was last measured, so it is asked for no movement
                 order[KEYS[4]] = roll_seen
-            patient(follower.send_action, order)
-            if link["lost"]:
+            try:
+                follower.send_action(order)
+            except ConnectionError as error:   # a command that failed is dropped, never sent again later
+                print(f"  the follower stopped answering ({str(error)[-60:]}); nothing is being sent", flush=True)
+                link["lost"] = True
+                with lock:
+                    shared["why_still"] = "link"
                 continue
 
             # the arm's shake is taken from where the follower really IS (its measured joints), not

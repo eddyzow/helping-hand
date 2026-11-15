@@ -166,6 +166,8 @@ function statusOf(s) {  // what the arm is doing, in words; the first match wins
   if (link === 'broken') return {cls: 'stop', glyph: 'off', act: ['Reload the page', null, 'reload'],
     text: 'Not updating: the page could not show the latest numbers' + (lastGood ? ' (last shown ' + clock(lastGood) + ')' : '') + '. The arm may still be moving.'};
   const why = s.why_still || '', phase = s.calibration && s.calibration.phase, limits = Array.isArray(s.limits) ? s.limits.filter(Boolean).map(String) : [];
+  if (why === 'link')
+    return {cls: 'stop', glyph: 'off', text: 'An arm stopped answering: nothing is being sent to the robot. Check the cables. If its motors restarted, it will be held when it answers.'};
   if (phase === 'rest' || phase === 'move' || why === 'calibrating')
     return {cls: 'stop', glyph: 'pause', text: 'Calibrating: the arm is held until the steps below finish.', act: ['Cancel calibration', 'calibrate cancel']};
   if (s.hold === true || why === 'holding')
