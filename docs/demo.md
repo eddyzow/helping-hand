@@ -23,9 +23,10 @@ within millimetres. Here the person does the aiming.
 | Dashboard (`steady_dashboard.html`) | Works against a simulated shaking hand: 16 mm hand, 1.9 mm arm, 88 percent removed. Since `dfa82a4` the arm's figure and its plotted line both come from the follower's own joint readings through a model of the arm, not from the commands sent. That is still not a measurement of the tip. The trend text's time wording was fixed in `b60266b` and verified on fakes at 7:22 PM. Open at 7:18 PM: when the dashboard gets an error from the arm program, or fails to draw, it still shows "Live from the arm" over old readings and leaves its buttons enabled. So if the numbers stop moving at the table, assume it is stale whatever the label says | No |
 | Simulated comparison (`sim_steady.py`, Jonathan, 6:44 PM) | His report, not re-run by anyone: placing a brick with a simulated 3 degree, 5 Hz shake succeeded 1 time in 6 unfiltered and 6 in 6 filtered. The simulated servos are stronger and more exact than ours, and the "hand" is a script | Simulation |
 | Take, hold, give back (`skills/hand.py`) | Grasp of a brick handed to the claw worked 4 times out of 4 on the real arm. The skill itself is mock-tested | Grasp only, 4 of 4 |
-| Geometry Dash | Reported by Eddy in person at 7:17 PM, not yet confirmed in Jonathan's note: 3 full clears of Stereo Madness in 5 attempts, the last 3 in a row; the first two attempts reached 95 percent | Not yet: 3 of 5. One more clear on the next attempt makes the last five 4 of 5 |
+| Geometry Dash | Per Daniel's session record: Stereo Madness completed at 11:37, 11:46 and 11:51 PM, with four deaths at 40.3 percent and two at 75 seconds among the attempts. Earlier, Eddy reported 3 clears in 5. No single count of clears out of consecutive attempts has been written down | Not shown: needs 4 clears in 5 consecutive attempts, written down |
 | Gestures, offline voice phrases | Mock-tested; voice started once | No |
-| Pointing, drawing, writing by the arm alone | Mock and simulation only | No |
+| Drawing by the arm alone | Real, per Daniel's session record: a house and a flower with a Sharpie in the claw, using `drawloop/` and a webcam (numbers above). Each needed a taught page, a height measurement and, for the house, ten correction rounds. Writing a name and sketches from `draw.py` are not yet fed through it. `skills/draw.py` and `skills/write.py` on `main` remain mock and simulation only | Not counted: one flower run, ten house rounds |
+| Pointing by the arm alone | Mock and simulation only | No |
 
 ## At the freeze (Sat 8:50 PM), as the repo records it
 
@@ -48,6 +49,26 @@ Since the freeze:
   is the software side only. It says nothing yet about the real arm: holding, torque coming back
   after a power dip, the faulty wrist-roll motor, or timing on real hardware. The controller is
   still on `daniel/arm-core`, not on `main`.
+- Sun 12:20 AM: the first written record of a real-arm session, `docs/arm-session-2026-11-14.md` on
+  `daniel/arm-core`, by Daniel's agent on the arm laptop. Everything in the next four points is
+  that record's own measurement, not checked by anyone else; the reviewer looked at three of its
+  photos and says they show recognisable drawings with visible line errors.
+  - The arm draws on paper with a Sharpie held in the claw. A house and a flower were drawn on A4
+    and scored by a USB webcam. House, after ten rounds of camera correction: 97.6 percent of the
+    line inked, 1.0 to 1.2 mm from the plan; it never passed the session's own 1.0 mm gate.
+    Flower, one run: 9 of 9 strokes, 90 percent, 1.04 mm.
+  - It does this with new code in `drawloop/`, not with `skills/draw.py`. The record says
+    `skills/draw.py` on the real arm would draw about 2 cm above the paper, because blending joint
+    angles between taught corners rides high, and that a circle on a taught grid comes out as an
+    oval. So the drawing skill on `main` does not work on the real arm as it stands.
+  - Geometry Dash: Stereo Madness completed at 11:37, 11:46 and 11:51 PM. It also died at 40.3
+    percent four times, and twice at 75 seconds when started from the level-complete screen.
+  - Hardware: the claw motor reached 62 C gripping continuously (it cuts out at 70 C); the
+    wrist-roll motor's garbled replies used to end every skill until reads were retried.
+  That record says nothing about Steady Hand. There is still no filter-off and filter-on
+  measurement from the real arm.
+  The reviewer holds the new drawing code for four fake-device findings (12:26 AM), among them a
+  saved depth value that is not range-checked and cleanup that skips disconnecting after an error.
 
 ## The one rule
 
