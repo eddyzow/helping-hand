@@ -1,9 +1,19 @@
 # Execute only the confidence assignment and rejection expression from the listener AST.
-$source = Join-Path (Split-Path $PSScriptRoot -Parent) 'rubby_listen.ps1'
+$source = Join-Path (Split-Path $PSScriptRoot -Parent) 'robtop_listen.ps1'
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($source, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw $errors[0] }
+$table = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$commands'
+}, $true)
+if ($null -eq $table) { throw 'Speech command table missing.' }
+$grammar = & ([scriptblock]::Create($table.Extent.Text + "`n" + '$commands'))
+foreach ($phrase in @('steady off', 'filter off')) {
+    if ($grammar[$phrase][0] -ne 'steady off') { throw "Unsafe off route: $phrase" }
+}
+if (@($grammar.Values | Where-Object { $_[0] -eq 'filter off' }).Count) { throw 'Voice can enable unfiltered tracking.' }
+Write-Output 'Fixed speech table off phrases map to controller hold.'
 $assignment = $ast.Find({ param($node)
     $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
     $node.Right.Extent.Text -eq '[math]::Round($heard.Confidence, 2)'
