@@ -9,6 +9,8 @@ Current review status: see [Daniel's current notes](../notes/daniel.md). The dat
 
 ## Standalone fixes verified: dfa82a4
 
+**e7b0ac7 dashboard / QA 38329e7:** `node tests/test_dashboard_poll.cjs` executes only actual tick() in a vm with fake fetch, render, DOM callbacks and timers. The valid-response control passes. Both a non-OK HTTP JSON body and render throwing leave stale=false and link='Live from the arm'. Source stale(false) enables the command controls. Require successful HTTP and usable/rendered state before refreshing live/lastOk, and show failure without presenting stale readings as live. No HTTP server, browser, WebGL or visual inspection was used. This test covers poll state, not the complete rendered page.
+
 **1b5d565 / QA d77cdca:** latch startup preservation now passes, alongside the ten prior controls and owner synthetic tests. This supersedes the default-opening finding below. The original row-count timing failure passes too, but the new elapsed-session bound fails: rows at 1,11,12,13,14 seconds yield 23 seconds of calm/grip time. spans=[gaps[0]]+gaps imputes another ten seconds before the first sample and exceeds the entire session's elapsed time. Count only a known interval (or clearly label an estimate) rather than asserting that time was measured. Voice negation/contradiction and other branch holds remain; neither candidate is merged into main by QA.
 
 **Candidate fa6ed31 / voice 61c9e5d remains wholly held, outside main.** Latch is now enabled by default and the existing fake startup 7->24.667 opening still reproduces without a trigger squeeze. The high-priority finding now applies to default startup, not only opt-in latch mode.
