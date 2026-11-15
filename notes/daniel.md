@@ -1,6 +1,8 @@
 # Daniel — Claude implementation + Codex review
 
-Updated 2026-11-15, main merge f9cc666 reviewed with QA 49ce923. Snapshot, not a live hardware reservation.
+Updated 2026-11-15, main reviewed through eb6f8eb with QA 0b9f47a. Snapshot, not a live hardware reservation.
+
+**Jonathan skill merge follow-up eb6f8eb / QA 0b9f47a:** main also includes `skills/steady.py` and `sim_steady.py` from Jonathan's lane. Both files compare identical to the already-reviewed QA versions. Fresh `python -B -m tests.test_steady_boundaries` passes its fake-device self-check, zero-duration/Stop behavior, slow-I/O check (four stream samples, no catch-up burst), both glide speed checks, and leader/follower port guard. No simulation or hardware ran. This dispatcher skill is distinct from standalone `steady.py`; the earlier 22 standalone checks do not certify it, and its separate protection differences noted below remain. The drawing/game failures from f9cc666 are unchanged. Main's accompanying README update correctly drops the branch-only quick-start qualifier. The video now references recorded voice clips; only source was inspected, not audio assets or a render.
 
 **Main merge f9cc666 / QA 49ce923:** the team merged arm-core 494a290 onto main. Earlier statements that the whole candidate was held describe QA's recommendation, not the current Git state. The merge does not resolve the outstanding findings. QA was merged with this main revision; the only merge conflict was a removed coordination note, resolved by preserving main's removal under the new `team-notes` protocol. No runtime logic was edited by QA. The tested core, demo, drawloop, standalone Steady, keypad, gesture and dashboard source paths compare identical to f9cc666.
 
