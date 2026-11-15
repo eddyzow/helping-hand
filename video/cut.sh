@@ -39,8 +39,8 @@ cut od $GD_B 20 2.5 1 1920:1080 "$KEY_CROP"
 cut oe $CHEETO 8.4 1.4 0.6
 cut of $FLOWER 46 20.5 9
 # Drawing
-cut d1 $HOUSE 14 36.4 3.5
-cut d2 $HOUSE 50 3.7 1
+cut d1 $HOUSE 14 36.8 2.4
+cut d2 $HOUSE 50 3.8 1
 cut d3 $FLOWER 24 42.5 14
 cut d4 $FLOWER 70.3 2.3 1
 # Tic-tac-toe
@@ -54,11 +54,12 @@ cut t7 $TTT 66.5 14.4 6
 cut t8 $TTT 81.3 3.4 1
 # Geometry Dash. g1+g2 are one attempt (0% to 40%); g3+g4 are the full clear (40% to 100%).
 cut g1 $GD_A 3.6 4.6 1
-cut g2 $GD_A 8 32.3 5
+cut g2 $GD_A 8 32.3 8
 # IMG_5239 starts with the phone being turned; skip that first second.
 cut gk $GD_B 2.0 2.5 1 1920:1080 "$KEY_CROP"
-cut g3 $GD_B 4.4 36 5 1920:1080 "$GD_B_CROP"
-cut g4 $GD_B 39.95 11.55 1 1920:1080 "$GD_B_CROP"
+cut g3 $GD_B 4.4 36 10 1920:1080 "$GD_B_CROP"
+cut g4a $GD_B 40 8.2 4 1920:1080 "$GD_B_CROP"
+cut g4 $GD_B 48 3.6 1 1920:1080 "$GD_B_CROP"
 # The clip ends a quarter second after 100%, so the last frame is held under the "100%" title.
 ffmpeg -v error -y -sseof -0.12 -i "$OUT/g4.mp4" -frames:v 1 -update 1 -q:v 2 "$OUT/g_end.jpg"
 # Feeding
