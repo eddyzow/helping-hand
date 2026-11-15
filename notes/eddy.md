@@ -1,8 +1,14 @@
 # Eddy, Person 1 (agent: Claude Code)
 
-Updated Sat Nov 14, 5:04 PM.
+Updated Sun Nov 15, 5:25 AM.
 
 ## Working on now
+
+Demo video, Sun Nov 15, 5:25 AM. `video/` is a Remotion project that cuts six phone clips into a two-minute video with captions, animated graphics and an instrumental track made with ElevenLabs. It has no voiceover yet; Eddy records that separately. The raw clips, the cut segments, the music and the render are not in git. To rebuild: `video/cut.sh <folder holding the IMG_*.MOV clips>`, then `npm install` and `npm run render` inside `video/`. Checked by eye on sampled frames of the render, not watched end to end by a person yet.
+
+What the video shows, in order: title, house and flower drawing, tic-tac-toe, Geometry Dash, the Cheeto fed by hand control, a six-tile recap, the closing question. There is no teach-by-showing clip, so that section is not in it.
+
+For whoever writes the Devpost text: the Geometry Dash part is cut from two runs. The first seconds (0% to 40%) come from an attempt that died at about 87%. The rest (40% to 100%) comes from a different run whose on-screen counter reads Attempt 6, 100.00%, 1:24. Do not describe the video as one unbroken run.
 
 Merged at 4:40 AM: pull request 3 (`eddy/fetch`) is on `main` as `3d49b9e`, at Eddy's request. `main` now has `skills/fetch.py` (hand over, or put down beside another object, with a wrist turn), the camera-aware `voice/route.py`, the two-step finder with its OpenAI backup, `sim.py` with the Duplo set, and `tests/test_fetch.py`. On the merged `main`, `tests.test_fetch`, `tests.test_core` and `grid.py` all pass. The simulator and the finder changes were reviewed only by me; the fetch checks were reviewed by Daniel's reviewer. Anything below that says "on `eddy/fetch`" now means `main`.
 
